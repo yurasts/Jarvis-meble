@@ -1,53 +1,70 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-export default function MaterialsList({ materials, setIsMaterialModalOpen }) {
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-
-  const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-    setSortConfig({ key, direction });
-  };
-
-  const sortedMaterials = [...materials].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    const aValue = a[sortConfig.key].toString().toLowerCase();
-    const bValue = b[sortConfig.key].toString().toLowerCase();
-    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-
+const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen }) => {
   return (
-    <>
-      <div className="header-actions">
-        <h1>Katalog materiałów</h1>
-        <button className="btn-primary" onClick={() => setIsMaterialModalOpen(true)}>+ Dodaj materiał</button>
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 style={{ margin: 0 }}>Katalog: Materiały i Usługi</h2>
+        <button className="btn-primary" onClick={() => setIsMaterialModalOpen(true)}>+ Nowy materiał</button>
       </div>
-      <table className="materials-table">
-        <thead>
-          <tr>
-            <th onClick={() => requestSort('name')} style={{ cursor: 'pointer', userSelect: 'none' }}>
-              Nazwa {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-            </th>
-            <th onClick={() => requestSort('category')} style={{ cursor: 'pointer', userSelect: 'none', width: '150px' }}>
-              Kategoria {sortConfig.key === 'category' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-            </th>
-            <th>Cena brutto</th>
-            <th>Jm</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedMaterials.map(mat => (
-            <tr key={mat.id}>
-              <td>{mat.name}</td>
-              <td><span className="category-badge">{mat.category}</span></td>
-              <td>{Number(mat.price).toFixed(2)} PLN</td>
-              <td>{mat.unit}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
+      
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        
+        {/* ЛЕВАЯ ЧАСТЬ - МАТЕРИАЛЫ */}
+        <div style={{ flex: '2 1 600px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#2d3748', fontSize: '16px' }}>📦 Baza materiałów</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: '#edf2f7', textAlign: 'left' }}>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Kategoria</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Cena, PLN</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Nazwa materiału</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Jm</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Dostawca</th>
+                </tr>
+              </thead>
+              <tbody>
+                {materials.map((mat, index) => (
+                  <tr key={mat.id} style={{ background: index % 2 === 0 ? '#ffffff' : '#f1f5f9', lineHeight: '1.2' }}>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{mat.category}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold' }}>{Number(mat.price).toFixed(2)}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{mat.name}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{mat.unit}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0', color: '#718096' }}>{mat.supplier || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ПРАВАЯ ЧАСТЬ - УСЛУГИ */}
+        <div style={{ flex: '1 1 350px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#2d3748', fontSize: '16px' }}>🛠 Stałe usługi</h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: '#edf2f7', textAlign: 'left' }}>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '30%' }}>Cena, PLN</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '70%' }}>Nazwa usługi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(servicesList || []).map((srv, index) => (
+                  <tr key={srv.id || index} style={{ background: index % 2 === 0 ? '#ffffff' : '#f1f5f9', lineHeight: '1.2' }}>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', color: '#2b6cb0' }}>{Number(srv.price).toFixed(2)}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{srv.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
   );
-}
+};
+
+export default MaterialsList;
