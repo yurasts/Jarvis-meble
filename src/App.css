@@ -1,0 +1,271 @@
+/* Сбрасываем стандартные отступы браузера и ограничения Vite (1124px) */
+#root, body {
+  max-width: 100%;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Предотвращаем горизонтальную прокрутку всей страницы */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Главный контейнер на весь экран */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw; 
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Темное боковое меню (СУЗИЛИ до 200px) */
+.sidebar {
+  width: 200px;
+  min-width: 200px;
+  background-color: #1e1e2f; 
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h2 {
+  margin-bottom: 40px;
+  font-size: 26px;
+  color: #4da6ff; /* Синий акцент */
+  text-align: center;
+}
+
+/* Кнопки меню */
+.menu-item {
+  padding: 15px;
+  margin-bottom: 10px;
+  background-color: #2a2a40;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+  font-size: 16px;
+}
+
+.menu-item:hover {
+  background-color: #3b3b54;
+}
+
+.menu-item.active {
+  border-left: 5px solid #4da6ff;
+  background-color: #3b3b54;
+}
+
+/* Правая рабочая зона (Растянули на максимум) */
+.main-content {
+  flex: 1; 
+  width: calc(100% - 200px);
+  background-color: #f4f7f6; /* Светло-серый фон */
+  padding: 30px;
+  overflow-y: auto;
+}
+
+.main-content h1 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+/* --- КАНБАН ДОСКА --- */
+.kanban-board {
+  display: flex;
+  gap: 15px; /* Расстояние между колонками */
+  margin-top: 20px;
+  height: calc(100vh - 150px);
+  align-items: flex-start;
+  overflow-x: auto; 
+  width: 100%;
+}
+
+/* Оформление самой колонки */
+.kanban-column {
+  flex: 1;
+  min-width: 220px; /* Минимальная ширина для адекватного вида на ноутбуках */
+  background-color: #e2e8f0; /* Серый фон колонки */
+  border-radius: 10px;
+  padding: 15px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px; 
+}
+
+.kanban-column h3 {
+  font-size: 14px;
+  color: #4a5568;
+  text-transform: uppercase;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+/* --- КАРТОЧКА КЛИЕНТА (Всё собрано в один блок) --- */
+.client-card {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #cbd5e1;
+  cursor: grab; 
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.client-card:active {
+  cursor: grabbing; 
+}
+
+.client-card h4 {
+  margin: 0 0 8px 0;
+  color: #2d3748;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.client-card p {
+  color: #718096;
+  margin: 4px 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+/* --- КНОПКИ --- */
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.btn-primary {
+  background-color: #4da6ff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #3388dd;
+}
+
+.btn-secondary {
+  background-color: #e2e8f0;
+  color: #333;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.btn-secondary:hover {
+  background-color: #cbd5e1;
+}
+
+/* --- ВСПЛЫВАЮЩЕЕ ОКНО (МОДАЛКА) --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-content h2 {
+  margin-bottom: 20px;
+  color: #222;
+}
+
+.form-group {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #555;
+}
+
+.form-group input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+  outline: none;
+}
+
+.form-group input:focus {
+  border-color: #4da6ff;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 25px;
+}
+
+/* --- ТАБЛИЦА МАТЕРИАЛОВ --- */
+.materials-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  margin-top: 20px;
+}
+
+.materials-table th, 
+.materials-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+}
+
+.materials-table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.materials-table tr:last-child td {
+  border-bottom: none;
+}
+
+.category-badge {
+  background: #e2e8f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #4a5568;
+}
