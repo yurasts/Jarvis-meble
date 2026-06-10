@@ -5,7 +5,6 @@ import KanbanBoard from './components/KanbanBoard'
 import MaterialsList from './components/MaterialsList'
 import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
-import './App.css'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')

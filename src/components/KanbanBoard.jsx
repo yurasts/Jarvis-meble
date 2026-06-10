@@ -25,7 +25,7 @@ export default function KanbanBoard({
   return (
     <>
       <div className="header-actions">
-        <h1>Projektóy</h1>
+        <h1>Projekty</h1>
         <button className="btn-primary" onClick={() => setIsModalOpen(true)}>+ Nowy projekt</button>
       </div>
       <div className="kanban-board">
