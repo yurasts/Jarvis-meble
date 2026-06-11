@@ -41,6 +41,12 @@ function App() {
     fetchData()
   }, [])
 
+  // Универсальная функция для обновления любых полей клиента (используется Дашбордом для задач)
+  async function updateClientFields(clientId, updatedFields) {
+    setClients(clients.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
+    await supabase.from('clients').update(updatedFields).eq('id', clientId)
+  }
+
   async function handleAddClient(e) {
     e.preventDefault()
     const { data, error } = await supabase.from('clients').insert([{ 
@@ -100,7 +106,14 @@ function App() {
       </div>
 
       <div className="main-content">
-        {activeTab === 'dashboard' && <Dashboard clients={clients} />}
+        {/* Обновленный вызов Dashboard */}
+        {activeTab === 'dashboard' && (
+          <Dashboard 
+            clients={clients} 
+            updateClient={updateClientFields} 
+            openProjectModal={setActiveClient} 
+          />
+        )}
         {activeTab === 'board' && <KanbanBoard clients={clients} setIsModalOpen={setIsModalOpen} setActiveClient={setActiveClient} handleDragStart={handleDragStart} handleDragOver={handleDragOver} handleDrop={handleDrop} />}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
         {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} />}
@@ -124,7 +137,6 @@ function App() {
         </div>
       )}
 
-      {/* Вот наш новый отдельный компонент модального окна! */}
       {activeClient && (
         <ProjectModal 
           client={activeClient} 
