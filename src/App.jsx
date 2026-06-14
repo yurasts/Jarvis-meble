@@ -59,10 +59,17 @@ function App() {
     }
   }
 
-  async function handleUpdateClient(e) {
+async function handleUpdateClient(e) {
     e.preventDefault()
     const { data, error } = await supabase.from('clients')
-      .update({ notes: activeClient.notes, deadline: activeClient.deadline, address: activeClient.address, calc_materials: activeClient.calc_materials || [], calc_services: activeClient.calc_services || [] })
+      .update({ 
+        notes: activeClient.notes, 
+        deadline: activeClient.deadline, 
+        address: activeClient.address, 
+        calc_materials: activeClient.calc_materials || [], 
+        calc_services: activeClient.calc_services || [],
+        calc_expenses: activeClient.calc_expenses || [] // <- ДОБАВИЛИ ЭТУ СТРОЧКУ
+      })
       .eq('id', activeClient.id).select()
     if (!error && data) {
       setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
@@ -105,20 +112,28 @@ function App() {
         <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>⚙️ Ustawienia</div>
       </div>
 
-      <div className="main-content">
-        {/* Обновленный вызов Dashboard */}
+<div className="main-content">
         {activeTab === 'dashboard' && (
           <Dashboard 
             clients={clients} 
             updateClient={updateClientFields} 
             openProjectModal={setActiveClient} 
+            setIsModalOpen={setIsModalOpen} 
           />
         )}
-        {activeTab === 'board' && <KanbanBoard clients={clients} setIsModalOpen={setIsModalOpen} setActiveClient={setActiveClient} handleDragStart={handleDragStart} handleDragOver={handleDragOver} handleDrop={handleDrop} />}
+        {activeTab === 'board' && (
+          <KanbanBoard 
+            clients={clients} 
+            setActiveClient={setActiveClient} 
+            handleDragStart={handleDragStart} 
+            handleDragOver={handleDragOver} 
+            handleDrop={handleDrop} 
+          />
+        )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
         {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} />}
       </div>
-
+      
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" style={{ width: '100%', maxWidth: '600px', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>

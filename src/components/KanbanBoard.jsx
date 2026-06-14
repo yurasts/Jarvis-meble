@@ -2,7 +2,6 @@ import React from 'react';
 
 export default function KanbanBoard({ 
   clients, 
-  setIsModalOpen, 
   setActiveClient, 
   handleDragStart, 
   handleDragOver, 
@@ -26,7 +25,7 @@ export default function KanbanBoard({
     <>
       <div className="header-actions">
         <h1>Projekty</h1>
-        <button className="btn-primary" onClick={() => setIsModalOpen(true)}>+ Nowy projekt</button>
+        {/* Кнопка создания проекта отсюда удалена, так как она теперь в Дашборде */}
       </div>
       <div className="kanban-board">
         {['new', 'design', 'production', 'done'].map((status, index) => {
