@@ -285,3 +285,61 @@ html, body, #root {
     overflow-y: auto;
   }
 }
+
+/* =========================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (экраны до 768px)
+   ========================================= */
+@media (max-width: 768px) {
+  /* 1. Делаем контейнер вертикальным */
+  .app-container {
+    flex-direction: column;
+  }
+
+  /* 2. Боковое меню превращаем в верхнюю панель с горизонтальным скроллом */
+  .sidebar {
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 10px;
+    border-right: none;
+    border-bottom: 1px solid #ddd;
+    white-space: nowrap; /* Чтобы пункты меню не переносились на новую строку */
+  }
+
+  /* Отступы для пунктов меню */
+  .menu-item {
+    margin-right: 15px;
+    margin-bottom: 0;
+    padding: 8px 12px;
+  }
+
+  /* 3. Основной контент занимает всю ширину */
+  .main-content {
+    padding: 15px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 4. Модальные окна (добавление проектов и материалов) */
+  .modal-content {
+    width: 95% !important; /* Окно на всю ширину экрана */
+    margin: 10px auto;
+    padding: 15px;
+  }
+
+  /* Формы в модальных окнах делаем друг под другом */
+  .modal-content form > div[style*="display: flex"] {
+    flex-direction: column;
+    gap: 10px !important;
+  }
+
+  /* 5. Таблицы (Materiały) должны скроллиться вправо, а не сжиматься */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
