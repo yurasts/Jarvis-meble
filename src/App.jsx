@@ -73,7 +73,7 @@ async function handleUpdateClient(e) {
       .eq('id', activeClient.id).select()
     if (!error && data) {
       setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
-      setActiveClient(null)
+      //setActiveClient(null)
     }
   }
 
