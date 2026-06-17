@@ -3,23 +3,21 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../supabase';
 
 const ClientPortal = () => {
-  const { id } = useParams(); // Достаем ID из ссылки
+  const { token } = useParams(); // Непредсказуемый portal_token из ссылки
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchClient() {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (data) setClient(data);
+      // Анонимам напрямую таблица clients недоступна (RLS) — единственный
+      // путь к данным портала — эта функция, она отдаёт только безопасный
+      // набор полей (без бюджета, телефона, адреса, заметок).
+      const { data, error } = await supabase.rpc('get_portal_data', { p_token: token });
+      if (!error && data && data.length > 0) setClient(data[0]);
       setLoading(false);
     }
     fetchClient();
-  }, [id]);
+  }, [token]);
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>⏳ Ładowanie projektu...</div>;
   if (!client) return <div style={{ padding: '40px', textAlign: 'center', color: 'red', fontFamily: 'sans-serif' }}>❌ Nie znaleziono projektu. Sprawdź poprawność linku.</div>;

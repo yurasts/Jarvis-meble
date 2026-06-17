@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 
-const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onSave }) => {
+const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onSave, profilesById = {} }) => {
   const [activeTab, setActiveTab] = useState('materials');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
   
   // Состояние для хранения раскрытых названий (id строки -> true/false)
   const [expandedRows, setExpandedRows] = useState({});
@@ -64,6 +65,28 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
     updateItems(field, [...currentItems, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak' }]);
   };
 
+  // portal_token приходит из таблицы clients (миграция 01). Анонимный доступ
+  // к данным клиента возможен только через эту ссылку, без бюджета/телефона/заметок.
+  const handleCopyPortalLink = async () => {
+    if (!client.portal_token) {
+      alert('Ten projekt nie ma jeszcze portal_token. Sprawdź, czy migracja SQL została wykonana, albo odśwież stronę.');
+      return;
+    }
+    const url = `${window.location.origin}/portal/${client.portal_token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Буфер обмена может быть недоступен (старый браузер, http без TLS) — показываем ссылку напрямую
+      alert(url);
+    }
+  };
+
+  // Подпись "кто и когда последний раз менял" — поля приходят с сервера
+  // (триггер set_updated_meta), подделать их с клиента нельзя.
+  const editor = client.updated_by ? profilesById[client.updated_by] : null;
+
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '30px', paddingBottom: '30px', overflowY: 'auto' }}>
       <div style={{ background: '#fff', borderRadius: '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', position: 'relative' }}>
@@ -75,8 +98,16 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
             <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>
               Budżet: <strong>{Number(client.budget || 0).toFixed(2)} zł</strong> | Koszty całkowite: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong>
             </div>
+            {editor && (
+              <div style={{ fontSize: '11px', color: '#a0aec0', marginTop: '4px' }}>
+                ✎ Ostatnia zmiana: {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+              {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
+            </button>
             <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Zamknij</button>
             <button onClick={onSave} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Zapisz zmiany</button>
           </div>

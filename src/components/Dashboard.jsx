@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen }) => {
+const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, profilesById = {}, canCreate = true }) => {
   const [newTaskParams, setNewTaskParams] = useState({});
   
   const activeProjects = (clients || []).filter(c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone');
@@ -28,6 +28,19 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen }) 
     updateClient(clientId, { tasks: updatedTasks });
   };
 
+  // Подпись "кто и когда последний раз менял" — данные приходят с сервера
+  // (триггер set_updated_meta), подделать их с клиента нельзя.
+  const renderSignature = (project) => {
+    if (!project.updated_by) return null;
+    const editor = profilesById[project.updated_by];
+    const when = project.updated_at ? new Date(project.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    return (
+      <div style={{ fontSize: '11px', color: '#a0aec0', marginTop: '6px' }}>
+        ✎ {editor?.full_name || 'Nieznany użytkownik'} • {when}
+      </div>
+    );
+  };
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '10px' }}>
       
@@ -35,9 +48,11 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen }) 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, color: '#2d3748', fontSize: '20px' }}>📋 Operacyjne Centrum Dowodzenia ({activeProjects.length})</h2>
-          <button onClick={() => setIsModalOpen(true)} style={{ background: '#38a169', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-            + Nowy projekt
-          </button>
+          {canCreate && (
+            <button onClick={() => setIsModalOpen(true)} style={{ background: '#38a169', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+              + Nowy projekt
+            </button>
+          )}
         </div>
         
         {activeProjects.length === 0 ? (
@@ -51,6 +66,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen }) 
                 <div>
                   <h3 style={{ margin: '0 0 5px 0', color: '#2b6cb0', fontSize: '18px' }}>{project.full_name}</h3>
                   <div style={{ fontSize: '13px', color: '#4a5568' }}>📍 {project.address || 'Brak adresu'}</div>
+                  {renderSignature(project)}
                 </div>
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                   <div style={{ textAlign: 'right', fontSize: '12px' }}>

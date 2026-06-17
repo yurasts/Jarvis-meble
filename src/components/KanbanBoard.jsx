@@ -5,7 +5,8 @@ export default function KanbanBoard({
   setActiveClient, 
   handleDragStart, 
   handleDragOver, 
-  handleDrop 
+  handleDrop,
+  profilesById = {}
 }) {
   const getClientsByStatus = (status) => clients.filter(c => c.status === status);
 
@@ -40,6 +41,7 @@ export default function KanbanBoard({
                 const zysk = (Number(client.budget) || 0) - tCost;
                 const dColor = getDeadlineColor(client.deadline, client.status);
                 const isOverdue = client.deadline && new Date(client.deadline).setHours(0,0,0,0) < new Date().setHours(0,0,0,0);
+                const editor = client.updated_by ? profilesById[client.updated_by] : null;
 
                 return (
                   <div key={client.id} className="client-card" draggable onDragStart={(e) => handleDragStart(e, client.id)} onClick={() => setActiveClient(client)}>
@@ -59,6 +61,11 @@ export default function KanbanBoard({
                     <p style={{ color: '#4a5568' }}>💰 Budżet: <strong>{Number(client.budget).toFixed(2)} PLN</strong></p>
                     <p style={{ color: '#e53e3e' }}>🛒 Koszty: <strong>{tCost.toFixed(2)} PLN</strong></p>
                     <p style={{ color: '#38a169', fontSize: '13px', marginTop: '4px' }}>📈 Zysk: <strong>{zysk.toFixed(2)} PLN</strong></p>
+                    {editor && (
+                      <p style={{ color: '#a0aec0', fontSize: '11px', marginTop: '6px', borderTop: '1px dashed #e2e8f0', paddingTop: '4px' }}>
+                        ✎ {editor.full_name} • {new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                   </div>
                 );
               })}
