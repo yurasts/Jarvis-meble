@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { useAuth } from './AuthContext'
+import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import KanbanBoard from './components/KanbanBoard'
 import MaterialsList from './components/MaterialsList'
@@ -7,6 +9,8 @@ import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
 
 function App() {
+  const { session, profile, profilesById, loadingSession, awaitingAccess, signOut } = useAuth()
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [clients, setClients] = useState([])
   const [materials, setMaterials] = useState([])
@@ -28,6 +32,9 @@ function App() {
   const [matPrice, setMatPrice] = useState('')
 
   useEffect(() => {
+    // Без сессии данные всё равно не отдадутся (RLS), поэтому не дёргаем базу зря
+    if (!session) return
+
     async function fetchData() {
       const { data: clientsData } = await supabase.from('clients').select('*')
       if (clientsData) setClients(clientsData)
@@ -39,7 +46,7 @@ function App() {
       if (servicesData) setServicesList(servicesData)
     }
     fetchData()
-  }, [])
+  }, [session])
 
   // Универсальная функция для обновления любых полей клиента (используется Дашбордом для задач)
   async function updateClientFields(clientId, updatedFields) {
@@ -101,6 +108,30 @@ async function handleUpdateClient(e) {
     await supabase.from('clients').update({ production_steps: updatedSteps }).eq('id', client.id)
   }
 
+  // --- ЭКРАНЫ АВТОРИЗАЦИИ ---
+
+  if (loadingSession) {
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#718096' }}>⏳ Sprawdzanie sesji...</div>
+  }
+
+  if (!session) {
+    return <Login />
+  }
+
+  if (awaitingAccess) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px' }}>
+        <div>
+          <h2 style={{ color: '#2d3748' }}>Konto zalogowane, ale bez przypisanej roli</h2>
+          <p style={{ color: '#718096' }}>Poproś właściciela (owner) o dodanie Twojego konta do tabeli profiles.</p>
+          <button className="btn-secondary" onClick={signOut} style={{ marginTop: '15px' }}>Wyloguj</button>
+        </div>
+      </div>
+    )
+  }
+
+  const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
+
   return (
     <div className="app-container">
       <div className="sidebar">
@@ -110,6 +141,12 @@ async function handleUpdateClient(e) {
         <div className={`menu-item ${activeTab === 'production' ? 'active' : ''}`} onClick={() => setActiveTab('production')}>🛠 Produkcja</div>
         <div className={`menu-item ${activeTab === 'materials' ? 'active' : ''}`} onClick={() => setActiveTab('materials')}>📦 Materiały</div>
         <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>⚙️ Ustawienia</div>
+
+        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #3b3b54', fontSize: '13px' }}>
+          <div style={{ color: '#a0aec0' }}>{profile?.full_name || session.user.email}</div>
+          <div style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', marginBottom: '8px' }}>{profile?.role}</div>
+          <button onClick={signOut} className="btn-secondary" style={{ width: '100%', padding: '6px', fontSize: '12px' }}>Wyloguj</button>
+        </div>
       </div>
 
 <div className="main-content">
@@ -119,6 +156,8 @@ async function handleUpdateClient(e) {
             updateClient={updateClientFields} 
             openProjectModal={setActiveClient} 
             setIsModalOpen={setIsModalOpen} 
+            profilesById={profilesById}
+            canCreate={canCreate}
           />
         )}
         {activeTab === 'board' && (
@@ -128,6 +167,7 @@ async function handleUpdateClient(e) {
             handleDragStart={handleDragStart} 
             handleDragOver={handleDragOver} 
             handleDrop={handleDrop} 
+            profilesById={profilesById}
           />
         )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
@@ -160,6 +200,7 @@ async function handleUpdateClient(e) {
           servicesList={servicesList} 
           onClose={() => setActiveClient(null)} 
           onSave={handleUpdateClient} 
+          profilesById={profilesById}
         />
       )}
 
