@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
   const [profilesLoaded, setProfilesLoaded] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    supabase.auth.getSession().then(({ data }) => setSession(data?.session ?? null))
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
     })
