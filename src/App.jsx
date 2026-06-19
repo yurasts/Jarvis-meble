@@ -209,7 +209,8 @@ async function handleUpdateClient(e) {
           materials={materials} 
           servicesList={servicesList} 
           onClose={() => setActiveClient(null)} 
-          onSave={handleUpdateClient} 
+          onSave={handleUpdateClient}
+          currentProfile={profile} 
           profilesById={profilesById}
         />
       )}
