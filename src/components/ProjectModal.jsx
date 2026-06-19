@@ -7,6 +7,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const [filterSupplier, setFilterSupplier] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+  const [confirmDeleteKey, setConfirmDeleteKey] = useState(null); // 'materials-2', 'services-0' и т.д.
 
   const calcMaterials = client.calc_materials || [];
   const calcServices = client.calc_services || [];
@@ -46,6 +47,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   };
 
   const handleRemoveItem = (field, currentItems, indexToRemove) => {
+    setConfirmDeleteKey(null);
     updateItems(field, currentItems.filter((_, idx) => idx !== indexToRemove));
   };
 
@@ -78,6 +80,23 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   };
 
   const editor = client.updated_by ? profilesById[client.updated_by] : null;
+
+  // Кнопка удаления с подтверждением — без изменения высоты строки
+  const renderDeleteBtn = (field, currentItems, index) => {
+    const key = `${field}-${index}`;
+    if (confirmDeleteKey === key) return (
+      <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '11px', color: '#e53e3e', fontWeight: 'bold', marginRight: '4px' }}>Usunąć?</span>
+        <button onClick={() => handleRemoveItem(field, currentItems, index)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', marginRight: '2px' }}>Tak</button>
+        <button onClick={() => setConfirmDeleteKey(null)} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
+      </td>
+    );
+    return (
+      <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+        <button onClick={() => setConfirmDeleteKey(key)} style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color='#e53e3e'} onMouseLeave={e => e.target.style.color='#cbd5e0'} title="Usuń">✖</button>
+      </td>
+    );
+  };
 
   // Тонкая цветная полоска слева — берём цвет автора строки или дефолт
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
@@ -159,9 +178,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                             <input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => handleQuantityChange('calc_materials', calcMaterials, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }} />
                           </td>
                           <td style={{ padding: '4px 8px', fontWeight: 'bold', color: '#2b6cb0' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                          <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-                            <button onClick={() => handleRemoveItem('calc_materials', calcMaterials, index)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: '14px', padding: 0 }} title="Usuń">✖</button>
-                          </td>
+                          {renderDeleteBtn('calc_materials', calcMaterials, index)}
                         </tr>
                       ))}
                       {calcMaterials.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
@@ -242,9 +259,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                           <input type="number" min="1" value={item.quantity || 1} onChange={(e) => handleQuantityChange('calc_services', calcServices, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px' }} />
                         </td>
                         <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                          <button onClick={() => handleRemoveItem('calc_services', calcServices, index)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: '14px' }}>✖</button>
-                        </td>
+                        {renderDeleteBtn('calc_services', calcServices, index)}
                       </tr>
                     ))}
                     {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
@@ -280,9 +295,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                           <input type="number" min="1" step="any" value={item.quantity || 1} onChange={(e) => handleQuantityChange('calc_expenses', calcExpenses, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px' }} />
                         </td>
                         <td style={{ padding: '6px 8px', fontWeight: 'bold', color: '#c53030' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'center' }}>
-                          <button onClick={() => handleRemoveItem('calc_expenses', calcExpenses, index)} style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: '14px' }}>✖</button>
-                        </td>
+                        {renderDeleteBtn('calc_expenses', calcExpenses, index)}
                       </tr>
                     ))}
                     {calcExpenses.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodatkowych wydatków</td></tr>}
