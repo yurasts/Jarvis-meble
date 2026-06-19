@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import FilesTab from './FilesTab';
 
 const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
   const [activeTab, setActiveTab] = useState('materials');
@@ -142,6 +143,9 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
           </button>
           <button onClick={() => setActiveTab('expenses')} style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', background: activeTab === 'expenses' ? '#fff5f5' : 'transparent', border: 'none', borderBottom: activeTab === 'expenses' ? '3px solid #e53e3e' : '3px solid transparent', color: activeTab === 'expenses' ? '#c53030' : '#4a5568', cursor: 'pointer' }}>
             💸 Wydatki ({totalExpenses.toFixed(2)} zł)
+          </button>
+          <button onClick={() => setActiveTab('files')} style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', background: activeTab === 'files' ? '#faf5ff' : 'transparent', border: 'none', borderBottom: activeTab === 'files' ? '3px solid #805ad5' : '3px solid transparent', color: activeTab === 'files' ? '#553c9a' : '#4a5568', cursor: 'pointer' }}>
+            📎 Pliki
           </button>
         </div>
 
@@ -303,6 +307,11 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                 </table>
               </div>
             </div>
+          )}
+
+          {/* ФАЙЛЫ */}
+          {activeTab === 'files' && (
+            <FilesTab clientId={client.id} currentProfile={currentProfile} />
           )}
 
         </div>
