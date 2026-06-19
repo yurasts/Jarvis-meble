@@ -7,9 +7,11 @@ import KanbanBoard from './components/KanbanBoard'
 import MaterialsList from './components/MaterialsList'
 import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
+import Settings from './components/Settings'
 
 function App() {
-  const { session, profile, profilesById, loadingSession, awaitingAccess, signOut } = useAuth()
+  const { session, profile: authProfile, profilesById, loadingSession, awaitingAccess, signOut } = useAuth()
+  const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab] = useState('dashboard')
   const [clients, setClients] = useState([])
@@ -130,6 +132,7 @@ async function handleUpdateClient(e) {
     )
   }
 
+  const profile = localProfile ?? authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
 
   return (
@@ -143,7 +146,12 @@ async function handleUpdateClient(e) {
         <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>⚙️ Ustawienia</div>
 
         <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #3b3b54', fontSize: '13px' }}>
-          <div style={{ color: '#a0aec0' }}>{profile?.full_name || session.user.email}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: profile?.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 'bold', flexShrink: 0 }}>
+            {(profile?.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+          </div>
+          <span style={{ color: '#a0aec0' }}>{profile?.full_name || session.user.email}</span>
+        </div>
           <div style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', marginBottom: '8px' }}>{profile?.role}</div>
           <button onClick={signOut} className="btn-secondary" style={{ width: '100%', padding: '6px', fontSize: '12px' }}>Wyloguj</button>
         </div>
@@ -173,6 +181,7 @@ async function handleUpdateClient(e) {
         )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
         {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} />}
+        {activeTab === 'settings' && <Settings profile={profile} profilesById={profilesById} onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))} />}
       </div>
       
       {isModalOpen && (
