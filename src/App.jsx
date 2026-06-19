@@ -158,6 +158,7 @@ async function handleUpdateClient(e) {
             setIsModalOpen={setIsModalOpen} 
             profilesById={profilesById}
             canCreate={canCreate}
+            currentProfile={profile}
           />
         )}
         {activeTab === 'board' && (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, profilesById = {}, canCreate = true }) => {
+const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, profilesById = {}, canCreate = true, currentProfile = null }) => {
   const [newTaskParams, setNewTaskParams] = useState({});
   
   const activeProjects = (clients || []).filter(c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone');
@@ -10,7 +10,16 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
     const params = newTaskParams[clientId];
     if (!params || !params.text) return;
     const project = activeProjects.find(c => c.id === clientId);
-    const newTask = { id: Date.now(), text: params.text, date: params.date || '', isDone: false };
+    const newTask = { 
+      id: Date.now(), 
+      text: params.text, 
+      date: params.date || '', 
+      isDone: false,
+      // Подпись автора задачи — сохраняется в JSON вместе с задачей
+      createdById: currentProfile?.id || null,
+      createdByName: currentProfile?.full_name || null,
+      createdAt: new Date().toISOString()
+    };
     const updatedTasks = [...(project.tasks || []), newTask];
     updateClient(clientId, { tasks: updatedTasks });
     setNewTaskParams(prev => ({ ...prev, [clientId]: { text: '', date: '' } }));
@@ -28,8 +37,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
     updateClient(clientId, { tasks: updatedTasks });
   };
 
-  // Подпись "кто и когда последний раз менял" — данные приходят с сервера
-  // (триггер set_updated_meta), подделать их с клиента нельзя.
+  // Подпись "кто и когда последний раз менял проект"
   const renderSignature = (project) => {
     if (!project.updated_by) return null;
     const editor = profilesById[project.updated_by];
@@ -43,8 +51,6 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '10px' }}>
-      
-      {/* АКТИВНЫЕ ПРОЕКТЫ НА ВСЮ ШИРИНУ */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, color: '#2d3748', fontSize: '20px' }}>📋 Operacyjne Centrum Dowodzenia ({activeProjects.length})</h2>
@@ -83,11 +89,19 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                   {(project.tasks || []).length === 0 && <div style={{ fontSize: '13px', color: '#a0aec0' }}>Brak zaplanowanych zadań.</div>}
                   {(project.tasks || []).map(task => (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: task.isDone ? '#f0fff4' : '#edf2f7', padding: '8px 12px', borderRadius: '6px', border: '1px solid', borderColor: task.isDone ? '#c6f6d5' : '#e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <input type="checkbox" checked={task.isDone} onChange={() => toggleTaskStatus(project.id, task.id)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
-                        <span style={{ fontSize: '14px', color: task.isDone ? '#a0aec0' : '#2d3748', textDecoration: task.isDone ? 'line-through' : 'none' }}>{task.text}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                        <input type="checkbox" checked={task.isDone} onChange={() => toggleTaskStatus(project.id, task.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }} />
+                        <div>
+                          <span style={{ fontSize: '14px', color: task.isDone ? '#a0aec0' : '#2d3748', textDecoration: task.isDone ? 'line-through' : 'none' }}>{task.text}</span>
+                          {/* Подпись автора задачи */}
+                          {task.createdByName && (
+                            <div style={{ fontSize: '11px', color: '#a0aec0', marginTop: '2px' }}>
+                              ✎ {task.createdByName}{task.createdAt ? ' • ' + new Date(task.createdAt).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                         {task.date && <span style={{ fontSize: '12px', background: '#fff', padding: '2px 6px', borderRadius: '4px', color: '#e53e3e', fontWeight: 'bold', border: '1px solid #fed7d7' }}>⏳ {task.date}</span>}
                         <button onClick={() => deleteTask(project.id, task.id)} style={{ background: 'none', border: 'none', color: '#fc8181', cursor: 'pointer', padding: '0', fontSize: '16px' }} title="Usuń">✖</button>
                       </div>
