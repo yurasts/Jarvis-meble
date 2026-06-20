@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import InvoiceScanner from './InvoiceScanner';
 import { supabase } from '../supabase';
 
 // Стрелка тренда цены
@@ -50,7 +51,7 @@ const PriceTrend = ({ mat }) => {
   );
 };
 
-const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen }) => {
+const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [isSupModalOpen, setIsSupModalOpen] = useState(false);
   const [editingSupplierId, setEditingSupplierId] = useState(null);
@@ -102,9 +103,12 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen }) => {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 style={{ margin: 0 }}>Katalog: Materiały i Usługi</h2>
-        <button className="btn-primary" onClick={() => setIsMaterialModalOpen(true)} style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-          + Nowy materiał
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <InvoiceScanner materials={materials} onPricesUpdated={onPricesUpdated} />
+          <button className="btn-primary" onClick={() => setIsMaterialModalOpen(true)} style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            + Nowy materiał
+          </button>
+        </div>
       </div>
       
       <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>

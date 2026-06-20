@@ -136,6 +136,11 @@ async function handleUpdateClient(e) {
     }
   }
 
+  async function reloadMaterials() {
+    const { data } = await supabase.from('materials').select('*')
+    if (data) setMaterials(data)
+  }
+
   const handleDragStart = (e, id) => e.dataTransfer.setData('clientId', id)
   const handleDragOver = (e) => e.preventDefault() 
   const handleDrop = async (e, newStatus) => {
@@ -220,7 +225,7 @@ async function handleUpdateClient(e) {
           />
         )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
-        {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} />}
+        {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} onPricesUpdated={reloadMaterials} />}
         {activeTab === 'settings' && <Settings profile={profile} profilesById={profilesById} onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))} />}
       </div>
       
