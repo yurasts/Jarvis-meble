@@ -30,6 +30,7 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
     setError(null);
     setResults(null);
     try {
+        console.log('Calling edge function...')  // ← добавьте
       const { data, error: fnErr } = await supabase.functions.invoke('scan-invoice', {
         body: {
           imageBase64: image.base64,
@@ -37,6 +38,7 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
           materials: materials.map(m => ({ id: m.id, name: m.name, symbol: m.symbol || null, price: m.price }))
         }
       });
+        console.log('Result:', data, 'Error:', fnErr)  // ← добавьте
       if (fnErr) throw new Error(fnErr.message);
       setResults(data?.result || []);
     } catch (err) {
