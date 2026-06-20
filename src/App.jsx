@@ -28,6 +28,7 @@ function App() {
   const [address, setAddress] = useState('')
 
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false)
+  const [duplicateFound, setDuplicateFound] = useState(null) // {existing, newPrice}
   const [matName, setMatName] = useState('')
   const [matCategory, setMatCategory] = useState('Płyta')
   const [matUnit, setMatUnit] = useState('szt')
@@ -88,9 +89,48 @@ async function handleUpdateClient(e) {
 
   async function handleAddMaterial(e) {
     e.preventDefault()
-    const { data, error } = await supabase.from('materials').insert([{ name: matName, category: matCategory, unit: matUnit, price: Number(matPrice) }]).select()
+    // Проверяем дубль по названию (без учёта регистра)
+    const { data: existing } = await supabase
+      .from('materials')
+      .select('*')
+      .ilike('name', matName.trim())
+      .maybeSingle()
+
+    if (existing) {
+      if (Math.abs(Number(existing.price) - Number(matPrice)) < 0.001) {
+        // Та же цена — просто сообщаем
+        setDuplicateFound({ existing, newPrice: Number(matPrice), samePrice: true })
+        return
+      }
+      // Другая цена — предлагаем обновить с сохранением истории
+      setDuplicateFound({ existing, newPrice: Number(matPrice), samePrice: false })
+      return
+    }
+
+    // Дубля нет — вставляем новый
+    const { data, error } = await supabase
+      .from('materials')
+      .insert([{ name: matName, category: matCategory, unit: matUnit, price: Number(matPrice), price_history: [] }])
+      .select()
     if (!error && data) {
       setMaterials([...materials, data[0]])
+      setMatName(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
+      setIsMaterialModalOpen(false)
+    }
+  }
+
+  async function handleConfirmPriceUpdate() {
+    const { existing, newPrice } = duplicateFound
+    const today = new Date().toISOString().split('T')[0]
+    const history = [...(existing.price_history || []), { price: existing.price, date: today }]
+    const { data, error } = await supabase
+      .from('materials')
+      .update({ price: newPrice, price_history: history })
+      .eq('id', existing.id)
+      .select()
+    if (!error && data) {
+      setMaterials(materials.map(m => m.id === existing.id ? data[0] : m))
+      setDuplicateFound(null)
       setMatName(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
     }
@@ -224,7 +264,28 @@ async function handleUpdateClient(e) {
               <div className="form-group"><label>Kategoria</label><select value={matCategory} onChange={(e) => setMatCategory(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}><option value="Płyta">Płyta</option><option value="Obrzeże">Obrzeże</option><option value="HDF">HDF</option><option value="Laminat">Laminat</option><option value="Akcesoria">Akcesoria (Okucia)</option><option value="Inne">Inne</option></select></div>
               <div className="form-group"><label>Jm</label><select value={matUnit} onChange={(e) => setMatUnit(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}><option value="szt">Sztuki</option><option value="mb">Metry bieżące</option><option value="m2">Metry kwadratowe</option><option value="kpl">Komplet</option></select></div>
               <div className="form-group"><label>Cena brutto (PLN)</label><input type="number" step="0.01" required value={matPrice} onChange={(e) => setMatPrice(e.target.value)} /></div>
-              <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setIsMaterialModalOpen(false)}>Anuluj</button><button type="submit" className="btn-primary">Zapisz</button></div>
+              {/* Предупреждение о дубле */}
+              {duplicateFound && (
+                <div style={{ margin: '10px 0', padding: '12px', borderRadius: '8px', background: duplicateFound.samePrice ? '#fffbeb' : '#fff5f5', border: `1px solid ${duplicateFound.samePrice ? '#f6e05e' : '#feb2b2'}` }}>
+                  {duplicateFound.samePrice ? (
+                    <div style={{ fontSize: '13px', color: '#744210' }}>
+                      ⚠️ Materiał <strong>{duplicateFound.existing.name}</strong> już istnieje z tą samą ceną ({duplicateFound.existing.price} zł).
+                      <button onClick={() => setDuplicateFound(null)} style={{ marginLeft: '10px', background: 'none', border: 'none', color: '#3182ce', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>OK</button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#742a2a' }}>
+                      🔄 Znaleziono istniejący materiał!<br />
+                      <strong>{duplicateFound.existing.name}</strong><br />
+                      <span style={{ color: '#718096' }}>Stara cena:</span> <strong>{duplicateFound.existing.price} zł</strong> → <span style={{ color: '#718096' }}>Nowa cena:</span> <strong style={{ color: '#e53e3e' }}>{duplicateFound.newPrice} zł</strong>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <button onClick={handleConfirmPriceUpdate} style={{ background: '#38a169', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Zaktualizuj cenę</button>
+                        <button onClick={() => setDuplicateFound(null)} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Anuluj</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => { setIsMaterialModalOpen(false); setDuplicateFound(null); }}>Anuluj</button><button type="submit" className="btn-primary">Zapisz</button></div>
             </form>
           </div>
         </div>
