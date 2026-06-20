@@ -103,8 +103,8 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '30px', paddingBottom: '30px', overflowY: 'auto' }}>
-      <div style={{ background: '#fff', borderRadius: '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', position: 'relative' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '30px', paddingBottom: '30px', overflowY: 'auto' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', position: 'relative' }} onClick={e => e.stopPropagation()}>
         
         {/* Шапка */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #edf2f7', paddingBottom: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
@@ -160,9 +160,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
                     <thead>
                       <tr style={{ background: '#edf2f7', textAlign: 'left', color: '#4a5568' }}>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Kategoria</th>
                         <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Nazwa materiału</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Dostawca</th>
                         <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Cena j.</th>
                         <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Jm</th>
                         <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '60px' }}>Ilość</th>
@@ -173,9 +171,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                     <tbody>
                       {calcMaterials.map((item, index) => (
                         <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ebf8ff', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                          <td style={{ padding: '4px 8px' }}>{item.category || 'Inne'}</td>
-                          <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
-                          <td style={{ padding: '4px 8px' }}>{item.supplier || 'Brak'}</td>
+                          <td onClick={() => toggleRow(`sel_${index}`) style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
                           <td style={{ padding: '4px 8px' }}>{Number(item.price).toFixed(2)} zł</td>
                           <td style={{ padding: '4px 8px' }}>{item.unit || 'szt'}</td>
                           <td style={{ padding: '4px 8px' }}>
@@ -185,7 +181,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                           {renderDeleteBtn('calc_materials', calcMaterials, index)}
                         </tr>
                       ))}
-                      {calcMaterials.length === 0 && <tr><td colSpan="8" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
+                      {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
                     </tbody>
                   </table>
                 </div>
