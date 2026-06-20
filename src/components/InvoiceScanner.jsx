@@ -24,6 +24,7 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
   };
 
   const handleScan = async () => {
+        console.log('handleScan called', image) // ← добавьте эту строку
     if (!image) return;
     setScanning(true);
     setError(null);
