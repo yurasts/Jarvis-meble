@@ -72,60 +72,59 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
             return (
               <div key={project.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #cbd5e0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
 
-                {/* Шапка проекта — компактная */}
+                {/* Шапка проекта — адаптивная */}
                 <div style={{ background: '#f8fafc', padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
-                  {/* Строка 1: имя + статус */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <h3 style={{ margin: 0, color: '#2b6cb0', fontSize: '16px', fontWeight: 'bold' }}>{project.full_name}</h3>
-                    <span style={{ fontSize: '11px', background: '#edf2f7', color: '#4a5568', padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                      {project.status || 'Nowe'}
-                    </span>
-                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
 
-                  {/* Строка 2: адрес → Google Maps */}
-                  {project.address && (
-                    <div style={{ fontSize: '12px', marginBottom: '3px' }}>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
-                        target="_blank" rel="noreferrer"
-                        style={{ color: '#3182ce', textDecoration: 'none' }}
-                      >
-                        📍 {project.address}
-                      </a>
-                    </div>
-                  )}
+                    {/* Левая часть: имя + адрес + дедлайн */}
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                        <h3 style={{ margin: 0, color: '#2b6cb0', fontSize: '15px', fontWeight: 'bold' }}>{project.full_name}</h3>
+                        <span style={{ fontSize: '11px', background: '#edf2f7', color: '#4a5568', padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                          {project.status || 'Nowe'}
+                        </span>
+                      </div>
 
-                  {/* Строка 3: срок */}
-                  {project.deadline && (
-                    <div style={{ fontSize: '12px', color: '#e53e3e', fontWeight: 'bold', marginBottom: '4px' }}>
-                      📅 {shortDate(project.deadline)}
-                    </div>
-                  )}
-
-                  {/* Подпись редактора — скрыта, показывается по клику */}
-                  {editor && (
-                    <div
-                      onClick={() => setExpandedProjectId(isProjectExpanded ? null : project.id)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {isProjectExpanded ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-                          <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
-                            {initials(editor.full_name)}
-                          </div>
-                          <span style={{ fontSize: '11px', color: '#a0aec0' }}>
-                            {editor.full_name} • {project.updated_at ? new Date(project.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        {project.address && (
+                          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
+                            target="_blank" rel="noreferrer"
+                            style={{ color: '#3182ce', textDecoration: 'none', fontSize: '12px' }}>
+                            📍 {project.address}
+                          </a>
+                        )}
+                        {project.deadline && (
+                          <span style={{ fontSize: '12px', color: '#e53e3e', fontWeight: 'bold' }}>
+                            📅 {shortDate(project.deadline)}
                           </span>
-                        </div>
-                      ) : (
-                        <div style={{ width: '16px', height: '4px', borderRadius: '2px', background: editor.color || '#e2e8f0', marginBottom: '6px' }} />
-                      )}
+                        )}
+                        {/* Подпись редактора — цветная точка → клик разворачивает */}
+                        {editor && (
+                          <span
+                            onClick={() => setExpandedProjectId(isProjectExpanded ? null : project.id)}
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            title="Kliknij aby zobaczyć kto edytował"
+                          >
+                            {isProjectExpanded ? (
+                              <>
+                                <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
+                                  {initials(editor.full_name)}
+                                </div>
+                                <span style={{ fontSize: '11px', color: '#a0aec0' }}>
+                                  {editor.full_name} • {project.updated_at ? new Date(project.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                              </>
+                            ) : (
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: editor.color || '#cbd5e0' }} />
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
 
-                  {/* Кнопка по центру */}
-                  <div style={{ textAlign: 'center' }}>
-                    <button onClick={() => openProjectModal(project)} style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '7px 20px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                    {/* Правая часть: кнопка */}
+                    <button onClick={() => openProjectModal(project)}
+                      style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '7px 18px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', flexShrink: 0 }}>
                       Otwórz projekt
                     </button>
                   </div>
