@@ -113,7 +113,7 @@ export default function KanbanBoard({
                     </p>
 
                     {/* Адрес */}
-                    <p style={{ margin: '3px 0', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <p style={{ margin: '3px 0', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       📍{' '}
                       {isEditing(client.id, 'address') ? (
                         <input
@@ -129,16 +129,25 @@ export default function KanbanBoard({
                           style={inputStyle}
                         />
                       ) : (
-                        <span
-                          onClick={e => startEdit(e, client.id, 'address', client.address)}
-                          title="Kliknij aby edytować"
-                          style={{ cursor: 'text', borderBottom: '1px dashed #cbd5e0' }}
-                        >
-                          {client.address
-                            ? <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.address)}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: '#3182ce', textDecoration: 'none', fontWeight: 'bold' }}>{client.address}</a>
-                            : <span style={{ color: '#a0aec0', fontStyle: 'italic' }}>Brak adresu</span>
-                          }
-                        </span>
+                        <>
+                          <span
+                            onClick={e => startEdit(e, client.id, 'address', client.address)}
+                            title="Kliknij aby edytować"
+                            style={{ cursor: 'text', borderBottom: '1px dashed #cbd5e0', color: '#3182ce', fontWeight: 'bold', flex: 1 }}
+                          >
+                            {client.address || <span style={{ color: '#a0aec0', fontStyle: 'italic', fontWeight: 'normal' }}>Brak adresu</span>}
+                          </span>
+                          {client.address && (
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.address)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              title="Otwórz w Google Maps"
+                              style={{ flexShrink: 0, fontSize: '14px', lineHeight: 1, opacity: 0.6, textDecoration: 'none' }}
+                            >🗺️</a>
+                          )}
+                        </>
                       )}
                     </p>
 
