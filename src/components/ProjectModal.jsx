@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import FilesTab from './FilesTab';
 
-const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
   const [activeTab, setActiveTab] = useState('materials');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null); // 'mat-0', 'srv-1', 'exp-2'
@@ -22,6 +23,37 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const totalServices = calcServices.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)), 0);
   const totalExpenses = calcExpenses.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)), 0);
   const totalProjectCost = totalMaterials + totalServices + totalExpenses;
+
+  // Проверяем есть ли несохранённые изменения
+  const isDirty = originalClient
+    ? JSON.stringify({
+        calc_materials: client.calc_materials || [],
+        calc_services: client.calc_services || [],
+        calc_expenses: client.calc_expenses || [],
+        notes: client.notes,
+        deadline: client.deadline,
+        address: client.address,
+        budget: client.budget,
+        budget_coefficient: client.budget_coefficient,
+      }) !== JSON.stringify({
+        calc_materials: originalClient.calc_materials || [],
+        calc_services: originalClient.calc_services || [],
+        calc_expenses: originalClient.calc_expenses || [],
+        notes: originalClient.notes,
+        deadline: originalClient.deadline,
+        address: originalClient.address,
+        budget: originalClient.budget,
+        budget_coefficient: originalClient.budget_coefficient,
+      })
+    : false;
+
+  const handleClose = () => {
+    if (isDirty) {
+      setConfirmClose(true);
+    } else {
+      onClose();
+    }
+  };
 
   // Автопересчёт бюджета при изменении суммы затрат или коэффициента
   useEffect(() => {
@@ -124,7 +156,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '30px', paddingBottom: '30px', overflowY: 'auto' }} onClick={onClose}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '30px', paddingBottom: '30px', overflowY: 'auto' }} onClick={handleClose}>
       <div style={{ background: '#fff', borderRadius: '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', position: 'relative' }} onClick={e => e.stopPropagation()}>
         
         {/* Шапка */}
@@ -170,7 +202,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
             <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
               {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
             </button>
-            <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Zamknij</button>
+            <button onClick={handleClose} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: confirmClose ? '#fff5f5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', transition: 'background 0.2s' }}>Zamknij</button>
             <button onClick={onSave} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Zapisz zmiany</button>
           </div>
         </div>
@@ -435,6 +467,38 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
           )}
 
         </div>
+
+        {/* Баннер подтверждения закрытия */}
+        {confirmClose && (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+            <div style={{ background: '#fff', borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)', textAlign: 'center', maxWidth: '340px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
+              <h3 style={{ margin: '0 0 8px 0', color: '#2d3748', fontSize: '16px' }}>Masz niezapisane zmiany</h3>
+              <p style={{ margin: '0 0 20px 0', color: '#718096', fontSize: '13px' }}>Czy na pewno chcesz zamknąć bez zapisania?</p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  onClick={onClose}
+                  style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  Zamknij bez zapisania
+                </button>
+                <button
+                  onClick={() => { onSave({ preventDefault: () => {} }); setConfirmClose(false); }}
+                  style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  Zapisz i zamknij
+                </button>
+                <button
+                  onClick={() => setConfirmClose(false)}
+                  style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  Wróć
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

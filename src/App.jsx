@@ -249,7 +249,8 @@ async function handleUpdateClient(e) {
 
       {activeClient && (
         <ProjectModal 
-          client={activeClient} 
+          client={activeClient}
+          originalClient={clients.find(c => c.id === activeClient.id) || null}
           setClient={setActiveClient} 
           materials={materials} 
           servicesList={servicesList} 
