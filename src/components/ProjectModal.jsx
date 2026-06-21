@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import FilesTab from './FilesTab';
 
 const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
+  const isMobile = window.innerWidth < 640;
   const [activeTab, setActiveTab] = useState('materials');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
@@ -190,55 +191,59 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '30px', paddingBottom: '30px', overflowY: 'auto' }} onClick={handleClose}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
       <div style={{ background: '#fff', borderRadius: '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', position: 'relative' }} onClick={e => e.stopPropagation()}>
         
         {/* Шапка */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #edf2f7', paddingBottom: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', color: '#2d3748' }}>{client.full_name}</h2>
-            <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <span>Koszty całkowite: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span style={{ color: '#718096' }}>× Współczynnik:</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  step="0.1"
-                  value={coefficient}
-                  onChange={e => {
-                    const val = parseFloat(e.target.value);
-                    setCoefficient(e.target.value);
-                    if (!isNaN(val) && val > 0) {
-                      setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
-                    }
-                  }}
-                  style={{ width: '60px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center' }}
-                />
-              </span>
-              <span style={{ background: '#ebf8ff', border: '1px solid #bee3f8', borderRadius: '6px', padding: '2px 10px' }}>
-                Budżet: <strong style={{ color: '#2b6cb0', fontSize: '14px' }}>{(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł</strong>
-              </span>
+        <div style={{ borderBottom: '2px solid #edf2f7', paddingBottom: '10px', marginBottom: '10px' }}>
+          {/* Строка 1: имя + кнопки */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: isMobile ? '17px' : '20px', color: '#2d3748', flex: 1 }}>{client.full_name}</h2>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              {!isMobile && (
+                <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                  {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
+                </button>
+              )}
+              <button onClick={handleClose} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e0', background: confirmClose ? '#fff5f5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>✕</button>
+              <button onClick={onSave} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
             </div>
-            {editor && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px' }}>
-                <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
-                  {(editor.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                </div>
-                <span style={{ fontSize: '11px', color: '#a0aec0' }}>
-                  {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-                </span>
-              </div>
+          </div>
+          {/* Строка 2: затраты + коэффициент + бюджет */}
+          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
+            <span style={{ color: '#718096' }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
+            <span style={{ color: '#a0aec0' }}>×</span>
+            <input
+              type="number" min="1" max="10" step="0.1"
+              value={coefficient}
+              onChange={e => {
+                const val = parseFloat(e.target.value);
+                setCoefficient(e.target.value);
+                if (!isNaN(val) && val > 0) {
+                  setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
+                }
+              }}
+              style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center' }}
+            />
+            <span style={{ background: '#ebf8ff', border: '1px solid #bee3f8', borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: '#2b6cb0' }}>
+              Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
+            </span>
+            {isMobile && (
+              <button onClick={handleCopyPortalLink} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
+                {linkCopied ? '✓' : '🔗'}
+              </button>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
-              {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
-            </button>
-            <button onClick={handleClose} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: confirmClose ? '#fff5f5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', transition: 'background 0.2s' }}>Zamknij</button>
-            <button onClick={onSave} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Zapisz zmiany</button>
-          </div>
+          {editor && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px' }}>
+              <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
+                {(editor.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </div>
+              <span style={{ fontSize: '11px', color: '#a0aec0' }}>
+                {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Табы */}
@@ -264,65 +269,102 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#2d3748' }}>✅ Dodane pozycje</h3>
-                <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                    <thead>
-                      <tr style={{ background: '#edf2f7', textAlign: 'left', color: '#4a5568' }}>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Nazwa materiału</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Cena j.</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Jm</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '60px' }}>Ilość</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Suma</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calcMaterials.map((item, index) => (
-                        <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ebf8ff', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                          <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
-                          <td style={{ padding: '4px 8px' }}>
-                            {editingPrice === `mat-${index}` ? (
-                              <input
-                                autoFocus
-                                type="number"
-                                step="0.01"
-                                value={priceDraft}
-                                onChange={e => setPriceDraft(e.target.value)}
-                                onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
-                                onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                                style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
-                              />
-                            ) : (
-                              <span
-                                onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
-                                style={{ cursor: 'pointer', color: '#2b6cb0', borderBottom: '1px dashed #a0aec0' }}
-                                title="Kliknij aby zmienić cenę"
-                              >
-                                {Number(item.price).toFixed(2)} zł
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '4px 8px' }}>{item.unit || 'szt'}</td>
-                          <td style={{ padding: '4px 8px' }}>
-                            <input
-                              type="text"
-                              value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
-                              onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
-                              onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
-                              onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
-                              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
-                              title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
+                {isMobile ? (
+                  /* МОБИЛЬНЫЙ ВИД — карточки вместо таблицы */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materiałów</div>}
+                    {calcMaterials.map((item, index) => (
+                      <div key={index} style={{ background: '#ebf8ff', borderRadius: '7px', border: '1px solid #bee3f8', borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
+                        {/* Имя */}
+                        <div style={{ fontWeight: 'bold', color: '#2b6cb0', fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
+                        {/* Строка: цена × кол-во = сумма + удалить */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          {/* Цена */}
+                          {editingPrice === `mat-${index}` ? (
+                            <input autoFocus type="number" step="0.01" value={priceDraft}
+                              onChange={e => setPriceDraft(e.target.value)}
+                              onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
+                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                              style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px' }}
                             />
-                          </td>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold', color: '#2b6cb0' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                          ) : (
+                            <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
+                              style={{ cursor: 'pointer', background: '#fff', border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: '#4a5568' }}>
+                              {Number(item.price).toFixed(2)} zł
+                            </span>
+                          )}
+                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>× {item.unit || 'szt'}</span>
+                          {/* Количество */}
+                          <input type="text"
+                            value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
+                            onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
+                            onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
+                            onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
+                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
+                            style={{ width: '65px', padding: '3px 5px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '13px', background: '#fff' }}
+                          />
+                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
+                          <strong style={{ color: '#2b6cb0', fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
+                          {/* Удалить */}
                           {renderDeleteBtn('calc_materials', calcMaterials, index)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* ДЕСКТОП ВИД — таблица */
+                  <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                      <thead>
+                        <tr style={{ background: '#edf2f7', textAlign: 'left', color: '#4a5568' }}>
+                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Nazwa materiału</th>
+                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Cena j.</th>
+                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Jm</th>
+                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '60px' }}>Ilość</th>
+                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Suma</th>
+                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}></th>
                         </tr>
-                      ))}
-                      {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {calcMaterials.map((item, index) => (
+                          <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ebf8ff', borderLeft: `3px solid ${rowStripe(item)}` }}>
+                            <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
+                            <td style={{ padding: '4px 8px' }}>
+                              {editingPrice === `mat-${index}` ? (
+                                <input autoFocus type="number" step="0.01" value={priceDraft}
+                                  onChange={e => setPriceDraft(e.target.value)}
+                                  onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
+                                  onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                                  style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                                />
+                              ) : (
+                                <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
+                                  style={{ cursor: 'pointer', color: '#2b6cb0', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
+                                  {Number(item.price).toFixed(2)} zł
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '4px 8px' }}>{item.unit || 'szt'}</td>
+                            <td style={{ padding: '4px 8px' }}>
+                              <input type="text"
+                                value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
+                                onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
+                                onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
+                                onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
+                                onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
+                                title="Wpisz liczbę lub wyrażenie: 37+20+16"
+                                style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
+                              />
+                            </td>
+                            <td style={{ padding: '4px 8px', fontWeight: 'bold', color: '#2b6cb0' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                            {renderDeleteBtn('calc_materials', calcMaterials, index)}
+                          </tr>
+                        ))}
+                        {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <div style={{ textAlign: 'right', marginTop: '8px' }}>
                   <button onClick={() => handleCustomAdd('calc_materials', calcMaterials)} style={{ background: '#edf2f7', color: '#2d3748', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj pozycję ręcznie</button>
                 </div>
@@ -370,56 +412,93 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'services' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
-              <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                  <thead>
-                    <tr style={{ background: '#f0fff4', textAlign: 'left', color: '#276749' }}>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Nazwa usługi</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Cena jend. (zł)</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5', width: '80px' }}>Ilość</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Suma</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {calcServices.map((item, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                        <td style={{ padding: '6px 8px' }}>{item.name}</td>
-                        <td style={{ padding: '6px 8px' }}>
-                          {editingPrice === `srv-${index}` ? (
-                            <input autoFocus type="number" step="0.01" value={priceDraft}
-                              onChange={e => setPriceDraft(e.target.value)}
-                              onBlur={() => handlePriceSave('calc_services', calcServices, index)}
-                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
-                            />
-                          ) : (
-                            <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
-                              style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
-                              {Number(item.price).toFixed(2)}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '6px 8px' }}>
-                          <input
-                            type="text"
-                            value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
-                            onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
-                            onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
-                            onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
-                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
-                            title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                            style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px' }}
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych usług</div>}
+                  {calcServices.map((item, index) => (
+                    <div key={index} style={{ background: '#f0fff4', borderRadius: '7px', border: '1px solid #c6f6d5', borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
+                      <div style={{ fontWeight: 'bold', color: '#276749', fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {editingPrice === `srv-${index}` ? (
+                          <input autoFocus type="number" step="0.01" value={priceDraft}
+                            onChange={e => setPriceDraft(e.target.value)}
+                            onBlur={() => handlePriceSave('calc_services', calcServices, index)}
+                            onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                            style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px' }}
                           />
-                        </td>
-                        <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                        ) : (
+                          <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
+                            style={{ cursor: 'pointer', background: '#fff', border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: '#4a5568' }}>
+                            {Number(item.price).toFixed(2)} zł
+                          </span>
+                        )}
+                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>×</span>
+                        <input type="text"
+                          value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
+                          onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
+                          onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
+                          onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
+                          onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
+                          style={{ width: '65px', padding: '3px 5px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '13px', background: '#fff' }}
+                        />
+                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
+                        <strong style={{ color: '#276749', fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
                         {renderDeleteBtn('calc_services', calcServices, index)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                    <thead>
+                      <tr style={{ background: '#f0fff4', textAlign: 'left', color: '#276749' }}>
+                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Nazwa usługi</th>
+                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Cena jend. (zł)</th>
+                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5', width: '80px' }}>Ilość</th>
+                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Suma</th>
+                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}></th>
                       </tr>
-                    ))}
-                    {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {calcServices.map((item, index) => (
+                        <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: `3px solid ${rowStripe(item)}` }}>
+                          <td style={{ padding: '6px 8px' }}>{item.name}</td>
+                          <td style={{ padding: '6px 8px' }}>
+                            {editingPrice === `srv-${index}` ? (
+                              <input autoFocus type="number" step="0.01" value={priceDraft}
+                                onChange={e => setPriceDraft(e.target.value)}
+                                onBlur={() => handlePriceSave('calc_services', calcServices, index)}
+                                onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                                style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                              />
+                            ) : (
+                              <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
+                                style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
+                                {Number(item.price).toFixed(2)}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '6px 8px' }}>
+                            <input type="text"
+                              value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
+                              onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
+                              onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
+                              onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
+                              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
+                              title="Wpisz liczbę lub wyrażenie: 37+20+16"
+                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                          {renderDeleteBtn('calc_services', calcServices, index)}
+                        </tr>
+                      ))}
+                      {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               <div style={{ textAlign: 'right', marginTop: '8px' }}>
                 <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: '#edf2f7', color: '#2d3748', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
               </div>
