@@ -4,6 +4,7 @@ import FilesTab from './FilesTab';
 const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
   const [activeTab, setActiveTab] = useState('materials');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
@@ -292,15 +293,8 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
 
           {/* УСЛУГИ */}
           {activeTab === 'services' && (
-            <div>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', flexWrap: 'wrap' }}>
-                <select id="service-select" style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e0', flex: 1, minWidth: '200px', fontSize: '13px' }}>
-                  <option value="">-- Wybierz usługę z bazy --</option>
-                  {(servicesList || []).map(s => <option key={s.id} value={JSON.stringify(s)}>{s.name} ({s.price} zł)</option>)}
-                </select>
-                <button onClick={() => { const sel = document.getElementById('service-select'); if(sel.value) handleAddItem('calc_services', calcServices, JSON.parse(sel.value)); sel.value = ''; }} style={{ background: '#38a169', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>Dodaj z bazy</button>
-                <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: '#edf2f7', color: '#2d3748', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>+ Usługa niestandardowa</button>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
               <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
                   <thead>
@@ -341,6 +335,46 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                     {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
                   </tbody>
                 </table>
+              </div>
+              <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: '#edf2f7', color: '#2d3748', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
+              </div>
+            </div>
+
+              {/* BAZA USŁUG */}
+              <div style={{ background: '#f0fff4', padding: '10px', borderRadius: '6px', border: '1px solid #c6f6d5' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#276749' }}>🔍 Baza usług</h3>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Szukaj usługi..."
+                    value={searchService}
+                    onChange={e => setSearchService(e.target.value)}
+                    style={{ padding: '6px 8px', border: '1px solid #9ae6b4', borderRadius: '4px', fontSize: '12px', flex: 1 }}
+                  />
+                </div>
+                <div style={{ maxHeight: '220px', overflowY: 'auto', borderTop: '1px solid #c6f6d5', background: '#fff', borderRadius: '4px' }}>
+                  {(servicesList || [])
+                    .filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase()))
+                    .map(s => {
+                      const isSelected = calcServices.some(item => item.id === s.id);
+                      return (
+                        <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: '1px solid #f0fff4', fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? '#f0fff4' : '#fff' }}>
+                          <div onClick={() => toggleRow(`avail_srv_${s.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_srv_${s.id}`] ? 'normal' : 'nowrap', color: '#2d3748' }}>{s.name}</div>
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
+                            <strong style={{ color: '#276749' }}>{Number(s.price).toFixed(2)} zł</strong>
+                            <button onClick={() => handleAddItem('calc_services', calcServices, s)} style={{ background: isSelected ? '#cbd5e0' : '#38a169', color: isSelected ? '#2d3748' : '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
+                              {isSelected ? '+ Kol.' : '+ Dodaj'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
+                  {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase())).length === 0 && (
+                    <div style={{ padding: '10px', textAlign: 'center', color: '#a0aec0', fontSize: '12px' }}>Brak wyników</div>
+                  )}
+                </div>
               </div>
             </div>
           )}
