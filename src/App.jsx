@@ -69,8 +69,7 @@ function App() {
     }
   }
 
-async function handleUpdateClient(e) {
-    e.preventDefault()
+async function handleUpdateClient() {
     const { data, error } = await supabase.from('clients')
       .update({ 
         notes: activeClient.notes, 
@@ -78,12 +77,16 @@ async function handleUpdateClient(e) {
         address: activeClient.address, 
         calc_materials: activeClient.calc_materials || [], 
         calc_services: activeClient.calc_services || [],
-        calc_expenses: activeClient.calc_expenses || [] // <- ДОБАВИЛИ ЭТУ СТРОЧКУ
+        calc_expenses: activeClient.calc_expenses || [],
+        budget: activeClient.budget || 0,
+        budget_coefficient: activeClient.budget_coefficient || 2.0,
+        updated_by: profile?.id || null,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', activeClient.id).select()
     if (!error && data) {
       setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
-      //setActiveClient(null)
+      setActiveClient(null)
     }
   }
 
