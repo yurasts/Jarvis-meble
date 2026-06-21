@@ -225,6 +225,7 @@ async function handleUpdateClient() {
             handleDragOver={handleDragOver} 
             handleDrop={handleDrop} 
             profilesById={profilesById}
+            onUpdateClient={updateClientFields}
           />
         )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
