@@ -13,6 +13,40 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null); // 'mat-0', 'srv-1', 'exp-2'
   const [priceDraft, setPriceDraft] = useState('');
+  const [qtyDraft, setQtyDraft] = useState({}); // { 'mat-0': '37+20+16', ... }
+
+  // Вычисляет выражение типа "37+20+16" → 73, защищённо
+  const evalQty = (expr) => {
+    if (expr === '' || expr === null || expr === undefined) return null;
+    const str = String(expr).replace(',', '.').replace(/[^0-9+\-*/.()\s]/g, '');
+    try {
+      // eslint-disable-next-line no-new-func
+      const result = Function('"use strict"; return (' + str + ')')();
+      if (typeof result === 'number' && isFinite(result) && result > 0) return parseFloat(result.toFixed(4));
+    } catch {}
+    return null;
+  };
+
+  const handleQtyFocus = (key, currentValue) => {
+    setQtyDraft(prev => ({ ...prev, [key]: String(currentValue ?? '') }));
+  };
+
+  const handleQtyChange = (key, value) => {
+    setQtyDraft(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleQtyCommit = (field, currentItems, index, key) => {
+    const raw = qtyDraft[key];
+    if (raw === undefined) return;
+    const computed = evalQty(raw);
+    if (computed !== null) {
+      handleQuantityChange(field, currentItems, index, computed);
+      setQtyDraft(prev => ({ ...prev, [key]: String(computed) }));
+    } else {
+      // невалидное выражение — откатываем к текущему значению
+      setQtyDraft(prev => ({ ...prev, [key]: String(currentItems[index].quantity ?? 1) }));
+    }
+  };
   const [coefficient, setCoefficient] = useState(Number(client.budget_coefficient) || 2.0);
 
   const calcMaterials = client.calc_materials || [];
@@ -270,7 +304,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           </td>
                           <td style={{ padding: '4px 8px' }}>{item.unit || 'szt'}</td>
                           <td style={{ padding: '4px 8px' }}>
-                            <input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => handleQuantityChange('calc_materials', calcMaterials, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }} />
+                            <input
+                              type="text"
+                              value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
+                              onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
+                              onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
+                              onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
+                              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
+                              title="Wpisz liczbę lub wyrażenie: 37+20+16"
+                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
+                            />
                           </td>
                           <td style={{ padding: '4px 8px', fontWeight: 'bold', color: '#2b6cb0' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                           {renderDeleteBtn('calc_materials', calcMaterials, index)}
@@ -358,7 +401,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           )}
                         </td>
                         <td style={{ padding: '6px 8px' }}>
-                          <input type="number" min="1" value={item.quantity || 1} onChange={(e) => handleQuantityChange('calc_services', calcServices, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px' }} />
+                          <input
+                            type="text"
+                            value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
+                            onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
+                            onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
+                            onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
+                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
+                            title="Wpisz liczbę lub wyrażenie: 37+20+16"
+                            style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px' }}
+                          />
                         </td>
                         <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                         {renderDeleteBtn('calc_services', calcServices, index)}
@@ -448,7 +500,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           )}
                         </td>
                         <td style={{ padding: '6px 8px' }}>
-                          <input type="number" min="1" step="any" value={item.quantity || 1} onChange={(e) => handleQuantityChange('calc_expenses', calcExpenses, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px' }} />
+                          <input
+                            type="text"
+                            value={qtyDraft[`exp-${index}`] !== undefined ? qtyDraft[`exp-${index}`] : (item.quantity || 1)}
+                            onFocus={() => handleQtyFocus(`exp-${index}`, item.quantity || 1)}
+                            onChange={e => handleQtyChange(`exp-${index}`, e.target.value)}
+                            onBlur={() => handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`)}
+                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`); e.target.blur(); } }}
+                            title="Wpisz liczbę lub wyrażenie: 37+20+16"
+                            style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px' }}
+                          />
                         </td>
                         <td style={{ padding: '6px 8px', fontWeight: 'bold', color: '#c53030' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                         {renderDeleteBtn('calc_expenses', calcExpenses, index)}
@@ -483,7 +544,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   Zamknij bez zapisania
                 </button>
                 <button
-                  onClick={() => { onSave({ preventDefault: () => {} }); setConfirmClose(false); }}
+                  onClick={() => { onSave(); setConfirmClose(false); }}
                   style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
                   Zapisz i zamknij
