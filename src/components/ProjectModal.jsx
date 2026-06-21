@@ -8,7 +8,9 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const [filterSupplier, setFilterSupplier] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
-  const [confirmDeleteKey, setConfirmDeleteKey] = useState(null); // 'materials-2', 'services-0' и т.д.
+  const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
+  const [editingPrice, setEditingPrice] = useState(null); // 'mat-0', 'srv-1', 'exp-2'
+  const [priceDraft, setPriceDraft] = useState('');
 
   const calcMaterials = client.calc_materials || [];
   const calcServices = client.calc_services || [];
@@ -56,6 +58,16 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
     const updated = [...currentItems];
     updated[index].quantity = newQuantity;
     updateItems(field, updated);
+  };
+
+  const handlePriceSave = (field, currentItems, index) => {
+    const val = parseFloat(priceDraft);
+    if (!isNaN(val) && val >= 0) {
+      const updated = [...currentItems];
+      updated[index] = { ...updated[index], price: val };
+      updateItems(field, updated);
+    }
+    setEditingPrice(null);
   };
 
   const handleCustomAdd = (field, currentItems) => {
@@ -172,7 +184,28 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                       {calcMaterials.map((item, index) => (
                         <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ebf8ff', borderLeft: `3px solid ${rowStripe(item)}` }}>
                           <td onClick={() => toggleRow(`sel_${index}`) style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
-                          <td style={{ padding: '4px 8px' }}>{Number(item.price).toFixed(2)} zł</td>
+                          <td style={{ padding: '4px 8px' }}>
+                            {editingPrice === `mat-${index}` ? (
+                              <input
+                                autoFocus
+                                type="number"
+                                step="0.01"
+                                value={priceDraft}
+                                onChange={e => setPriceDraft(e.target.value)}
+                                onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
+                                onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                                style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                              />
+                            ) : (
+                              <span
+                                onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
+                                style={{ cursor: 'pointer', color: '#2b6cb0', borderBottom: '1px dashed #a0aec0' }}
+                                title="Kliknij aby zmienić cenę"
+                              >
+                                {Number(item.price).toFixed(2)} zł
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: '4px 8px' }}>{item.unit || 'szt'}</td>
                           <td style={{ padding: '4px 8px' }}>
                             <input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => handleQuantityChange('calc_materials', calcMaterials, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }} />
@@ -254,7 +287,21 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                     {calcServices.map((item, index) => (
                       <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: `3px solid ${rowStripe(item)}` }}>
                         <td style={{ padding: '6px 8px' }}>{item.name}</td>
-                        <td style={{ padding: '6px 8px' }}>{Number(item.price).toFixed(2)}</td>
+                        <td style={{ padding: '6px 8px' }}>
+                          {editingPrice === `srv-${index}` ? (
+                            <input autoFocus type="number" step="0.01" value={priceDraft}
+                              onChange={e => setPriceDraft(e.target.value)}
+                              onBlur={() => handlePriceSave('calc_services', calcServices, index)}
+                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                            />
+                          ) : (
+                            <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
+                              style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
+                              {Number(item.price).toFixed(2)}
+                            </span>
+                          )}
+                        </td>
                         <td style={{ padding: '6px 8px' }}>
                           <input type="number" min="1" value={item.quantity || 1} onChange={(e) => handleQuantityChange('calc_services', calcServices, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px' }} />
                         </td>
@@ -290,7 +337,21 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                     {calcExpenses.map((item, index) => (
                       <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: `3px solid ${rowStripe(item)}` }}>
                         <td style={{ padding: '6px 8px' }}>{item.name}</td>
-                        <td style={{ padding: '6px 8px' }}>{Number(item.price).toFixed(2)}</td>
+                        <td style={{ padding: '6px 8px' }}>
+                          {editingPrice === `exp-${index}` ? (
+                            <input autoFocus type="number" step="0.01" value={priceDraft}
+                              onChange={e => setPriceDraft(e.target.value)}
+                              onBlur={() => handlePriceSave('calc_expenses', calcExpenses, index)}
+                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_expenses', calcExpenses, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                            />
+                          ) : (
+                            <span onClick={() => { setEditingPrice(`exp-${index}`); setPriceDraft(String(item.price)); }}
+                              style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
+                              {Number(item.price).toFixed(2)}
+                            </span>
+                          )}
+                        </td>
                         <td style={{ padding: '6px 8px' }}>
                           <input type="number" min="1" step="any" value={item.quantity || 1} onChange={(e) => handleQuantityChange('calc_expenses', calcExpenses, index, e.target.value)} style={{ width: '50px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px' }} />
                         </td>
