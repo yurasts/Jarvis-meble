@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import FilesTab from './FilesTab';
 
 const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
@@ -11,6 +11,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null); // 'mat-0', 'srv-1', 'exp-2'
   const [priceDraft, setPriceDraft] = useState('');
+  const [coefficient, setCoefficient] = useState(Number(client.budget_coefficient) || 2.0);
 
   const calcMaterials = client.calc_materials || [];
   const calcServices = client.calc_services || [];
@@ -20,6 +21,13 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
   const totalServices = calcServices.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)), 0);
   const totalExpenses = calcExpenses.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)), 0);
   const totalProjectCost = totalMaterials + totalServices + totalExpenses;
+
+  // Автопересчёт бюджета при изменении суммы затрат или коэффициента
+  useEffect(() => {
+    const coef = parseFloat(coefficient) || 1;
+    const newBudget = parseFloat((totalProjectCost * coef).toFixed(2));
+    setClient(prev => ({ ...prev, budget: newBudget, budget_coefficient: coef }));
+  }, [totalProjectCost, coefficient]);
 
   const uniqueCategories = [...new Set((materials || []).map(m => m.category).filter(Boolean))];
   const uniqueSuppliers = [...new Set((materials || []).map(m => m.supplier).filter(Boolean))];
@@ -122,8 +130,29 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #edf2f7', paddingBottom: '10px', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#2d3748' }}>{client.full_name}</h2>
-            <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px' }}>
-              Budżet: <strong>{Number(client.budget || 0).toFixed(2)} zł</strong> | Koszty całkowite: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong>
+            <div style={{ fontSize: '13px', color: '#718096', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span>Koszty całkowite: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ color: '#718096' }}>× Współczynnik:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="0.1"
+                  value={coefficient}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    setCoefficient(e.target.value);
+                    if (!isNaN(val) && val > 0) {
+                      setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
+                    }
+                  }}
+                  style={{ width: '60px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center' }}
+                />
+              </span>
+              <span style={{ background: '#ebf8ff', border: '1px solid #bee3f8', borderRadius: '6px', padding: '2px 10px' }}>
+                Budżet: <strong style={{ color: '#2b6cb0', fontSize: '14px' }}>{(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł</strong>
+              </span>
             </div>
             {editor && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px' }}>
@@ -183,7 +212,7 @@ const ProjectModal = ({ client, setClient, materials, servicesList, onClose, onS
                     <tbody>
                       {calcMaterials.map((item, index) => (
                         <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ebf8ff', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                          <td onClick={() => toggleRow(`sel_${index}`) style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
+                          <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
                           <td style={{ padding: '4px 8px' }}>
                             {editingPrice === `mat-${index}` ? (
                               <input
