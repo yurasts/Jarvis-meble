@@ -10,7 +10,7 @@ import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
 
 function App() {
-  const { session, profile: authProfile, profilesById, loadingSession, awaitingAccess, signOut } = useAuth()
+  const { session, profile: authProfile, profilesById, isDark, loadingSession, awaitingAccess, signOut } = useAuth()
   const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -69,7 +69,8 @@ function App() {
     }
   }
 
-async function handleUpdateClient() {
+async function handleUpdateClient(e) {
+    e.preventDefault()
     const { data, error } = await supabase.from('clients')
       .update({ 
         notes: activeClient.notes, 
@@ -77,16 +78,12 @@ async function handleUpdateClient() {
         address: activeClient.address, 
         calc_materials: activeClient.calc_materials || [], 
         calc_services: activeClient.calc_services || [],
-        calc_expenses: activeClient.calc_expenses || [],
-        budget: activeClient.budget || 0,
-        budget_coefficient: activeClient.budget_coefficient || 2.0,
-        updated_by: profile?.id || null,
-        updated_at: new Date().toISOString(),
+        calc_expenses: activeClient.calc_expenses || [] // <- ДОБАВИЛИ ЭТУ СТРОЧКУ
       })
       .eq('id', activeClient.id).select()
     if (!error && data) {
       setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
-      setActiveClient(null)
+      //setActiveClient(null)
     }
   }
 
@@ -193,7 +190,7 @@ async function handleUpdateClient() {
         <div className={`menu-item ${activeTab === 'materials' ? 'active' : ''}`} onClick={() => setActiveTab('materials')}>📦 Materiały</div>
         <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>⚙️ Ustawienia</div>
 
-        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #3b3b54', fontSize: '13px' }}>
+        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${isDark ? '#1e293b' : '#3b3b54'}`, fontSize: '13px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: profile?.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 'bold', flexShrink: 0 }}>
             {(profile?.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
@@ -215,6 +212,7 @@ async function handleUpdateClient() {
             profilesById={profilesById}
             canCreate={canCreate}
             currentProfile={profile}
+            isDark={isDark}
           />
         )}
         {activeTab === 'board' && (
@@ -225,7 +223,7 @@ async function handleUpdateClient() {
             handleDragOver={handleDragOver} 
             handleDrop={handleDrop} 
             profilesById={profilesById}
-            onUpdateClient={updateClientFields}
+            isDark={isDark}
           />
         )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
@@ -253,8 +251,7 @@ async function handleUpdateClient() {
 
       {activeClient && (
         <ProjectModal 
-          client={activeClient}
-          originalClient={clients.find(c => c.id === activeClient.id) || null}
+          client={activeClient} 
           setClient={setActiveClient} 
           materials={materials} 
           servicesList={servicesList} 

@@ -9,7 +9,16 @@ const shortDate = (dateStr) => {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 };
 
-const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, profilesById = {}, canCreate = true, currentProfile = null }) => {
+const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, profilesById = {}, canCreate = true, currentProfile = null, isDark = false }) => {
+  const c = (light, dark) => isDark ? dark : light;
+  const bg = c('#fff', '#1e293b');
+  const bgHeader = c('#f8fafc', '#162032');
+  const bgTask = c('#f7fafc', '#1a2535');
+  const bgTaskDone = c('#f0fff4', '#162a1e');
+  const text = c('#2d3748', '#e2e8f0');
+  const textLight = c('#4a5568', '#94a3b8');
+  const border = c('#e2e8f0', '#334155');
+  const borderDone = c('#c6f6d5', '#1a4a2e');
   const [newTaskParams, setNewTaskParams] = useState({});
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [expandedTaskId, setExpandedTaskId] = useState(null);   // показать подпись задачи
@@ -52,7 +61,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
 
         {/* Заголовок */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, color: '#2d3748', fontSize: '18px' }}>📋 Centrum Dowodzenia ({activeProjects.length})</h2>
+          <h2 style={{ margin: 0, color: text, fontSize: '18px' }}>📋 Centrum Dowodzenia ({activeProjects.length})</h2>
           {canCreate && (
             <button onClick={() => setIsModalOpen(true)} style={{ background: '#38a169', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
               + Nowy projekt
@@ -61,7 +70,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
         </div>
 
         {activeProjects.length === 0 ? (
-          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', color: '#718096' }}>
+          <div style={{ background: bg, padding: '20px', borderRadius: '8px', border: `1px solid ${border}`, color: textLight }}>
             Brak aktywnych projektów.
           </div>
         ) : (
@@ -70,17 +79,17 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
             const isProjectExpanded = expandedProjectId === project.id;
 
             return (
-              <div key={project.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #cbd5e0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+              <div key={project.id} style={{ background: bg, borderRadius: '10px', border: `1px solid ${border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
 
                 {/* Шапка проекта — адаптивная */}
-                <div style={{ background: '#f8fafc', padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ background: bgHeader, padding: '10px 14px', borderBottom: `1px solid ${border}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
 
                     {/* Левая часть: имя + адрес + дедлайн */}
                     <div style={{ flex: 1, minWidth: '200px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                        <h3 style={{ margin: 0, color: '#2b6cb0', fontSize: '15px', fontWeight: 'bold' }}>{project.full_name}</h3>
-                        <span style={{ fontSize: '11px', background: '#edf2f7', color: '#4a5568', padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                        <h3 style={{ margin: 0, color: '#4da6ff', fontSize: '15px', fontWeight: 'bold' }}>{project.full_name}</h3>
+                        <span style={{ fontSize: '11px', background: c('#edf2f7', '#253347'), color: textLight, padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                           {project.status || 'Nowe'}
                         </span>
                       </div>
@@ -131,8 +140,8 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                 </div>
 
                 {/* Список задач */}
-                <div style={{ padding: '10px 12px' }}>
-                  <div style={{ fontSize: '11px', color: '#a0aec0', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px', letterSpacing: '0.5px' }}>✅ Lista zadań</div>
+                <div style={{ padding: '10px 12px', background: bg }}>
+                  <div style={{ fontSize: '11px', color: textLight, textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '6px', letterSpacing: '0.5px' }}>✅ Lista zadań</div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
                     {(project.tasks || []).length === 0 && (
@@ -144,7 +153,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                       const isExpanded = expandedTaskId === task.id;
 
                       return (
-                        <div key={task.id} style={{ borderRadius: '5px', border: '1px solid', borderColor: isConfirm ? '#feb2b2' : task.isDone ? '#c6f6d5' : '#e2e8f0', background: isConfirm ? '#fff5f5' : task.isDone ? '#f0fff4' : '#f7fafc', overflow: 'hidden', transition: 'all 0.15s' }}>
+                        <div key={task.id} style={{ borderRadius: '5px', border: '1px solid', borderColor: isConfirm ? c('#feb2b2', '#7b2020') : task.isDone ? borderDone : border, background: isConfirm ? c('#fff5f5', '#2d1515') : task.isDone ? bgTaskDone : bgTask, overflow: 'hidden', transition: 'all 0.15s' }}>
                           <div style={{ display: 'flex', alignItems: 'center', borderLeft: `3px solid ${taskColor}` }}>
                             {/* Чекбокс */}
                             <input
@@ -159,7 +168,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                               style={{ flex: 1, padding: '5px 4px', cursor: 'pointer' }}
                               onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
                             >
-                              <span style={{ fontSize: '13px', color: isConfirm ? '#e53e3e' : task.isDone ? '#a0aec0' : '#2d3748', textDecoration: task.isDone ? 'line-through' : 'none' }}>
+                              <span style={{ fontSize: '13px', color: isConfirm ? '#fc8181' : task.isDone ? c('#a0aec0', '#64748b') : text, textDecoration: task.isDone ? 'line-through' : 'none' }}>
                                 {task.text}
                               </span>
                             </div>
@@ -211,13 +220,13 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                       value={newTaskParams[project.id]?.text || ''}
                       onChange={(e) => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], text: e.target.value } }))}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddTask(project.id)}
-                      style={{ flex: 1, minWidth: '160px', padding: '6px 8px', borderRadius: '5px', border: '1px solid #cbd5e0', fontSize: '12px' }}
+                      style={{ flex: 1, minWidth: '160px', padding: '6px 8px', borderRadius: '5px', border: `1px solid ${border}`, fontSize: '12px', background: c('#fff', '#0f172a'), color: text }}
                     />
                     <input
                       type="date"
                       value={newTaskParams[project.id]?.date || ''}
                       onChange={(e) => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], date: e.target.value } }))}
-                      style={{ width: '120px', padding: '6px 8px', borderRadius: '5px', border: '1px solid #cbd5e0', fontSize: '12px' }}
+                      style={{ width: '120px', padding: '6px 8px', borderRadius: '5px', border: `1px solid ${border}`, fontSize: '12px', background: c('#fff', '#0f172a'), color: text }}
                     />
                     <button
                       onClick={() => handleAddTask(project.id)}

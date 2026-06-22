@@ -1,10 +1,8 @@
-
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
-// undefined = сессию ещё не проверили, null = проверили, гостя нет
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined)
   const [profile, setProfile] = useState(null)
@@ -21,10 +19,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!session) {
-      setProfile(null)
-      setProfilesById({})
-      setProfilesLoaded(false)
-      return
+      setProfile(null); setProfilesById({}); setProfilesLoaded(false); return
     }
     async function loadProfiles() {
       const { data } = await supabase.from('profiles').select('*')
@@ -37,13 +32,28 @@ export function AuthProvider({ children }) {
     loadProfiles()
   }, [session])
 
+  // Применяем тему к DOM при каждом изменении профиля
+  useEffect(() => {
+    const theme = profile?.theme || 'light'
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [profile?.theme])
+
+  async function updateTheme(newTheme) {
+    if (!profile) return
+    const { data } = await supabase.from('profiles').update({ theme: newTheme }).eq('id', profile.id).select().single()
+    if (data) {
+      setProfile(data)
+      setProfilesById(prev => ({ ...prev, [data.id]: data }))
+    }
+  }
+
+  const isDark = (profile?.theme || 'light') === 'dark'
+
   const value = {
-    session,
-    profile,
-    profilesById,
+    session, profile, profilesById, isDark,
     loadingSession: session === undefined,
-    // сессия есть, но строки в profiles ещё нет — владелец не завёл доступ
     awaitingAccess: !!session && profilesLoaded && !profile,
+    updateTheme,
     signOut: () => supabase.auth.signOut(),
   }
 

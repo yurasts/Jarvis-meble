@@ -343,3 +343,84 @@ html, body, #root {
     white-space: nowrap;
   }
 }
+
+[data-theme="dark"] .menu-item {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .menu-item:hover {
+  background-color: #253347;
+}
+
+[data-theme="dark"] .menu-item.active {
+  background-color: #253347;
+  border-left-color: #4da6ff;
+}
+
+[data-theme="dark"] .kanban-board {
+  background-color: #0f172a;
+}
+
+[data-theme="dark"] .kanban-column {
+  background-color: #1e293b;
+}
+
+[data-theme="dark"] .kanban-column h3 {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .client-card {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .client-card:hover {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+}
+
+[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .modal-content {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .form-group label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group select {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group select:focus {
+  border-color: #4da6ff;
+}
+
+[data-theme="dark"] .btn-secondary {
+  background-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .materials-table {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .materials-table th {
+  background-color: #162032;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .materials-table td {
+  border-bottom-color: #334155;
+  color: #e2e8f0;
+}
