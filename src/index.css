@@ -424,3 +424,63 @@ html, body, #root {
   border-bottom-color: #334155;
   color: #e2e8f0;
 }
+
+/* === ИСПРАВЛЕНИЕ БЕЛОГО ФОНА В ТЁМНОЙ ТЕМЕ === */
+html[data-theme="dark"],
+html[data-theme="dark"] body,
+html[data-theme="dark"] #root {
+  background-color: #0f172a !important;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .main-content {
+  background-color: #0f172a !important;
+}
+
+html[data-theme="dark"] .app-container {
+  background-color: #0f172a;
+}
+
+html[data-theme="dark"] .kanban-column {
+  background-color: #1e293b;
+}
+
+html[data-theme="dark"] .client-card {
+  background-color: #111827;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .sidebar {
+  background-color: #0d1117;
+}
+
+html[data-theme="dark"] .menu-item {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .menu-item:hover,
+html[data-theme="dark"] .menu-item.active {
+  background-color: #253347;
+}
+
+html[data-theme="dark"] .modal-content {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .form-group label { color: #94a3b8; }
+
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .btn-secondary {
+  background-color: #334155;
+  color: #e2e8f0;
+}
+

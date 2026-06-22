@@ -51,7 +51,15 @@ const PriceTrend = ({ mat }) => {
   );
 };
 
-const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated }) => {
+const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated, isDark = false }) => {
+  const c = (light, dark) => isDark ? dark : light;
+  const bg = c('#fff', '#1e293b');
+  const bgCard = c('#f8fafc', '#162032');
+  const text = c('#2d3748', '#e2e8f0');
+  const textLight = c('#4a5568', '#94a3b8');
+  const border = c('#e2e8f0', '#334155');
+  const stripe1 = c('#ffffff', '#1a2535');
+  const stripe2 = c('#f1f5f9', '#111827');
   const [suppliers, setSuppliers] = useState([]);
   const [isSupModalOpen, setIsSupModalOpen] = useState(false);
   const [editingSupplierId, setEditingSupplierId] = useState(null);
@@ -100,9 +108,9 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: '20px', minHeight: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ margin: 0 }}>Katalog: Materiały i Usługi</h2>
+        <h2 style={{ margin: 0, color: text }}>Katalog: Materiały i Usługi</h2>
         <div style={{ display: 'flex', gap: '8px' }}>
           <InvoiceScanner materials={materials} onPricesUpdated={onPricesUpdated} />
           <button className="btn-primary" onClick={() => setIsMaterialModalOpen(true)} style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -114,29 +122,29 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
       <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         
         {/* МАТЕРИАЛЫ */}
-        <div style={{ flex: '2 1 600px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#2d3748', fontSize: '16px' }}>📦 Baza materiałów</h3>
+        <div style={{ flex: '2 1 600px', background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', color: text, fontSize: '16px' }}>📦 Baza materiałów</h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: '#edf2f7', textAlign: 'left' }}>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Kategoria</th>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Cena, PLN</th>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Nazwa materiału</th>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Jm</th>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Dostawca</th>
+                <tr style={{ background: c('#edf2f7','#253347'), textAlign: 'left' }}>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Kategoria</th>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Cena, PLN</th>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Nazwa materiału</th>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Jm</th>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Dostawca</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.map((mat, index) => (
-                  <tr key={mat.id} style={{ background: index % 2 === 0 ? '#ffffff' : '#f1f5f9', lineHeight: '1.2' }}>
-                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{mat.category}</td>
+                  <tr key={mat.id} style={{ background: index % 2 === 0 ? stripe1 : stripe2, lineHeight: '1.2' }}>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.category}</td>
                     <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>
                       <PriceTrend mat={mat} />
                     </td>
-                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{mat.name}</td>
-                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{mat.unit}</td>
-                    <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0', color: '#718096' }}>{mat.supplier || '-'}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>{mat.name}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.unit}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.supplier || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -145,19 +153,19 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
         </div>
 
         {/* УСЛУГИ */}
-        <div style={{ flex: '1 1 350px', background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#2d3748', fontSize: '16px' }}>🛠 Stałe usługi</h3>
+        <div style={{ flex: '1 1 350px', background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', color: text, fontSize: '16px' }}>🛠 Stałe usługi</h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: '#edf2f7', textAlign: 'left' }}>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '30%' }}>Cena, PLN</th>
-                  <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '70%' }}>Nazwa usługi</th>
+                <tr style={{ background: c('#edf2f7','#253347'), textAlign: 'left' }}>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight, width: '30%' }}>Cena, PLN</th>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight, width: '70%' }}>Nazwa usługi</th>
                 </tr>
               </thead>
               <tbody>
                 {(servicesList || []).map((srv, index) => (
-                  <tr key={srv.id || index} style={{ background: index % 2 === 0 ? '#ffffff' : '#f1f5f9', lineHeight: '1.2' }}>
+                  <tr key={srv.id || index} style={{ background: index % 2 === 0 ? stripe1 : stripe2, lineHeight: '1.2' }}>
                     <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', color: '#2b6cb0' }}>{Number(srv.price).toFixed(2)}</td>
                     <td style={{ padding: '3px 8px', borderBottom: '1px solid #e2e8f0' }}>{srv.name}</td>
                   </tr>
@@ -171,7 +179,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
       {/* ПОСТАВЩИКИ */}
       <div style={{ marginTop: '40px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, color: '#2d3748', fontSize: '20px' }}>🏭 Baza Dostawców</h2>
+          <h2 style={{ margin: 0, color: text, fontSize: '20px' }}>🏭 Baza Dostawców</h2>
           <button onClick={openAddModal} style={{ background: '#38a169', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
             + Nowy dostawca
           </button>
@@ -184,18 +192,18 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
             {suppliers.map(supplier => (
-              <div key={supplier.id} style={{ background: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', position: 'relative' }}>
+              <div key={supplier.id} style={{ background: bg, padding: '15px', borderRadius: '8px', border: `1px solid ${border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', position: 'relative' }}>
                 <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '5px' }}>
                   <button onClick={() => openEditModal(supplier)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }} title="Edytuj">✏️</button>
                   <button onClick={() => handleDeleteSupplier(supplier.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }} title="Usuń">🗑️</button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px', paddingRight: '40px' }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', color: '#2d3748' }}>{supplier.name}</h3>
+                  <h3 style={{ margin: 0, fontSize: '16px', color: text }}>{supplier.name}</h3>
                 </div>
                 <div style={{ marginBottom: '8px' }}>
                   <span style={{ fontSize: '11px', background: '#edf2f7', color: '#4a5568', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>{supplier.category}</span>
                 </div>
-                <div style={{ fontSize: '13px', color: '#4a5568', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ fontSize: '13px', color: textLight, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {supplier.phone && <div>📞 <a href={`tel:${supplier.phone}`} style={{ color: '#3182ce', textDecoration: 'none', fontWeight: 'bold' }}>{supplier.phone}</a></div>}
                   {supplier.hours && <div>🕒 {supplier.hours}</div>}
                   {supplier.address && <div>📍 <a href={`https://www.google.com/maps?q=${encodeURIComponent(supplier.address)}`} target="_blank" rel="noreferrer" style={{ color: '#3182ce', textDecoration: 'none' }}>{supplier.address}</a></div>}

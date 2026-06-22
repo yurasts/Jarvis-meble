@@ -227,7 +227,7 @@ async function handleUpdateClient(e) {
           />
         )}
         {activeTab === 'production' && <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />}
-        {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} onPricesUpdated={reloadMaterials} />}
+        {activeTab === 'materials' && <MaterialsList materials={materials} servicesList={servicesList} setIsMaterialModalOpen={setIsMaterialModalOpen} onPricesUpdated={reloadMaterials} isDark={isDark} />}
         {activeTab === 'settings' && <Settings profile={profile} profilesById={profilesById} onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))} />}
       </div>
       
