@@ -1,0 +1,79 @@
+/* ================================
+   KanbanBoard.module.css
+   ================================ */
+
+/* --- Заголовок страницы --- */
+.pageTitle {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  color: var(--text-main);
+}
+
+/* --- Карточка клиента --- */
+/* Базовые стили (.client-card) уже есть в index.css,
+   здесь только специфика содержимого карточки */
+
+.cardName {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.cardPhone {
+  margin: 2px 0;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.cardAddress {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.addressLink {
+  color: #3182ce;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.cardDeadline {
+  font-weight: bold;
+  font-size: 12px;
+  margin-top: 4px;
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 5px 0;
+}
+
+.cardBudget {
+  margin: 2px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cardKoszty {
+  margin: 2px 0;
+  font-size: 13px;
+  color: #e53e3e;
+}
+
+.cardZysk {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #38a169;
+}
+
+.cardEditor {
+  font-size: 11px;
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-muted);
+}
