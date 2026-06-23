@@ -1,8 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import FilesTab from './FilesTab';
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false }) => {
   const isMobile = window.innerWidth < 640;
+
+  // ✅ Цвета тёмной/светлой темы
+  const c = (light, dark) => isDark ? dark : light;
+  const bg        = c('#fff',     '#1e293b');
+  const bgHeader  = c('#edf2f7', '#162032');
+  const bgMatRow  = c('#ebf8ff', '#0f2236');
+  const bgSrvRow  = c('#f0fff4', '#0f2a1a');
+  const bgExpRow  = c('#fff5f5', '#2d1515');
+  const bgSearch  = c('#f7fafc', '#1a2535');
+  const bgInput   = c('#fff',    '#0f172a');
+  const text      = c('#2d3748', '#e2e8f0');
+  const textLight = c('#4a5568', '#94a3b8');
+  const border    = c('#e2e8f0', '#334155');
+  const borderMat = c('#bee3f8', '#1a3a5c');
+  const borderSrv = c('#c6f6d5', '#1a4a2e');
+  const borderExp = c('#fed7d7', '#7b2020');
+
   const [activeTab, setActiveTab] = useState('materials');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
@@ -12,11 +29,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [confirmClose, setConfirmClose] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
-  const [editingPrice, setEditingPrice] = useState(null); // 'mat-0', 'srv-1', 'exp-2'
+  const [editingPrice, setEditingPrice] = useState(null);
   const [priceDraft, setPriceDraft] = useState('');
-  const [qtyDraft, setQtyDraft] = useState({}); // { 'mat-0': '37+20+16', ... }
+  const [qtyDraft, setQtyDraft] = useState({});
 
-  // Вычисляет выражение типа "37+20+16" → 73, защищённо
+  // ✅ FIX: используем useEffect для синхронизации coefficient с client.budget_coefficient
+  // чтобы при повторном открытии того же проекта значение восстанавливалось из БД
+  const [coefficient, setCoefficient] = useState(Number(client.budget_coefficient) || 2.0);
+  useEffect(() => {
+    setCoefficient(Number(client.budget_coefficient) || 2.0);
+  }, [client.id]); // перечитываем при смене проекта
+
   const evalQty = (expr) => {
     if (expr === '' || expr === null || expr === undefined) return null;
     const str = String(expr).replace(',', '.').replace(/[^0-9+\-*/.()\s]/g, '');
@@ -31,11 +54,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const handleQtyFocus = (key, currentValue) => {
     setQtyDraft(prev => ({ ...prev, [key]: String(currentValue ?? '') }));
   };
-
   const handleQtyChange = (key, value) => {
     setQtyDraft(prev => ({ ...prev, [key]: value }));
   };
-
   const handleQtyCommit = (field, currentItems, index, key) => {
     const raw = qtyDraft[key];
     if (raw === undefined) return;
@@ -44,53 +65,40 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       handleQuantityChange(field, currentItems, index, computed);
       setQtyDraft(prev => ({ ...prev, [key]: String(computed) }));
     } else {
-      // невалидное выражение — откатываем к текущему значению
       setQtyDraft(prev => ({ ...prev, [key]: String(currentItems[index].quantity ?? 1) }));
     }
   };
-  const [coefficient, setCoefficient] = useState(Number(client.budget_coefficient) || 2.0);
 
   const calcMaterials = client.calc_materials || [];
-  const calcServices = client.calc_services || [];
-  const calcExpenses = client.calc_expenses || [];
+  const calcServices  = client.calc_services  || [];
+  const calcExpenses  = client.calc_expenses  || [];
 
-  const totalMaterials = calcMaterials.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-  const totalServices = calcServices.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)), 0);
-  const totalExpenses = calcExpenses.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)), 0);
-  const totalProjectCost = totalMaterials + totalServices + totalExpenses;
+  const totalMaterials    = calcMaterials.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0);
+  const totalServices     = calcServices.reduce((s, i)  => s + Number(i.price) * Number(i.quantity || 1), 0);
+  const totalExpenses     = calcExpenses.reduce((s, i)  => s + Number(i.price) * Number(i.quantity || 1), 0);
+  const totalProjectCost  = totalMaterials + totalServices + totalExpenses;
 
-  // Проверяем есть ли несохранённые изменения
   const isDirty = originalClient
     ? JSON.stringify({
         calc_materials: client.calc_materials || [],
-        calc_services: client.calc_services || [],
-        calc_expenses: client.calc_expenses || [],
-        notes: client.notes,
-        deadline: client.deadline,
-        address: client.address,
-        budget: client.budget,
+        calc_services:  client.calc_services  || [],
+        calc_expenses:  client.calc_expenses  || [],
+        notes: client.notes, deadline: client.deadline,
+        address: client.address, budget: client.budget,
         budget_coefficient: client.budget_coefficient,
       }) !== JSON.stringify({
         calc_materials: originalClient.calc_materials || [],
-        calc_services: originalClient.calc_services || [],
-        calc_expenses: originalClient.calc_expenses || [],
-        notes: originalClient.notes,
-        deadline: originalClient.deadline,
-        address: originalClient.address,
-        budget: originalClient.budget,
+        calc_services:  originalClient.calc_services  || [],
+        calc_expenses:  originalClient.calc_expenses  || [],
+        notes: originalClient.notes, deadline: originalClient.deadline,
+        address: originalClient.address, budget: originalClient.budget,
         budget_coefficient: originalClient.budget_coefficient,
       })
     : false;
 
-  const handleClose = () => {
-    if (isDirty) {
-      setConfirmClose(true);
-    } else {
-      onClose();
-    }
-  };
+  const handleClose = () => { isDirty ? setConfirmClose(true) : onClose(); };
 
-  // Автопересчёт бюджета при изменении суммы затрат или коэффициента
+  // Автопересчёт бюджета
   useEffect(() => {
     const coef = parseFloat(coefficient) || 1;
     const newBudget = parseFloat((totalProjectCost * coef).toFixed(2));
@@ -98,7 +106,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   }, [totalProjectCost, coefficient]);
 
   const uniqueCategories = [...new Set((materials || []).map(m => m.category).filter(Boolean))];
-  const uniqueSuppliers = [...new Set((materials || []).map(m => m.supplier).filter(Boolean))];
+  const uniqueSuppliers  = [...new Set((materials || []).map(m => m.supplier).filter(Boolean))];
 
   const filteredMaterials = (materials || []).filter(m => {
     const matchesSearch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.symbol || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -109,12 +117,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   const toggleRow = (key) => setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
   const updateItems = (field, newItems) => setClient({ ...client, [field]: newItems });
-
-  // Метка автора — сохраняется в каждом элементе при добавлении
-  const authorMeta = () => ({
-    addedById: currentProfile?.id || null,
-    addedByColor: currentProfile?.color || '#718096',
-  });
+  const authorMeta = () => ({ addedById: currentProfile?.id || null, addedByColor: currentProfile?.color || '#718096' });
 
   const handleAddItem = (field, currentItems, item) => {
     const existing = currentItems.find(i => i.id === item.id);
@@ -154,23 +157,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   const handleCopyPortalLink = async () => {
-    if (!client.portal_token) {
-      alert('Ten projekt nie ma jeszcze portal_token. Sprawdź, czy migracja SQL została wykonana, albo odśwież stronę.');
-      return;
-    }
+    if (!client.portal_token) { alert('Ten projekt nie ma jeszcze portal_token. Sprawdź migrację SQL albo odśwież stronę.'); return; }
     const url = `${window.location.origin}/portal/${client.portal_token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch {
-      alert(url);
-    }
+    try { await navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }
+    catch { alert(url); }
   };
 
   const editor = client.updated_by ? profilesById[client.updated_by] : null;
+  const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
-  // Кнопка удаления с подтверждением — без изменения высоты строки
+  // Кнопка удаления с подтверждением
   const renderDeleteBtn = (field, currentItems, index) => {
     const key = `${field}-${index}`;
     if (confirmDeleteKey === key) return (
@@ -182,36 +178,42 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     );
     return (
       <td style={{ padding: '4px 8px', textAlign: 'center' }}>
-        <button onClick={() => setConfirmDeleteKey(key)} style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color='#e53e3e'} onMouseLeave={e => e.target.style.color='#cbd5e0'} title="Usuń">✖</button>
+        <button onClick={() => setConfirmDeleteKey(key)} style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
+          onMouseEnter={e => e.target.style.color = '#e53e3e'} onMouseLeave={e => e.target.style.color = '#cbd5e0'} title="Usuń">✖</button>
       </td>
     );
   };
 
-  // Тонкая цветная полоска слева — берём цвет автора строки или дефолт
-  const rowStripe = (item) => item.addedByColor || '#e2e8f0';
+  // Стиль таба
+  const tabBtn = (tab, activeColor, activeBorder, activeBg) => ({
+    padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
+    borderBottom: activeTab === tab ? `3px solid ${activeBorder}` : '3px solid transparent',
+    background: activeTab === tab ? (isDark ? activeBg.dark : activeBg.light) : 'transparent',
+    color: activeTab === tab ? activeColor : textLight,
+  });
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
-      <div style={{ background: '#fff', borderRadius: '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', position: 'relative' }} onClick={e => e.stopPropagation()}>
-        
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
+      <div style={{ background: bg, borderRadius: isMobile ? 0 : '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+
         {/* Шапка */}
-        <div style={{ borderBottom: '2px solid #edf2f7', paddingBottom: '10px', marginBottom: '10px' }}>
-          {/* Строка 1: имя + кнопки */}
+        <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, fontSize: isMobile ? '17px' : '20px', color: '#2d3748', flex: 1 }}>{client.full_name}</h2>
+            <h2 style={{ margin: 0, fontSize: isMobile ? '17px' : '20px', color: text, flex: 1 }}>{client.full_name}</h2>
             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
               {!isMobile && (
-                <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                   {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
                 </button>
               )}
-              <button onClick={handleClose} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e0', background: confirmClose ? '#fff5f5' : '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>✕</button>
+              <button onClick={handleClose} style={{ padding: '6px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: confirmClose ? '#fff5f5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>✕</button>
               <button onClick={onSave} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
             </div>
           </div>
-          {/* Строка 2: затраты + коэффициент + бюджет */}
+
+          {/* ✅ Koszty + коэффициент + Budżet — тёмная тема */}
           <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
-            <span style={{ color: '#718096' }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
+            <span style={{ color: textLight }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
             <span style={{ color: '#a0aec0' }}>×</span>
             <input
               type="number" min="1" max="10" step="0.1"
@@ -223,13 +225,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
                 }
               }}
-              style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center' }}
+              style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
             />
-            <span style={{ background: '#ebf8ff', border: '1px solid #bee3f8', borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: '#2b6cb0' }}>
+            <span style={{ background: c('#ebf8ff', '#0f2236'), border: `1px solid ${c('#bee3f8', '#1a3a5c')}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: c('#2b6cb0', '#63b3ed') }}>
               Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
             </span>
             {isMobile && (
-              <button onClick={handleCopyPortalLink} style={{ padding: '4px 8px', borderRadius: '5px', border: '1px solid #cbd5e0', background: linkCopied ? '#c6f6d5' : '#fff', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>
+              <button onClick={handleCopyPortalLink} style={{ padding: '4px 8px', borderRadius: '5px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', color: text }}>
                 {linkCopied ? '✓' : '🔗'}
               </button>
             )}
@@ -246,18 +248,18 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           )}
         </div>
 
-        {/* Табы */}
-        <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '15px', overflowX: 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
-          <button onClick={() => setActiveTab('materials')} style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', background: activeTab === 'materials' ? '#ebf8ff' : 'transparent', border: 'none', borderBottom: activeTab === 'materials' ? '3px solid #3182ce' : '3px solid transparent', color: activeTab === 'materials' ? '#2b6cb0' : '#4a5568', cursor: 'pointer' }}>
+        {/* Табы — тёмная тема */}
+        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
+          <button onClick={() => setActiveTab('materials')} style={tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' })}>
             📦 Materiały ({totalMaterials.toFixed(2)} zł)
           </button>
-          <button onClick={() => setActiveTab('services')} style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', background: activeTab === 'services' ? '#f0fff4' : 'transparent', border: 'none', borderBottom: activeTab === 'services' ? '3px solid #38a169' : '3px solid transparent', color: activeTab === 'services' ? '#276749' : '#4a5568', cursor: 'pointer' }}>
+          <button onClick={() => setActiveTab('services')} style={tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' })}>
             🛠 Usługi ({totalServices.toFixed(2)} zł)
           </button>
-          <button onClick={() => setActiveTab('expenses')} style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', background: activeTab === 'expenses' ? '#fff5f5' : 'transparent', border: 'none', borderBottom: activeTab === 'expenses' ? '3px solid #e53e3e' : '3px solid transparent', color: activeTab === 'expenses' ? '#c53030' : '#4a5568', cursor: 'pointer' }}>
+          <button onClick={() => setActiveTab('expenses')} style={tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' })}>
             💸 Wydatki ({totalExpenses.toFixed(2)} zł)
           </button>
-          <button onClick={() => setActiveTab('files')} style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', background: activeTab === 'files' ? '#faf5ff' : 'transparent', border: 'none', borderBottom: activeTab === 'files' ? '3px solid #805ad5' : '3px solid transparent', color: activeTab === 'files' ? '#553c9a' : '#4a5568', cursor: 'pointer' }}>
+          <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
             📎 Pliki
           </button>
         </div>
@@ -268,83 +270,76 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'materials' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#2d3748' }}>✅ Dodane pozycje</h3>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: text }}>✅ Dodane pozycje</h3>
                 {isMobile ? (
-                  /* МОБИЛЬНЫЙ ВИД — карточки вместо таблицы */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materiałów</div>}
                     {calcMaterials.map((item, index) => (
-                      <div key={index} style={{ background: '#ebf8ff', borderRadius: '7px', border: '1px solid #bee3f8', borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
-                        {/* Имя */}
-                        <div style={{ fontWeight: 'bold', color: '#2b6cb0', fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
-                        {/* Строка: цена × кол-во = сумма + удалить */}
+                      <div key={index} style={{ background: bgMatRow, borderRadius: '7px', border: `1px solid ${borderMat}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
+                        <div style={{ fontWeight: 'bold', color: c('#2b6cb0','#63b3ed'), fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          {/* Цена */}
                           {editingPrice === `mat-${index}` ? (
                             <input autoFocus type="number" step="0.01" value={priceDraft}
                               onChange={e => setPriceDraft(e.target.value)}
                               onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
                               onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                              style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px' }}
+                              style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
                             />
                           ) : (
                             <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
-                              style={{ cursor: 'pointer', background: '#fff', border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: '#4a5568' }}>
+                              style={{ cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
                               {Number(item.price).toFixed(2)} zł
                             </span>
                           )}
                           <span style={{ color: '#a0aec0', fontSize: '12px' }}>× {item.unit || 'szt'}</span>
-                          {/* Количество */}
                           <input type="text"
                             value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
                             onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
                             onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
                             onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
                             onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
-                            style={{ width: '65px', padding: '3px 5px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '13px', background: '#fff' }}
+                            style={{ width: '65px', padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
                           />
                           <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
-                          <strong style={{ color: '#2b6cb0', fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                          {/* Удалить */}
+                          <strong style={{ color: c('#2b6cb0','#63b3ed'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
                           {renderDeleteBtn('calc_materials', calcMaterials, index)}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  /* ДЕСКТОП ВИД — таблица */
-                  <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
+                  <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
                       <thead>
-                        <tr style={{ background: '#edf2f7', textAlign: 'left', color: '#4a5568' }}>
-                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Nazwa materiału</th>
-                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Cena j.</th>
-                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Jm</th>
-                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0', width: '60px' }}>Ilość</th>
-                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}>Suma</th>
-                          <th style={{ padding: '6px 8px', borderBottom: '2px solid #cbd5e0' }}></th>
+                        <tr style={{ background: bgHeader, textAlign: 'left', color: textLight }}>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Nazwa materiału</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Cena j.</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Jm</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, width: '60px' }}>Ilość</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Suma</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}></th>
                         </tr>
                       </thead>
                       <tbody>
                         {calcMaterials.map((item, index) => (
-                          <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ebf8ff', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                            <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: '#2b6cb0' }}>{item.name}</td>
+                          <tr key={index} style={{ borderBottom: `1px solid ${border}`, backgroundColor: bgMatRow, borderLeft: `3px solid ${rowStripe(item)}` }}>
+                            <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
                             <td style={{ padding: '4px 8px' }}>
                               {editingPrice === `mat-${index}` ? (
                                 <input autoFocus type="number" step="0.01" value={priceDraft}
                                   onChange={e => setPriceDraft(e.target.value)}
                                   onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
                                   onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                                  style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                                  style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
                                 />
                               ) : (
                                 <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
-                                  style={{ cursor: 'pointer', color: '#2b6cb0', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
+                                  style={{ cursor: 'pointer', color: c('#2b6cb0','#63b3ed'), borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
                                   {Number(item.price).toFixed(2)} zł
                                 </span>
                               )}
                             </td>
-                            <td style={{ padding: '4px 8px' }}>{item.unit || 'szt'}</td>
+                            <td style={{ padding: '4px 8px', color: textLight }}>{item.unit || 'szt'}</td>
                             <td style={{ padding: '4px 8px' }}>
                               <input type="text"
                                 value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
@@ -353,10 +348,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                                 onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
                                 onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
                                 title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                                style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', background: '#fff' }}
+                                style={{ width: '70px', padding: '2px 4px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
                               />
                             </td>
-                            <td style={{ padding: '4px 8px', fontWeight: 'bold', color: '#2b6cb0' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                            <td style={{ padding: '4px 8px', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                             {renderDeleteBtn('calc_materials', calcMaterials, index)}
                           </tr>
                         ))}
@@ -366,35 +361,36 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   </div>
                 )}
                 <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                  <button onClick={() => handleCustomAdd('calc_materials', calcMaterials)} style={{ background: '#edf2f7', color: '#2d3748', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj pozycję ręcznie</button>
+                  <button onClick={() => handleCustomAdd('calc_materials', calcMaterials)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj pozycję ręcznie</button>
                 </div>
               </div>
 
-              <div style={{ background: '#f7fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#2d3748' }}>🔍 Baza materiałów</h3>
+              {/* Baza materiałów */}
+              <div style={{ background: bgSearch, padding: '10px', borderRadius: '6px', border: `1px solid ${border}` }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: text }}>🔍 Baza materiałów</h3>
                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
-                  <input type="text" placeholder="Szukaj..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ padding: '6px 8px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', minWidth: '140px', flex: 1 }} />
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ padding: '6px 8px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', minWidth: '110px' }}>
+                  <input type="text" placeholder="Szukaj..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', minWidth: '140px', flex: 1, background: bgInput, color: text }} />
+                  <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', minWidth: '110px', background: bgInput, color: text }}>
                     <option value="">Wszystkie kat.</option>
                     {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
-                  <select value={filterSupplier} onChange={(e) => setFilterSupplier(e.target.value)} style={{ padding: '6px 8px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px', minWidth: '110px' }}>
+                  <select value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)} style={{ padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', minWidth: '110px', background: bgInput, color: text }}>
                     <option value="">Dostawcy</option>
                     {uniqueSuppliers.map(sup => <option key={sup} value={sup}>{sup}</option>)}
                   </select>
                 </div>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'auto', borderTop: '1px solid #e2e8f0', background: '#fff' }}>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'auto', borderTop: `1px solid ${border}`, background: bgInput, borderRadius: '4px' }}>
                   <div style={{ minWidth: '500px' }}>
                     {filteredMaterials.slice(0, 50).map(m => {
                       const isSelected = calcMaterials.some(item => item.id === m.id);
                       return (
-                        <div key={m.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: '1px solid #edf2f7', fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? '#ebf8ff' : '#fff' }}>
-                          <div style={{ width: '80px', color: '#718096', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.symbol || '-'}</div>
-                          <div onClick={() => toggleRow(`avail_${m.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_${m.id}`] ? 'normal' : 'nowrap' }}>{m.name}</div>
-                          <div style={{ width: '70px', color: '#4a5568', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.category}</div>
+                        <div key={m.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: `1px solid ${border}`, fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? bgMatRow : bgInput }}>
+                          <div style={{ width: '80px', color: textLight, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.symbol || '-'}</div>
+                          <div onClick={() => toggleRow(`avail_${m.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_${m.id}`] ? 'normal' : 'nowrap', color: text }}>{m.name}</div>
+                          <div style={{ width: '70px', color: textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.category}</div>
                           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
-                            <strong style={{ color: '#2b6cb0' }}>{Number(m.price).toFixed(2)} zł</strong>
-                            <button onClick={() => handleAddItem('calc_materials', calcMaterials, m)} style={{ background: isSelected ? '#cbd5e0' : '#38a169', color: isSelected ? '#2d3748' : '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
+                            <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
+                            <button onClick={() => handleAddItem('calc_materials', calcMaterials, m)} style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
                               {isSelected ? '+ Kol.' : '+ Dodaj'}
                             </button>
                           </div>
@@ -412,128 +408,120 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'services' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
-              {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych usług</div>}
-                  {calcServices.map((item, index) => (
-                    <div key={index} style={{ background: '#f0fff4', borderRadius: '7px', border: '1px solid #c6f6d5', borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
-                      <div style={{ fontWeight: 'bold', color: '#276749', fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        {editingPrice === `srv-${index}` ? (
-                          <input autoFocus type="number" step="0.01" value={priceDraft}
-                            onChange={e => setPriceDraft(e.target.value)}
-                            onBlur={() => handlePriceSave('calc_services', calcServices, index)}
-                            onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                            style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px' }}
-                          />
-                        ) : (
-                          <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
-                            style={{ cursor: 'pointer', background: '#fff', border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: '#4a5568' }}>
-                            {Number(item.price).toFixed(2)} zł
-                          </span>
-                        )}
-                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>×</span>
-                        <input type="text"
-                          value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
-                          onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
-                          onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
-                          onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
-                          onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
-                          style={{ width: '65px', padding: '3px 5px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '13px', background: '#fff' }}
-                        />
-                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
-                        <strong style={{ color: '#276749', fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                        {renderDeleteBtn('calc_services', calcServices, index)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                    <thead>
-                      <tr style={{ background: '#f0fff4', textAlign: 'left', color: '#276749' }}>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Nazwa usługi</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Cena jend. (zł)</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5', width: '80px' }}>Ilość</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}>Suma</th>
-                        <th style={{ padding: '6px 8px', borderBottom: '2px solid #c6f6d5' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calcServices.map((item, index) => (
-                        <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                          <td style={{ padding: '6px 8px' }}>{item.name}</td>
-                          <td style={{ padding: '6px 8px' }}>
-                            {editingPrice === `srv-${index}` ? (
-                              <input autoFocus type="number" step="0.01" value={priceDraft}
-                                onChange={e => setPriceDraft(e.target.value)}
-                                onBlur={() => handlePriceSave('calc_services', calcServices, index)}
-                                onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                                style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
-                              />
-                            ) : (
-                              <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
-                                style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
-                                {Number(item.price).toFixed(2)}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '6px 8px' }}>
-                            <input type="text"
-                              value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
-                              onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
-                              onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
-                              onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
-                              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
-                              title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px' }}
+                {isMobile ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych usług</div>}
+                    {calcServices.map((item, index) => (
+                      <div key={index} style={{ background: bgSrvRow, borderRadius: '7px', border: `1px solid ${borderSrv}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
+                        <div style={{ fontWeight: 'bold', color: c('#276749','#68d391'), fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          {editingPrice === `srv-${index}` ? (
+                            <input autoFocus type="number" step="0.01" value={priceDraft}
+                              onChange={e => setPriceDraft(e.target.value)}
+                              onBlur={() => handlePriceSave('calc_services', calcServices, index)}
+                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                              style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
                             />
-                          </td>
-                          <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                          ) : (
+                            <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
+                              style={{ cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
+                              {Number(item.price).toFixed(2)} zł
+                            </span>
+                          )}
+                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>×</span>
+                          <input type="text"
+                            value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
+                            onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
+                            onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
+                            onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
+                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
+                            style={{ width: '65px', padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                          />
+                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
+                          <strong style={{ color: c('#276749','#68d391'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
                           {renderDeleteBtn('calc_services', calcServices, index)}
-                        </tr>
-                      ))}
-                      {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: '#edf2f7', color: '#2d3748', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
-              </div>
-            </div>
-
-              {/* BAZA USŁUG */}
-              <div style={{ background: '#f0fff4', padding: '10px', borderRadius: '6px', border: '1px solid #c6f6d5' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#276749' }}>🔍 Baza usług</h3>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Szukaj usługi..."
-                    value={searchService}
-                    onChange={e => setSearchService(e.target.value)}
-                    style={{ padding: '6px 8px', border: '1px solid #9ae6b4', borderRadius: '4px', fontSize: '12px', flex: 1 }}
-                  />
-                </div>
-                <div style={{ maxHeight: '220px', overflowY: 'auto', borderTop: '1px solid #c6f6d5', background: '#fff', borderRadius: '4px' }}>
-                  {(servicesList || [])
-                    .filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase()))
-                    .map(s => {
-                      const isSelected = calcServices.some(item => item.id === s.id);
-                      return (
-                        <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: '1px solid #f0fff4', fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? '#f0fff4' : '#fff' }}>
-                          <div onClick={() => toggleRow(`avail_srv_${s.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_srv_${s.id}`] ? 'normal' : 'nowrap', color: '#2d3748' }}>{s.name}</div>
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
-                            <strong style={{ color: '#276749' }}>{Number(s.price).toFixed(2)} zł</strong>
-                            <button onClick={() => handleAddItem('calc_services', calcServices, s)} style={{ background: isSelected ? '#cbd5e0' : '#38a169', color: isSelected ? '#2d3748' : '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
-                              {isSelected ? '+ Kol.' : '+ Dodaj'}
-                            </button>
-                          </div>
                         </div>
-                      );
-                    })
-                  }
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                      <thead>
+                        <tr style={{ background: bgSrvRow, textAlign: 'left', color: c('#276749','#68d391') }}>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}>Nazwa usługi</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}>Cena jend. (zł)</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}`, width: '80px' }}>Ilość</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}>Suma</th>
+                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calcServices.map((item, index) => (
+                          <tr key={index} style={{ borderBottom: `1px solid ${border}`, background: bg, borderLeft: `3px solid ${rowStripe(item)}` }}>
+                            <td style={{ padding: '6px 8px', color: text }}>{item.name}</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              {editingPrice === `srv-${index}` ? (
+                                <input autoFocus type="number" step="0.01" value={priceDraft}
+                                  onChange={e => setPriceDraft(e.target.value)}
+                                  onBlur={() => handlePriceSave('calc_services', calcServices, index)}
+                                  onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                                  style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
+                                />
+                              ) : (
+                                <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
+                                  style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0', color: text }} title="Kliknij aby zmienić cenę">
+                                  {Number(item.price).toFixed(2)}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <input type="text"
+                                value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
+                                onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
+                                onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
+                                onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
+                                onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
+                                title="Wpisz liczbę lub wyrażenie: 37+20+16"
+                                style={{ width: '70px', padding: '2px 4px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
+                              />
+                            </td>
+                            <td style={{ padding: '6px 8px', fontWeight: 'bold', color: c('#276749','#68d391') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                            {renderDeleteBtn('calc_services', calcServices, index)}
+                          </tr>
+                        ))}
+                        {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                  <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
+                </div>
+              </div>
+
+              {/* Baza usług */}
+              <div style={{ background: bgSrvRow, padding: '10px', borderRadius: '6px', border: `1px solid ${borderSrv}` }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: c('#276749','#68d391') }}>🔍 Baza usług</h3>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input type="text" placeholder="Szukaj usługi..." value={searchService} onChange={e => setSearchService(e.target.value)}
+                    style={{ padding: '6px 8px', border: `1px solid ${borderSrv}`, borderRadius: '4px', fontSize: '12px', flex: 1, background: bgInput, color: text }} />
+                </div>
+                <div style={{ maxHeight: '220px', overflowY: 'auto', borderTop: `1px solid ${borderSrv}`, background: bgInput, borderRadius: '4px' }}>
+                  {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase())).map(s => {
+                    const isSelected = calcServices.some(item => item.id === s.id);
+                    return (
+                      <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: `1px solid ${border}`, fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? bgSrvRow : bgInput }}>
+                        <div onClick={() => toggleRow(`avail_srv_${s.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_srv_${s.id}`] ? 'normal' : 'nowrap', color: text }}>{s.name}</div>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
+                          <strong style={{ color: c('#276749','#68d391') }}>{Number(s.price).toFixed(2)} zł</strong>
+                          <button onClick={() => handleAddItem('calc_services', calcServices, s)} style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
+                            {isSelected ? '+ Kol.' : '+ Dodaj'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                   {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase())).length === 0 && (
                     <div style={{ padding: '10px', textAlign: 'center', color: '#a0aec0', fontSize: '12px' }}>Brak wyników</div>
                   )}
@@ -546,51 +534,50 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'expenses' && (
             <div>
               <div style={{ marginBottom: '15px' }}>
-                <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#fc8181', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
+                <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
               </div>
-              <div style={{ overflowX: 'auto', border: '1px solid #cbd5e0', borderRadius: '6px' }}>
+              <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
                   <thead>
-                    <tr style={{ background: '#fff5f5', textAlign: 'left', color: '#c53030' }}>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #fed7d7' }}>Opis wydatku</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #fed7d7' }}>Kwota bazowa (zł)</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #fed7d7', width: '80px' }}>Mnożnik / Ilość</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #fed7d7' }}>Suma Wydatku</th>
-                      <th style={{ padding: '6px 8px', borderBottom: '2px solid #fed7d7' }}></th>
+                    <tr style={{ background: bgExpRow, textAlign: 'left', color: c('#c53030','#fc8181') }}>
+                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}>Opis wydatku</th>
+                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}>Kwota bazowa (zł)</th>
+                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}`, width: '80px' }}>Mnożnik / Ilość</th>
+                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}>Suma Wydatku</th>
+                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {calcExpenses.map((item, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', borderLeft: `3px solid ${rowStripe(item)}` }}>
-                        <td style={{ padding: '6px 8px' }}>{item.name}</td>
+                      <tr key={index} style={{ borderBottom: `1px solid ${border}`, background: bg, borderLeft: `3px solid ${rowStripe(item)}` }}>
+                        <td style={{ padding: '6px 8px', color: text }}>{item.name}</td>
                         <td style={{ padding: '6px 8px' }}>
                           {editingPrice === `exp-${index}` ? (
                             <input autoFocus type="number" step="0.01" value={priceDraft}
                               onChange={e => setPriceDraft(e.target.value)}
                               onBlur={() => handlePriceSave('calc_expenses', calcExpenses, index)}
                               onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_expenses', calcExpenses, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px' }}
+                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
                             />
                           ) : (
                             <span onClick={() => { setEditingPrice(`exp-${index}`); setPriceDraft(String(item.price)); }}
-                              style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
+                              style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0', color: text }} title="Kliknij aby zmienić cenę">
                               {Number(item.price).toFixed(2)}
                             </span>
                           )}
                         </td>
                         <td style={{ padding: '6px 8px' }}>
-                          <input
-                            type="text"
+                          <input type="text"
                             value={qtyDraft[`exp-${index}`] !== undefined ? qtyDraft[`exp-${index}`] : (item.quantity || 1)}
                             onFocus={() => handleQtyFocus(`exp-${index}`, item.quantity || 1)}
                             onChange={e => handleQtyChange(`exp-${index}`, e.target.value)}
                             onBlur={() => handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`)}
                             onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`); e.target.blur(); } }}
                             title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                            style={{ width: '70px', padding: '2px 4px', border: '1px solid #cbd5e0', borderRadius: '4px', fontSize: '12px' }}
+                            style={{ width: '70px', padding: '2px 4px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
                           />
                         </td>
-                        <td style={{ padding: '6px 8px', fontWeight: 'bold', color: '#c53030' }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                        <td style={{ padding: '6px 8px', fontWeight: 'bold', color: c('#c53030','#fc8181') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                         {renderDeleteBtn('calc_expenses', calcExpenses, index)}
                       </tr>
                     ))}
@@ -608,32 +595,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         </div>
 
-        {/* Баннер подтверждения закрытия */}
+        {/* Подтверждение закрытия */}
         {confirmClose && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-            <div style={{ background: '#fff', borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.2)', textAlign: 'center', maxWidth: '340px' }}>
+            <div style={{ background: bg, borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '340px', border: `1px solid ${border}` }}>
               <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
-              <h3 style={{ margin: '0 0 8px 0', color: '#2d3748', fontSize: '16px' }}>Masz niezapisane zmiany</h3>
-              <p style={{ margin: '0 0 20px 0', color: '#718096', fontSize: '13px' }}>Czy na pewno chcesz zamknąć bez zapisania?</p>
+              <h3 style={{ margin: '0 0 8px 0', color: text, fontSize: '16px' }}>Masz niezapisane zmiany</h3>
+              <p style={{ margin: '0 0 20px 0', color: textLight, fontSize: '13px' }}>Czy na pewno chcesz zamknąć bez zapisania?</p>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button
-                  onClick={onClose}
-                  style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-                >
-                  Zamknij bez zapisania
-                </button>
-                <button
-                  onClick={() => { onSave(); setConfirmClose(false); }}
-                  style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-                >
-                  Zapisz i zamknij
-                </button>
-                <button
-                  onClick={() => setConfirmClose(false)}
-                  style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-                >
-                  Wróć
-                </button>
+                <button onClick={onClose} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zamknij bez zapisania</button>
+                <button onClick={() => { onSave(); setConfirmClose(false); }} style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zapisz i zamknij</button>
+                <button onClick={() => setConfirmClose(false)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Wróć</button>
               </div>
             </div>
           </div>

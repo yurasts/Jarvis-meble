@@ -20,6 +20,8 @@ function App() {
   
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [activeClient, setActiveClient] = useState(null)
+  // ✅ FIX: храним оригинал клиента для определения isDirty в ProjectModal
+  const [originalClient, setOriginalClient] = useState(null)
 
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -28,30 +30,31 @@ function App() {
   const [address, setAddress] = useState('')
 
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false)
-  const [duplicateFound, setDuplicateFound] = useState(null) // {existing, newPrice}
+  const [duplicateFound, setDuplicateFound] = useState(null)
   const [matName, setMatName] = useState('')
   const [matCategory, setMatCategory] = useState('Płyta')
   const [matUnit, setMatUnit] = useState('szt')
   const [matPrice, setMatPrice] = useState('')
 
   useEffect(() => {
-    // Без сессии данные всё равно не отдадутся (RLS), поэтому не дёргаем базу зря
     if (!session) return
-
     async function fetchData() {
       const { data: clientsData } = await supabase.from('clients').select('*')
       if (clientsData) setClients(clientsData)
-      
       const { data: materialsData } = await supabase.from('materials').select('*')
       if (materialsData) setMaterials(materialsData)
-
       const { data: servicesData } = await supabase.from('services').select('*')
       if (servicesData) setServicesList(servicesData)
     }
     fetchData()
   }, [session])
 
-  // Универсальная функция для обновления любых полей клиента (используется Дашбордом для задач)
+  // ✅ FIX: при открытии проекта запоминаем оригинал (для isDirty)
+  const openProjectModal = (client) => {
+    setActiveClient(client)
+    setOriginalClient(JSON.parse(JSON.stringify(client))) // глубокая копия
+  }
+
   async function updateClientFields(clientId, updatedFields) {
     setClients(clients.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
     await supabase.from('clients').update(updatedFields).eq('id', clientId)
@@ -69,8 +72,9 @@ function App() {
     }
   }
 
-async function handleUpdateClient(e) {
-    e.preventDefault()
+  async function handleUpdateClient(e) {
+    if (e && e.preventDefault) e.preventDefault()
+    // ✅ FIX: добавлены budget и budget_coefficient — они теперь сохраняются в БД
     const { data, error } = await supabase.from('clients')
       .update({ 
         notes: activeClient.notes, 
@@ -78,18 +82,20 @@ async function handleUpdateClient(e) {
         address: activeClient.address, 
         calc_materials: activeClient.calc_materials || [], 
         calc_services: activeClient.calc_services || [],
-        calc_expenses: activeClient.calc_expenses || [] // <- ДОБАВИЛИ ЭТУ СТРОЧКУ
+        calc_expenses: activeClient.calc_expenses || [],
+        budget: activeClient.budget || 0,
+        budget_coefficient: activeClient.budget_coefficient || 2.0,
       })
       .eq('id', activeClient.id).select()
     if (!error && data) {
       setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
-      //setActiveClient(null)
+      // обновляем оригинал после сохранения — isDirty снова false
+      setOriginalClient(JSON.parse(JSON.stringify(data[0])))
     }
   }
 
   async function handleAddMaterial(e) {
     e.preventDefault()
-    // Проверяем дубль по названию (без учёта регистра)
     const { data: existing } = await supabase
       .from('materials')
       .select('*')
@@ -98,16 +104,13 @@ async function handleUpdateClient(e) {
 
     if (existing) {
       if (Math.abs(Number(existing.price) - Number(matPrice)) < 0.001) {
-        // Та же цена — просто сообщаем
         setDuplicateFound({ existing, newPrice: Number(matPrice), samePrice: true })
         return
       }
-      // Другая цена — предлагаем обновить с сохранением истории
       setDuplicateFound({ existing, newPrice: Number(matPrice), samePrice: false })
       return
     }
 
-    // Дубля нет — вставляем новый
     const { data, error } = await supabase
       .from('materials')
       .insert([{ name: matName, category: matCategory, unit: matUnit, price: Number(matPrice), price_history: [] }])
@@ -192,22 +195,22 @@ async function handleUpdateClient(e) {
 
         <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: `1px solid ${isDark ? '#1e293b' : '#3b3b54'}`, fontSize: '13px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: profile?.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 'bold', flexShrink: 0 }}>
-            {(profile?.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: profile?.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 'bold', flexShrink: 0 }}>
+              {(profile?.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+            </div>
+            <span style={{ color: '#a0aec0' }}>{profile?.full_name || session.user.email}</span>
           </div>
-          <span style={{ color: '#a0aec0' }}>{profile?.full_name || session.user.email}</span>
-        </div>
           <div style={{ color: '#718096', fontSize: '11px', textTransform: 'uppercase', marginBottom: '8px' }}>{profile?.role}</div>
           <button onClick={signOut} className="btn-secondary" style={{ width: '100%', padding: '6px', fontSize: '12px' }}>Wyloguj</button>
         </div>
       </div>
 
-<div className="main-content">
+      <div className="main-content">
         {activeTab === 'dashboard' && (
           <Dashboard 
             clients={clients} 
             updateClient={updateClientFields} 
-            openProjectModal={setActiveClient} 
+            openProjectModal={openProjectModal}
             setIsModalOpen={setIsModalOpen} 
             profilesById={profilesById}
             canCreate={canCreate}
@@ -218,7 +221,7 @@ async function handleUpdateClient(e) {
         {activeTab === 'board' && (
           <KanbanBoard 
             clients={clients} 
-            setActiveClient={setActiveClient} 
+            setActiveClient={openProjectModal}
             handleDragStart={handleDragStart} 
             handleDragOver={handleDragOver} 
             handleDrop={handleDrop} 
@@ -249,16 +252,19 @@ async function handleUpdateClient(e) {
         </div>
       )}
 
+      {/* ✅ FIX: добавлены isDark и originalClient */}
       {activeClient && (
         <ProjectModal 
-          client={activeClient} 
+          client={activeClient}
+          originalClient={originalClient}
           setClient={setActiveClient} 
           materials={materials} 
           servicesList={servicesList} 
-          onClose={() => setActiveClient(null)} 
+          onClose={() => { setActiveClient(null); setOriginalClient(null) }} 
           onSave={handleUpdateClient}
           currentProfile={profile} 
           profilesById={profilesById}
+          isDark={isDark}
         />
       )}
 
@@ -271,7 +277,6 @@ async function handleUpdateClient(e) {
               <div className="form-group"><label>Kategoria</label><select value={matCategory} onChange={(e) => setMatCategory(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}><option value="Płyta">Płyta</option><option value="Obrzeże">Obrzeże</option><option value="HDF">HDF</option><option value="Laminat">Laminat</option><option value="Akcesoria">Akcesoria (Okucia)</option><option value="Inne">Inne</option></select></div>
               <div className="form-group"><label>Jm</label><select value={matUnit} onChange={(e) => setMatUnit(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}><option value="szt">Sztuki</option><option value="mb">Metry bieżące</option><option value="m2">Metry kwadratowe</option><option value="kpl">Komplet</option></select></div>
               <div className="form-group"><label>Cena brutto (PLN)</label><input type="number" step="0.01" required value={matPrice} onChange={(e) => setMatPrice(e.target.value)} /></div>
-              {/* Предупреждение о дубле */}
               {duplicateFound && (
                 <div style={{ margin: '10px 0', padding: '12px', borderRadius: '8px', background: duplicateFound.samePrice ? '#fffbeb' : '#fff5f5', border: `1px solid ${duplicateFound.samePrice ? '#f6e05e' : '#feb2b2'}` }}>
                   {duplicateFound.samePrice ? (

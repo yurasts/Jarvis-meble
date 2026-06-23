@@ -2,11 +2,18 @@ import React, { useState } from 'react';
 
 const initials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-// Короткий формат даты: "19 cze"
 const shortDate = (dateStr) => {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+};
+
+// ✅ Считаем суммарные затраты из calc_* полей проекта
+const calcProjectCosts = (project) => {
+  const mats = (project.calc_materials || []).reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+  const srvs = (project.calc_services  || []).reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+  const exps = (project.calc_expenses  || []).reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
+  return mats + srvs + exps;
 };
 
 const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, profilesById = {}, canCreate = true, currentProfile = null, isDark = false }) => {
@@ -21,8 +28,8 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
   const borderDone = c('#c6f6d5', '#1a4a2e');
   const [newTaskParams, setNewTaskParams] = useState({});
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [expandedTaskId, setExpandedTaskId] = useState(null);   // показать подпись задачи
-  const [expandedProjectId, setExpandedProjectId] = useState(null); // показать подпись проекта
+  const [expandedTaskId, setExpandedTaskId] = useState(null);
+  const [expandedProjectId, setExpandedProjectId] = useState(null);
 
   const activeProjects = (clients || []).filter(c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone');
 
@@ -78,14 +85,21 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
             const editor = project.updated_by ? profilesById[project.updated_by] : null;
             const isProjectExpanded = expandedProjectId === project.id;
 
+            // ✅ Считаем затраты и бюджет для отображения на Dashboard
+            const projectCosts = calcProjectCosts(project);
+            const coef = Number(project.budget_coefficient) || 0;
+            const projectBudget = Number(project.budget) || 0;
+            const hasCosts = projectCosts > 0;
+            const hasBudget = projectBudget > 0;
+
             return (
               <div key={project.id} style={{ background: bg, borderRadius: '10px', border: `1px solid ${border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
 
-                {/* Шапка проекта — адаптивная */}
+                {/* Шапка проекта */}
                 <div style={{ background: bgHeader, padding: '10px 14px', borderBottom: `1px solid ${border}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
 
-                    {/* Левая часть: имя + адрес + дедлайн */}
+                    {/* Левая часть: имя + адрес + дедлайн + финансы */}
                     <div style={{ flex: 1, minWidth: '200px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
                         <h3 style={{ margin: 0, color: '#4da6ff', fontSize: '15px', fontWeight: 'bold' }}>{project.full_name}</h3>
@@ -107,7 +121,20 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                             📅 {shortDate(project.deadline)}
                           </span>
                         )}
-                        {/* Подпись редактора — цветная точка → клик разворачивает */}
+
+                        {/* ✅ Koszty i Budżet */}
+                        {hasCosts && (
+                          <span style={{ fontSize: '12px', color: c('#c53030', '#fc8181'), fontWeight: 'bold' }}>
+                            Koszty: {projectCosts.toFixed(2)} zł
+                          </span>
+                        )}
+                        {hasBudget && (
+                          <span style={{ fontSize: '12px', background: c('#ebf8ff', '#1e3a5f'), color: c('#2b6cb0', '#63b3ed'), border: `1px solid ${c('#bee3f8', '#2c5282')}`, borderRadius: '5px', padding: '1px 7px', fontWeight: 'bold' }}>
+                            Budżet: {projectBudget.toFixed(2)} zł{coef > 0 ? ` (×${coef})` : ''}
+                          </span>
+                        )}
+
+                        {/* Подпись редактора */}
                         {editor && (
                           <span
                             onClick={() => setExpandedProjectId(isProjectExpanded ? null : project.id)}
@@ -131,7 +158,7 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                       </div>
                     </div>
 
-                    {/* Правая часть: кнопка */}
+                    {/* Кнопка */}
                     <button onClick={() => openProjectModal(project)}
                       style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '7px 18px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', flexShrink: 0 }}>
                       Otwórz projekt
@@ -155,15 +182,12 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                       return (
                         <div key={task.id} style={{ borderRadius: '5px', border: '1px solid', borderColor: isConfirm ? c('#feb2b2', '#7b2020') : task.isDone ? borderDone : border, background: isConfirm ? c('#fff5f5', '#2d1515') : task.isDone ? bgTaskDone : bgTask, overflow: 'hidden', transition: 'all 0.15s' }}>
                           <div style={{ display: 'flex', alignItems: 'center', borderLeft: `3px solid ${taskColor}` }}>
-                            {/* Чекбокс */}
                             <input
                               type="checkbox"
                               checked={task.isDone}
                               onChange={() => toggleTaskStatus(project.id, task.id)}
                               style={{ width: '14px', height: '14px', cursor: 'pointer', flexShrink: 0, margin: '0 6px' }}
                             />
-
-                            {/* Текст задачи — клик показывает подпись */}
                             <div
                               style={{ flex: 1, padding: '5px 4px', cursor: 'pointer' }}
                               onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
@@ -172,15 +196,11 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                                 {task.text}
                               </span>
                             </div>
-
-                            {/* Дата — короткий формат, серая */}
                             {task.date && (
                               <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, marginRight: '6px', whiteSpace: 'nowrap' }}>
                                 {shortDate(task.date)}
                               </span>
                             )}
-
-                            {/* Кнопка удаления */}
                             {isConfirm ? (
                               <div style={{ display: 'flex', gap: '3px', flexShrink: 0, paddingRight: '6px' }}>
                                 <button onClick={() => deleteTask(project.id, task.id)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Tak</button>
@@ -196,7 +216,6 @@ const Dashboard = ({ clients, updateClient, openProjectModal, setIsModalOpen, pr
                             )}
                           </div>
 
-                          {/* Подпись автора — только при нажатии */}
                           {isExpanded && task.createdByName && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '2px 6px 4px 23px', borderTop: '1px dashed #e2e8f0' }}>
                               <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: taskColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '7px', fontWeight: 'bold' }}>
