@@ -1,33 +1,87 @@
-/* --- 1. СБРОС НАСТРОЕК VITE И БРАУЗЕРА --- */
+/* ================================================
+   JARVIS — index.css
+   Световая тема через CSS-переменные.
+   Тёмная тема: html[data-theme="dark"] { ... }
+   ================================================ */
+
+/* --- 1. CSS-ПЕРЕМЕННЫЕ (светлая тема по умолчанию) --- */
+:root {
+  --bg-base:       #f4f7f6;
+  --bg-sidebar:    #1e1e2f;
+  --bg-card:       #ffffff;
+  --bg-menu-item:  #2a2a40;
+  --bg-menu-hover: #3b3b54;
+  --bg-kanban-col: #e2e8f0;
+
+  --text-main:     #2d3748;
+  --text-muted:    #4a5568;
+  --text-sidebar:  #ffffff;
+
+  --border:        #cbd5e0;
+  --accent:        #4da6ff;
+
+  --modal-bg:      #ffffff;
+  --input-bg:      #ffffff;
+  --input-border:  #cbd5e0;
+
+  --btn-sec-bg:    #e2e8f0;
+  --btn-sec-text:  #2d3748;
+}
+
+/* --- 2. ТЁМНАЯ ТЕМА --- */
+html[data-theme="dark"] {
+  --bg-base:       #0f172a;
+  --bg-sidebar:    #0d1117;
+  --bg-card:       #111827;
+  --bg-menu-item:  #1e293b;
+  --bg-menu-hover: #253347;
+  --bg-kanban-col: #1e293b;
+
+  --text-main:     #e2e8f0;
+  --text-muted:    #94a3b8;
+  --text-sidebar:  #e2e8f0;
+
+  --border:        #334155;
+  --accent:        #4da6ff;
+
+  --modal-bg:      #1e293b;
+  --input-bg:      #0f172a;
+  --input-border:  #334155;
+
+  --btn-sec-bg:    #334155;
+  --btn-sec-text:  #e2e8f0;
+}
+
+/* --- 3. СБРОС VITE И БРАУЗЕРА --- */
 html, body, #root {
   margin: 0;
   padding: 0;
   width: 100vw;
   height: 100vh;
-  max-width: none !important; /* Убиваем ограничение ширины Vite */
-  text-align: left !important; /* Убиваем центрирование Vite */
-  overflow: hidden; /* Убираем лишние скроллы */
+  max-width: none !important;
+  text-align: left !important;
+  overflow: hidden;
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f4f7f6;
+  background-color: var(--bg-base);
+  color: var(--text-main);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-/* --- 2. ОСНОВНОЙ КАРКАС --- */
+/* --- 4. ОСНОВНОЙ КАРКАС --- */
 .app-container {
   display: flex;
   height: 100vh;
   width: 100vw;
+  background-color: var(--bg-base);
 }
 
-/* --- 3. БОКОВОЕ МЕНЮ (САЙДБАР) --- */
+/* --- 5. САЙДБАР --- */
 .sidebar {
   width: 200px;
   min-width: 200px;
-  background-color: #1e1e2f;
-  color: white;
+  background-color: var(--bg-sidebar);
+  color: var(--text-sidebar);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -35,59 +89,55 @@ html, body, #root {
 }
 
 .sidebar h2 {
-  margin-bottom: 40px;
+  margin: 0 0 40px 0;
   font-size: 26px;
-  color: #4da6ff;
+  color: var(--accent);
   text-align: center;
-  margin-top: 0;
 }
 
 .menu-item {
   padding: 15px;
   margin-bottom: 10px;
-  background-color: #2a2a40;
+  background-color: var(--bg-menu-item);
+  color: var(--text-sidebar);
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.2s;
   font-size: 15px;
 }
 
-.menu-item:hover {
-  background-color: #3b3b54;
-}
+.menu-item:hover { background-color: var(--bg-menu-hover); }
 
 .menu-item.active {
-  border-left: 4px solid #4da6ff;
-  background-color: #3b3b54;
+  border-left: 4px solid var(--accent);
+  background-color: var(--bg-menu-hover);
 }
 
-/* --- 4. ПРАВАЯ ЧАСТЬ (КОНТЕНТ) --- */
+/* --- 6. КОНТЕНТ --- */
 .main-content {
   flex: 1;
   padding: 30px;
   overflow-y: auto;
-  background-color: #f4f7f6;
+  background-color: var(--bg-base);
 }
 
-/* --- 5. КНОПКИ --- */
+/* --- 7. КНОПКИ --- */
 .btn-primary {
-  background-color: #4da6ff;
-  color: white;
+  background-color: var(--accent);
+  color: #fff;
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
-  transition: 0.3s;
+  transition: background-color 0.2s;
 }
 
-.btn-primary:hover {
-  background-color: #3388dd;
-}
+.btn-primary:hover { background-color: #3388dd; }
 
 .btn-secondary {
-  background-color: #e2e8f0;
-  color: #2d3748;
+  background-color: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
@@ -96,11 +146,11 @@ html, body, #root {
   margin-right: 10px;
 }
 
-/* --- 6. МОДАЛЬНЫЕ ОКНА (ДЛЯ ФОРМ ДОБАВЛЕНИЯ) --- */
+/* --- 8. МОДАЛЬНЫЕ ОКНА --- */
 .modal-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -108,13 +158,16 @@ html, body, #root {
   padding: 20px;
 }
 
+html[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.82); }
+
 .modal-content {
-  background: white;
+  background: var(--modal-bg);
+  color: var(--text-main);
   padding: 30px;
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
 }
 
 .form-group {
@@ -126,21 +179,23 @@ html, body, #root {
 .form-group label {
   margin-bottom: 5px;
   font-size: 14px;
-  color: #4a5568;
+  color: var(--text-muted);
   font-weight: bold;
 }
 
-.form-group input, .form-group select {
+.form-group input,
+.form-group select {
   padding: 10px;
-  border: 1px solid #cbd5e0;
+  border: 1px solid var(--input-border);
   border-radius: 6px;
   font-size: 14px;
   outline: none;
+  background-color: var(--input-bg);
+  color: var(--text-main);
 }
 
-.form-group input:focus, .form-group select:focus {
-  border-color: #4da6ff;
-}
+.form-group input:focus,
+.form-group select:focus { border-color: var(--accent); }
 
 .modal-actions {
   display: flex;
@@ -148,7 +203,7 @@ html, body, #root {
   margin-top: 25px;
 }
 
-/* --- 7. КАНБАН ДОСКА (KanbanBoard.jsx) --- */
+/* --- 9. КАНБАН --- */
 .kanban-board {
   display: flex;
   gap: 20px;
@@ -163,7 +218,7 @@ html, body, #root {
 .kanban-column {
   flex: 1;
   min-width: 260px;
-  background-color: #e2e8f0;
+  background-color: var(--bg-kanban-col);
   border-radius: 12px;
   padding: 15px;
   display: flex;
@@ -173,40 +228,43 @@ html, body, #root {
 
 .kanban-column h3 {
   font-size: 14px;
-  color: #718096;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-weight: bold;
   text-align: center;
-  margin-top: 0;
-  margin-bottom: 10px;
+  margin: 0 0 10px 0;
   letter-spacing: 1px;
 }
 
 .client-card {
-  background-color: white;
+  background-color: var(--bg-card);
+  color: var(--text-main);
   padding: 15px;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  border: 1px solid #cbd5e0;
+  border: 1px solid var(--border);
   cursor: grab;
   text-align: left;
   width: 100%;
-  transition: all 0.2s ease;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .client-card:hover {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
   transform: translateY(-2px);
 }
 
-.client-card:active {
-  cursor: grabbing;
+.client-card:active { cursor: grabbing; }
+
+html[data-theme="dark"] .client-card:hover {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.5);
 }
 
-/* --- 8. ТАБЛИЦА МАТЕРИАЛОВ (MaterialsList.jsx) --- */
+/* --- 10. ТАБЛИЦА МАТЕРИАЛОВ --- */
 .materials-table {
   width: 100%;
-  background-color: white;
+  background-color: var(--bg-card);
+  color: var(--text-main);
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   margin-top: 20px;
@@ -215,127 +273,71 @@ html, body, #root {
   overflow: hidden;
 }
 
-.materials-table th, .materials-table td {
+.materials-table th,
+.materials-table td {
   padding: 12px 15px;
   text-align: left;
-  border-bottom: 1px solid #edf2f7;
+  border-bottom: 1px solid var(--border);
 }
 
 .materials-table th {
-  background-color: #f8fafc;
+  background-color: var(--bg-kanban-col);
   font-weight: bold;
-  color: #4a5568;
+  color: var(--text-muted);
 }
 
 .category-badge {
-  background-color: #e2e8f0;
+  background-color: var(--bg-kanban-col);
   padding: 4px 8px;
   border-radius: 4px;
   font-weight: bold;
   font-size: 12px;
-  color: #4a5568;
+  color: var(--text-muted);
 }
 
-/* --- АДАПТАЦИЯ ПОД МОБИЛЬНЫЕ УСТРОЙСТВА --- */
+/* --- 11. МОБИЛЬНАЯ АДАПТАЦИЯ --- */
 @media (max-width: 768px) {
-  /* 1. Главный контейнер делаем вертикальным */
-  .app-container {
-    flex-direction: column;
-  }
+  .app-container  { flex-direction: column; }
 
-  /* 2. Сайдбар переносим наверх и делаем горизонтальным */
   .sidebar {
     width: 100%;
     min-width: 100%;
-    padding: 10px;
+    height: auto;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    overflow-x: auto; /* Разрешаем свайпать меню, если кнопок много */
+    padding: 10px;
+    overflow-x: auto;
     white-space: nowrap;
+    border-bottom: 1px solid var(--border);
   }
 
-  /* Логотип поменьше и без отступа снизу */
   .sidebar h2 {
-    margin-bottom: 0;
-    margin-right: 20px;
+    margin: 0 20px 0 0;
     font-size: 20px;
   }
 
-  /* Кнопки меню в ряд */
   .menu-item {
-    margin-bottom: 0;
-    margin-right: 10px;
-    padding: 10px 15px;
-    font-size: 14px;
     display: inline-block;
+    margin: 0 10px 0 0;
+    padding: 8px 12px;
+    font-size: 14px;
   }
 
-  /* 3. Убираем лишние отступы у контента */
   .main-content {
     padding: 15px;
+    width: 100%;
   }
 
-  /* 4. Модальные окна на весь экран */
   .modal-content {
-    padding: 20px;
-    border-radius: 0; /* На телефоне лучше без скруглений по краям */
-    height: 100vh; /* На всю высоту */
+    width: 95% !important;
+    margin: 10px auto;
+    padding: 15px;
+    border-radius: 0;
+    height: 100vh;
     max-height: 100vh;
     overflow-y: auto;
   }
-}
 
-/* =========================================
-   МОБИЛЬНАЯ АДАПТАЦИЯ (экраны до 768px)
-   ========================================= */
-@media (max-width: 768px) {
-  /* 1. Делаем контейнер вертикальным */
-  .app-container {
-    flex-direction: column;
-  }
-
-  /* 2. Боковое меню превращаем в верхнюю панель с горизонтальным скроллом */
-  .sidebar {
-    width: 100%;
-    height: auto;
-    display: flex;
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 10px;
-    border-right: none;
-    border-bottom: 1px solid #ddd;
-    white-space: nowrap; /* Чтобы пункты меню не переносились на новую строку */
-  }
-
-  /* Отступы для пунктов меню */
-  .menu-item {
-    margin-right: 15px;
-    margin-bottom: 0;
-    padding: 8px 12px;
-  }
-
-  /* 3. Основной контент занимает всю ширину */
-  .main-content {
-    padding: 15px;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* 4. Модальные окна (добавление проектов и материалов) */
-  .modal-content {
-    width: 95% !important; /* Окно на всю ширину экрана */
-    margin: 10px auto;
-    padding: 15px;
-  }
-
-  /* Формы в модальных окнах делаем друг под другом */
-  .modal-content form > div[style*="display: flex"] {
-    flex-direction: column;
-    gap: 10px !important;
-  }
-
-  /* 5. Таблицы (Materiały) должны скроллиться вправо, а не сжиматься */
   table {
     display: block;
     width: 100%;
@@ -343,144 +345,3 @@ html, body, #root {
     white-space: nowrap;
   }
 }
-
-[data-theme="dark"] .menu-item {
-  background-color: #1e293b;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .menu-item:hover {
-  background-color: #253347;
-}
-
-[data-theme="dark"] .menu-item.active {
-  background-color: #253347;
-  border-left-color: #4da6ff;
-}
-
-[data-theme="dark"] .kanban-board {
-  background-color: #0f172a;
-}
-
-[data-theme="dark"] .kanban-column {
-  background-color: #1e293b;
-}
-
-[data-theme="dark"] .kanban-column h3 {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .client-card {
-  background-color: #0f172a;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .client-card:hover {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.4);
-}
-
-[data-theme="dark"] .modal-overlay {
-  background: rgba(0, 0, 0, 0.8);
-}
-
-[data-theme="dark"] .modal-content {
-  background: #1e293b;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .form-group label {
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .form-group input,
-[data-theme="dark"] .form-group select {
-  background-color: #0f172a;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .form-group input:focus,
-[data-theme="dark"] .form-group select:focus {
-  border-color: #4da6ff;
-}
-
-[data-theme="dark"] .btn-secondary {
-  background-color: #334155;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .materials-table {
-  background-color: #1e293b;
-  color: #e2e8f0;
-}
-
-[data-theme="dark"] .materials-table th {
-  background-color: #162032;
-  color: #94a3b8;
-}
-
-[data-theme="dark"] .materials-table td {
-  border-bottom-color: #334155;
-  color: #e2e8f0;
-}
-
-/* === ИСПРАВЛЕНИЕ БЕЛОГО ФОНА В ТЁМНОЙ ТЕМЕ === */
-html[data-theme="dark"],
-html[data-theme="dark"] body,
-html[data-theme="dark"] #root {
-  background-color: #0f172a !important;
-  color: #e2e8f0;
-}
-
-html[data-theme="dark"] .main-content {
-  background-color: #0f172a !important;
-}
-
-html[data-theme="dark"] .app-container {
-  background-color: #0f172a;
-}
-
-html[data-theme="dark"] .kanban-column {
-  background-color: #1e293b;
-}
-
-html[data-theme="dark"] .client-card {
-  background-color: #111827;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-html[data-theme="dark"] .sidebar {
-  background-color: #0d1117;
-}
-
-html[data-theme="dark"] .menu-item {
-  background-color: #1e293b;
-  color: #e2e8f0;
-}
-
-html[data-theme="dark"] .menu-item:hover,
-html[data-theme="dark"] .menu-item.active {
-  background-color: #253347;
-}
-
-html[data-theme="dark"] .modal-content {
-  background: #1e293b;
-  color: #e2e8f0;
-}
-
-html[data-theme="dark"] .form-group label { color: #94a3b8; }
-
-html[data-theme="dark"] .form-group input,
-html[data-theme="dark"] .form-group select {
-  background-color: #0f172a;
-  border-color: #334155;
-  color: #e2e8f0;
-}
-
-html[data-theme="dark"] .btn-secondary {
-  background-color: #334155;
-  color: #e2e8f0;
-}
-
