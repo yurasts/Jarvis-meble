@@ -62,15 +62,15 @@ const Dashboard = ({
     <div className={s.page}>
       <div className={s.list}>
 
-        {/* Заголовок */}
-        <div className={s.header}>
-          <h2 className={s.title}>📋 Centrum Dowodzenia ({activeProjects.length})</h2>
-          {canCreate && (
+        {/* Кнопка "Nowy projekt" только на десктопе —
+            на мобайле она в топбаре (App.jsx) */}
+        {canCreate && (
+          <div className={s.desktopNewBtn}>
             <button className={s.btnNewProject} onClick={() => setIsModalOpen(true)}>
               + Nowy projekt
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {activeProjects.length === 0 ? (
           <div className={s.empty}>Brak aktywnych projektów.</div>
@@ -85,28 +85,36 @@ const Dashboard = ({
             return (
               <div key={project.id} className={s.projectCard}>
 
-                {/* Шапка */}
+                {/* Шапка: имя+статус+финансы СЛЕВА, кнопка СПРАВА */}
                 <div className={s.projectHeader}>
                   <div className={s.projectInfo}>
 
+                    {/* Строка 1: имя + статус */}
                     <div className={s.projectNameRow}>
                       <h3 className={s.projectName}>{project.full_name}</h3>
                       <span className={s.statusBadge}>{project.status || 'Nowe'}</span>
                     </div>
 
-                    <div className={s.metaRow}>
-                      {project.address && (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
-                          target="_blank" rel="noreferrer"
-                          className={s.addressLink}
-                        >
-                          📍 {project.address}
-                        </a>
-                      )}
-                      {project.deadline && (
-                        <span className={s.deadline}>📅 {shortDate(project.deadline)}</span>
-                      )}
+                    {/* Строка 2: адрес + дедлайн */}
+                    {(project.address || project.deadline) && (
+                      <div className={s.metaRow}>
+                        {project.address && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
+                            target="_blank" rel="noreferrer"
+                            className={s.addressLink}
+                          >
+                            📍 {project.address}
+                          </a>
+                        )}
+                        {project.deadline && (
+                          <span className={s.deadline}>📅 {shortDate(project.deadline)}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Строка 3: Koszty и Budżet — каждый на своей строке */}
+                    <div className={s.financeCol}>
                       {projectCosts > 0 && (
                         <span className={s.koszty}>Koszty: {projectCosts.toFixed(2)} zł</span>
                       )}
@@ -115,38 +123,35 @@ const Dashboard = ({
                           Budżet: {projectBudget.toFixed(2)} zł{coef > 0 ? ` (×${coef})` : ''}
                         </span>
                       )}
-
-                      {/* Подпись редактора */}
-                      {editor && (
-                        <span
-                          className={s.editorExpanded}
-                          onClick={() => setExpandedProjectId(isProjectExpanded ? null : project.id)}
-                          title="Kliknij aby zobaczyć kto edytował"
-                        >
-                          {isProjectExpanded ? (
-                            <>
-                              <div
-                                className={s.editorAvatar}
-                                style={{ background: editor.color || '#718096' }}
-                              >
-                                {initials(editor.full_name)}
-                              </div>
-                              <span className={s.editorName}>
-                                {editor.full_name} • {project.updated_at
-                                  ? new Date(project.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                                  : ''}
-                              </span>
-                            </>
-                          ) : (
-                            <div className={s.editorDot} style={{ background: editor.color || '#cbd5e0' }} />
-                          )}
-                        </span>
-                      )}
                     </div>
+
+                    {/* Подпись редактора */}
+                    {editor && (
+                      <span
+                        className={s.editorExpanded}
+                        onClick={() => setExpandedProjectId(isProjectExpanded ? null : project.id)}
+                      >
+                        {isProjectExpanded ? (
+                          <>
+                            <div className={s.editorAvatar} style={{ background: editor.color || '#718096' }}>
+                              {initials(editor.full_name)}
+                            </div>
+                            <span className={s.editorName}>
+                              {editor.full_name} • {project.updated_at
+                                ? new Date(project.updated_at).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+                                : ''}
+                            </span>
+                          </>
+                        ) : (
+                          <div className={s.editorDot} style={{ background: editor.color || '#cbd5e0' }} />
+                        )}
+                      </span>
+                    )}
                   </div>
 
+                  {/* Кнопка справа от всего блока инфо */}
                   <button className={s.btnOpen} onClick={() => openProjectModal(project)}>
-                    Otwórz projekt
+                    Otwórz
                   </button>
                 </div>
 
@@ -158,12 +163,10 @@ const Dashboard = ({
                     {(project.tasks || []).length === 0 && (
                       <div className={s.noTasks}>Brak zadań.</div>
                     )}
-
                     {(project.tasks || []).map(task => {
                       const taskColor  = task.createdByColor || '#718096';
                       const isConfirm  = confirmDeleteId === task.id;
                       const isExpanded = expandedTaskId === task.id;
-
                       const taskItemClass = [s.taskItem, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
                       const taskTextClass = [s.taskText, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
 
@@ -176,17 +179,10 @@ const Dashboard = ({
                               onChange={() => toggleTaskStatus(project.id, task.id)}
                               className={s.taskCheckbox}
                             />
-                            <div
-                              className={s.taskTextWrap}
-                              onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}
-                            >
+                            <div className={s.taskTextWrap} onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
                               <span className={taskTextClass}>{task.text}</span>
                             </div>
-
-                            {task.date && (
-                              <span className={s.taskDate}>{shortDate(task.date)}</span>
-                            )}
-
+                            {task.date && <span className={s.taskDate}>{shortDate(task.date)}</span>}
                             {isConfirm ? (
                               <div className={s.confirmBtns}>
                                 <button className={s.btnConfirmYes} onClick={() => deleteTask(project.id, task.id)}>Tak</button>
@@ -196,8 +192,6 @@ const Dashboard = ({
                               <button className={s.btnDelete} onClick={() => setConfirmDeleteId(task.id)}>✖</button>
                             )}
                           </div>
-
-                          {/* Подпись автора */}
                           {isExpanded && task.createdByName && (
                             <div className={s.taskAuthor}>
                               <div className={s.taskAuthorAvatar} style={{ background: taskColor }}>
@@ -205,9 +199,7 @@ const Dashboard = ({
                               </div>
                               <span className={s.taskAuthorName}>
                                 {task.createdByName}
-                                {task.createdAt
-                                  ? ' • ' + new Date(task.createdAt).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                                  : ''}
+                                {task.createdAt ? ' • ' + new Date(task.createdAt).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
                               </span>
                             </div>
                           )}
@@ -216,7 +208,7 @@ const Dashboard = ({
                     })}
                   </div>
 
-                  {/* Форма добавления задачи */}
+                  {/* Форма добавления задачи — одна строка, кнопка в ряд */}
                   <div className={s.addTaskRow}>
                     <input
                       type="text"

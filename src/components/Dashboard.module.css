@@ -393,3 +393,51 @@
   font-weight: bold;
   font-size: 12px;
 }
+
+/* ---- Кнопка "Nowy projekt" — только десктоп ---- */
+.desktopNewBtn {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .desktopNewBtn { display: none; }
+}
+
+/* ---- Финансы в колонку ---- */
+.financeCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+/* ---- Шапка проекта: info + кнопка в ряд ---- */
+.projectHeader {
+  background: var(--bg-base);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;        /* кнопка по центру высоты */
+  gap: 10px;
+}
+
+.projectInfo {
+  flex: 1;
+  min-width: 0;               /* чтобы текст не выходил за края */
+}
+
+/* ---- Кнопка "Otwórz" — компактнее ---- */
+.btnOpen {
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}

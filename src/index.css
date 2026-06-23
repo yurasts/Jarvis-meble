@@ -345,3 +345,21 @@ html[data-theme="dark"] .client-card:hover {
     white-space: nowrap;
   }
 }
+
+/* --- ТОПБАР: body/root не должны блокировать overflow на мобайле --- */
+@media (max-width: 768px) {
+  html, body, #root {
+    overflow: visible;
+    height: auto;
+    min-height: 100vh;
+  }
+  .app-container {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+  .main-content {
+    height: auto;
+    overflow-y: visible;
+  }
+}
