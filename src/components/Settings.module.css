@@ -1,0 +1,243 @@
+/* ================================
+   Settings.module.css
+   ================================ */
+
+.page {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 10px;
+}
+
+.pageTitle {
+  color: var(--text-main);
+  margin-bottom: 30px;
+}
+
+/* --- Секция (блок) --- */
+.section {
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 25px;
+  margin-bottom: 25px;
+}
+
+.sectionTitle {
+  margin: 0 0 5px 0;
+  color: var(--text-main);
+}
+
+.sectionDesc {
+  margin: 0 0 20px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* --- Переключатель темы --- */
+.themeRow {
+  display: flex;
+  gap: 16px;
+}
+
+.themeOption {
+  flex: 1;
+  cursor: pointer;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 2px solid var(--border);
+}
+
+.themeOption.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(77,166,255,0.2);
+}
+
+/* Превью светлой темы */
+.previewLight {
+  background: #f4f7f6;
+  padding: 10px;
+}
+
+/* Превью тёмной темы */
+.previewDark {
+  background: #0f172a;
+  padding: 10px;
+}
+
+.previewBar {
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.previewBarLight { background: #1e1e2f; }
+.previewBarDark  { background: #0d1117; }
+
+.previewDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.previewLine {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.previewLineLight { background: #3b3b54; }
+.previewLineDark  { background: #1e293b; }
+
+.previewCard {
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.previewCardLight { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.previewCardDark  { background: #1e293b; }
+
+.previewCardTitle {
+  height: 6px;
+  border-radius: 2px;
+  margin-bottom: 4px;
+  width: 60%;
+}
+
+.previewCardTitleLight { background: #2b6cb0; }
+.previewCardTitleDark  { background: var(--accent); }
+
+.previewCardBody {
+  height: 4px;
+  border-radius: 2px;
+  width: 80%;
+}
+
+.previewCardBodyLight { background: #e2e8f0; }
+.previewCardBodyDark  { background: #334155; }
+
+.themeLabel {
+  padding: 8px;
+  text-align: center;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--text-muted);
+}
+
+.themeLabel.active { color: var(--accent); }
+
+/* --- Текущий цвет профиля --- */
+.profilePreview {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--bg-base);
+  border-radius: 8px;
+}
+
+.profileAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.profileName {
+  font-weight: bold;
+  color: var(--text-main);
+}
+
+.profileMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.savedBadge {
+  margin-left: auto;
+  color: #38a169;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+/* --- Палитра цветов --- */
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.colorBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.colorBtn.selected {
+  border-color: var(--text-main);
+  transform: scale(1.15);
+}
+
+/* --- Легенда сотрудников --- */
+.legendList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--bg-base);
+  border-radius: 8px;
+}
+
+.legendAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.legendName {
+  font-weight: bold;
+  color: var(--text-main);
+  font-size: 14px;
+}
+
+.legendMe {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.legendRole {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.legendSwatch {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
