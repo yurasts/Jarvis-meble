@@ -70,7 +70,10 @@ export default function KanbanBoard({
                   onDragStart={(e) => handleDragStart(e, client.id)}
                   onClick={() => setActiveClient(client)}
                 >
-                  <h4 className={s.cardName}>👤 {client.full_name}</h4>
+                  <h4 className={s.cardName}>👤 {client.client_name || client.full_name}</h4>
+                  {client.project_name && (
+                    <p className={s.cardProject}>🪚 {client.project_name}</p>
+                  )}
                   <p className={s.cardPhone}>📞 {client.phone}</p>
 
                   {client.address && (

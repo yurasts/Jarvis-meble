@@ -77,3 +77,11 @@
   border-top: 1px dashed var(--border);
   color: var(--text-muted);
 }
+
+/* Название проекта под именем клиента */
+.cardProject {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+  font-weight: bold;
+  color: #4da6ff;
+}
