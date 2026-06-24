@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import FilesTab from './FilesTab';
 
+// Лёгкая заливка фона по статусу проекта
+const STATUS_OVERLAY = {
+  new:        { light: 'rgba(229,62,62,0.04)',   dark: 'rgba(229,62,62,0.08)'   },
+  design:     { light: 'rgba(221,107,32,0.04)',  dark: 'rgba(221,107,32,0.08)'  },
+  production: { light: 'rgba(214,158,46,0.04)',  dark: 'rgba(214,158,46,0.08)'  },
+  done:       { light: 'rgba(56,161,105,0.04)',  dark: 'rgba(56,161,105,0.08)'  },
+};
+
+const STATUS_BORDER_COLOR = {
+  new:        '#e53e3e',
+  design:     '#dd6b20',
+  production: '#d69e2e',
+  done:       '#38a169',
+};
+
 const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, onCoverChange }) => {
   const isMobile = window.innerWidth < 640;
 
@@ -78,21 +93,28 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const totalExpenses     = calcExpenses.reduce((s, i)  => s + Number(i.price) * Number(i.quantity || 1), 0);
   const totalProjectCost  = totalMaterials + totalServices + totalExpenses;
 
+  // isDirty: сравниваем только то что реально меняет пользователь.
+  // budget и budget_coefficient НЕ сравниваем — они пересчитываются
+  // автоматически в useEffect при открытии, что вызывало ложный isDirty.
   const isDirty = originalClient
     ? JSON.stringify({
         calc_materials: client.calc_materials || [],
         calc_services:  client.calc_services  || [],
         calc_expenses:  client.calc_expenses  || [],
-        notes: client.notes, deadline: client.deadline, client_name: client.client_name, project_name: client.project_name,
-        address: client.address, budget: client.budget,
-        budget_coefficient: client.budget_coefficient,
+        notes:         client.notes         || '',
+        deadline:      client.deadline      || '',
+        address:       client.address       || '',
+        client_name:   client.client_name   || '',
+        project_name:  client.project_name  || '',
       }) !== JSON.stringify({
         calc_materials: originalClient.calc_materials || [],
         calc_services:  originalClient.calc_services  || [],
         calc_expenses:  originalClient.calc_expenses  || [],
-        notes: originalClient.notes, deadline: originalClient.deadline,
-        address: originalClient.address, budget: originalClient.budget,
-        budget_coefficient: originalClient.budget_coefficient,
+        notes:         originalClient.notes         || '',
+        deadline:      originalClient.deadline      || '',
+        address:       originalClient.address       || '',
+        client_name:   originalClient.client_name   || '',
+        project_name:  originalClient.project_name  || '',
       })
     : false;
 
@@ -194,7 +216,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
-      <div style={{ background: bg, borderRadius: isMobile ? 0 : '10px', width: '95%', maxWidth: '1100px', padding: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+      <div style={{
+          background: bg,
+          backgroundImage: `linear-gradient(${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']}, ${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']})`,
+          borderRadius: isMobile ? 0 : '10px',
+          width: '95%', maxWidth: '1100px', padding: '15px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          position: 'relative',
+          borderTop: `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
+        }} onClick={e => e.stopPropagation()}>
 
         {/* Шапка */}
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
