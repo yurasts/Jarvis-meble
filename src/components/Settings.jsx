@@ -168,7 +168,7 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
             { color: '#d69e2e', status: 'production', label: 'Produkcja / Składanie',            desc: 'Elementy w produkcji lub na hali' },
             { color: '#38a169', status: 'done',       label: 'Montaż / Gotowe',                  desc: 'Montaż u klienta lub zakończony' },
           ].map(({ color, status, label, desc }) => (
-            <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-base)', borderRadius: '8px', borderLeft: \`4px solid \${color}\` }}>
+            <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-base)', borderRadius: '8px', borderLeft: `4px solid ${color}` }}>
               <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: color, flexShrink: 0 }} />
               <div>
                 <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '13px' }}>{label}</div>
