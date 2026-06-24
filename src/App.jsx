@@ -363,6 +363,7 @@ function App() {
           servicesList={servicesList}
           onClose={() => { setActiveClient(null); setOriginalClient(null) }}
           onSave={handleUpdateClient}
+          onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
           currentProfile={profile}
           profilesById={profilesById}
           isDark={isDark}

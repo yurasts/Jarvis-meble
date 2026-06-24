@@ -62,8 +62,6 @@ const Dashboard = ({
     <div className={s.page}>
       <div className={s.list}>
 
-        {/* Кнопка "Nowy projekt" только на десктопе —
-            на мобайле она в топбаре (App.jsx) */}
         {canCreate && (
           <div className={s.desktopNewBtn}>
             <button className={s.btnNewProject} onClick={() => setIsModalOpen(true)}>
@@ -81,21 +79,19 @@ const Dashboard = ({
             const projectCosts      = calcProjectCosts(project);
             const projectBudget     = Number(project.budget) || 0;
             const coef              = Number(project.budget_coefficient) || 0;
+            const hasCover          = Boolean(project.cover_url);
 
             return (
               <div key={project.id} className={s.projectCard}>
 
-                {/* Шапка: имя+статус+финансы СЛЕВА, кнопка СПРАВА */}
                 <div className={s.projectHeader}>
                   <div className={s.projectInfo}>
 
-                    {/* Строка 1: имя + статус */}
                     <div className={s.projectNameRow}>
                       <h3 className={s.projectName}>{project.full_name}</h3>
                       <span className={s.statusBadge}>{project.status || 'Nowe'}</span>
                     </div>
 
-                    {/* Строка 2: адрес + дедлайн */}
                     {(project.address || project.deadline) && (
                       <div className={s.metaRow}>
                         {project.address && (
@@ -113,7 +109,6 @@ const Dashboard = ({
                       </div>
                     )}
 
-                    {/* Строка 3: Koszty и Budżet — каждый на своей строке */}
                     <div className={s.financeCol}>
                       {projectCosts > 0 && (
                         <span className={s.koszty}>Koszty: {projectCosts.toFixed(2)} zł</span>
@@ -125,7 +120,6 @@ const Dashboard = ({
                       )}
                     </div>
 
-                    {/* Подпись редактора */}
                     {editor && (
                       <span
                         className={s.editorExpanded}
@@ -149,10 +143,24 @@ const Dashboard = ({
                     )}
                   </div>
 
-                  {/* Кнопка справа от всего блока инфо */}
-                  <button className={s.btnOpen} onClick={() => openProjectModal(project)}>
-                    Otwórz
-                  </button>
+                  {/* ✅ Миникартинка вместо кнопки */}
+                  {hasCover ? (
+                    <div
+                      className={s.coverThumb}
+                      onClick={() => openProjectModal(project)}
+                      title="Otwórz projekt"
+                    >
+                      <img src={project.cover_url} alt="okładka" />
+                    </div>
+                  ) : (
+                    <div
+                      className={s.coverPlaceholder}
+                      onClick={() => openProjectModal(project)}
+                      title="Otwórz projekt"
+                    >
+                      📷
+                    </div>
+                  )}
                 </div>
 
                 {/* Задачи */}
@@ -208,7 +216,6 @@ const Dashboard = ({
                     })}
                   </div>
 
-                  {/* Форма добавления задачи — одна строка, кнопка в ряд */}
                   <div className={s.addTaskRow}>
                     <input
                       type="text"

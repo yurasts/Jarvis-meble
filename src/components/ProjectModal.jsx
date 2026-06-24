@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import FilesTab from './FilesTab';
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, onCoverChange }) => {
   const isMobile = window.innerWidth < 640;
 
   // ✅ Цвета тёмной/светлой темы
@@ -590,7 +590,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
           {/* ФАЙЛЫ */}
           {activeTab === 'files' && (
-            <FilesTab clientId={client.id} currentProfile={currentProfile} />
+            <FilesTab clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
           )}
 
         </div>
