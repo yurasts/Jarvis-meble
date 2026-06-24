@@ -507,3 +507,63 @@
   background: var(--bg-base);
   border-color: #3182ce;
 }
+
+/* ================================================
+   ГРУППИРОВКА ПО КЛИЕНТУ
+   ================================================ */
+
+.clientGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Заголовок группы клиента — кликабельный */
+.clientGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-kanban-col);
+  border-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.clientGroupHeader:hover { background: var(--bg-base); }
+
+.clientGroupName {
+  font-weight: bold;
+  font-size: 14px;
+  color: var(--text-main);
+  flex: 1;
+}
+
+.clientGroupMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.clientGroupArrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+/* Карточка проекта — цветная левая рамка */
+.projectCard {
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-left: 4px solid #e53e3e; /* переопределяется инлайн-стилем */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  overflow: hidden;
+  margin-left: 12px; /* отступ — показывает вложенность в группу */
+}
+
+@media (max-width: 768px) {
+  .projectCard { margin-left: 0; }
+  .clientGroupHeader { border-radius: 5px; }
+}

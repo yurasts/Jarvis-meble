@@ -1,6 +1,13 @@
 import React from 'react';
 import s from './KanbanBoard.module.css';
 
+const STATUS_BORDER = {
+  new:        '#e53e3e',
+  design:     '#dd6b20',
+  production: '#d69e2e',
+  done:       '#38a169',
+};
+
 const STATUSES = ['new', 'design', 'production', 'done'];
 const TITLES   = ['Nowe', 'Projektowanie / 3D', 'W produkcji', 'Montaż / Gotowe'];
 
@@ -58,6 +65,7 @@ export default function KanbanBoard({
                 <div
                   key={client.id}
                   className="client-card"
+                  style={{ borderLeft: `4px solid ${STATUS_BORDER[client.status] || STATUS_BORDER.new}` }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, client.id)}
                   onClick={() => setActiveClient(client)}

@@ -36,6 +36,7 @@ function App() {
   const [originalClient,  setOriginalClient]  = useState(null)
 
   const [name,     setName]     = useState('')
+  const [projectName, setProjectName] = useState('')
   const [phone,    setPhone]    = useState('')
   const [budget,   setBudget]   = useState('')
   const [deadline, setDeadline] = useState('')
@@ -97,12 +98,12 @@ function App() {
   async function handleAddClient(e) {
     e.preventDefault()
     const { data, error } = await supabase.from('clients').insert([{
-      full_name: name, phone, budget: Number(budget) || 0,
+      full_name: name, client_name: name, project_name: projectName, phone, budget: Number(budget) || 0,
       deadline: deadline || null, address, status: 'new'
     }]).select()
     if (!error && data) {
       setClients([...clients, data[0]])
-      setName(''); setPhone(''); setBudget(''); setDeadline(''); setAddress('')
+      setName(''); setProjectName(''); setPhone(''); setBudget(''); setDeadline(''); setAddress('')
       setIsModalOpen(false)
     }
   }
@@ -338,6 +339,7 @@ function App() {
             <h2>Dodaj projekt</h2>
             <form onSubmit={handleAddClient}>
               <div className="form-group"><label>Imię i nazwisko klienta</label><input type="text" required value={name} onChange={e => setName(e.target.value)} /></div>
+              <div className="form-group"><label>Nazwa projektu (szafa, kuchnia, łazienka...)</label><input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="np. szafa do sypialni" /></div>
               <div className="form-group"><label>Telefon</label><input type="text" required value={phone} onChange={e => setPhone(e.target.value)} /></div>
               <div className="form-group"><label>Adres montażu</label><input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="np. Gdańsk, ul. Długa 12/4" /></div>
               <div style={{ display:'flex', gap:'15px' }}>

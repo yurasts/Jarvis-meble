@@ -83,7 +83,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         calc_materials: client.calc_materials || [],
         calc_services:  client.calc_services  || [],
         calc_expenses:  client.calc_expenses  || [],
-        notes: client.notes, deadline: client.deadline,
+        notes: client.notes, deadline: client.deadline, client_name: client.client_name, project_name: client.project_name,
         address: client.address, budget: client.budget,
         budget_coefficient: client.budget_coefficient,
       }) !== JSON.stringify({
@@ -199,7 +199,26 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         {/* Шапка */}
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, fontSize: isMobile ? '17px' : '20px', color: text, flex: 1 }}>{client.full_name}</h2>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
+                <input
+                  value={client.client_name || ''}
+                  onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
+                  placeholder="Imię klienta"
+                  style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '80px', flex: 1 }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
+                <input
+                  value={client.project_name || ''}
+                  onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
+                  placeholder="Nazwa projektu (szafa, kuchnia...)"
+                  style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '100px', flex: 1 }}
+                />
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
               {!isMobile && (
                 <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
