@@ -567,3 +567,21 @@
   .projectCard { margin-left: 0; }
   .clientGroupHeader { border-radius: 5px; }
 }
+
+
+/* ================================================
+   ЦВЕТНАЯ ЗАЛИВКА КАРТОЧЕК ПО СТАТУСУ
+   Лёгкий фон шапки + полоска сверху
+   ================================================ */
+
+/* Шапка карточки — лёгкая заливка */
+.projectCard[data-status="new"]        .projectHeader { background: rgba(229,62,62,0.06); }
+.projectCard[data-status="design"]     .projectHeader { background: rgba(221,107,32,0.06); }
+.projectCard[data-status="production"] .projectHeader { background: rgba(214,158,46,0.06); }
+.projectCard[data-status="done"]       .projectHeader { background: rgba(56,161,105,0.06); }
+
+/* Тёмная тема — чуть интенсивнее */
+:global([data-theme="dark"]) .projectCard[data-status="new"]        .projectHeader { background: rgba(229,62,62,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="design"]     .projectHeader { background: rgba(221,107,32,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="production"] .projectHeader { background: rgba(214,158,46,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="done"]       .projectHeader { background: rgba(56,161,105,0.12); }

@@ -4,15 +4,15 @@ import { useAuth } from '../AuthContext';
 import s from './Settings.module.css';
 
 const PALETTE = [
-  { hex: '#c05621', label: 'Brązowy'   },
-  { hex: '#2b6cb0', label: 'Niebieski' },
-  { hex: '#276749', label: 'Zielony'   },
-  { hex: '#6b46c1', label: 'Fioletowy' },
-  { hex: '#c53030', label: 'Czerwony'  },
-  { hex: '#b7791f', label: 'Złoty'     },
-  { hex: '#2c7a7b', label: 'Turkusowy' },
-  { hex: '#97266d', label: 'Różowy'    },
-  { hex: '#1a202c', label: 'Czarny'    },
+  { hex: '#e53e3e', label: 'Czerwony'  },
+  { hex: '#dd6b20', label: 'Pomarańcz' },
+  { hex: '#d69e2e', label: 'Złoty'     },
+  { hex: '#38a169', label: 'Zielony'   },
+  { hex: '#3182ce', label: 'Niebieski' },
+  { hex: '#805ad5', label: 'Fioletowy' },
+  { hex: '#d53f8c', label: 'Różowy'    },
+  { hex: '#00b5d8', label: 'Turkusowy' },
+  { hex: '#ed8936', label: 'Brązowy'   },
   { hex: '#718096', label: 'Szary'     },
 ];
 
@@ -135,7 +135,10 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
             <div key={p.id} className={s.legendItem}>
               <div
                 className={s.legendAvatar}
-                style={{ background: p.color || '#718096' }}
+                style={{
+                  background: p.color || '#718096',
+                  boxShadow: `0 0 0 3px ${(p.color || '#718096')}44, 0 2px 8px ${(p.color || '#718096')}66`,
+                }}
               >
                 {initials(p.full_name)}
               </div>
@@ -150,7 +153,13 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
               </div>
               <div
                 className={s.legendSwatch}
-                style={{ background: p.color || '#718096' }}
+                style={{
+                  background: p.color || '#718096',
+                  boxShadow: `0 2px 6px ${(p.color || '#718096')}88`,
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                }}
               />
             </div>
           ))}

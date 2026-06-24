@@ -139,6 +139,7 @@ const Dashboard = ({
                     <div
                       key={project.id}
                       className={s.projectCard}
+                      data-status={project.status || 'new'}
                       style={{ borderLeft: `4px solid ${borderColor}` }}
                     >
                       <div className={s.projectHeader}>
