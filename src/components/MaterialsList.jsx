@@ -60,6 +60,8 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
   const bgNote   = c('#fffff0', '#1a1a00');
   const borderNote = c('#fefcbf', '#3d3d00');
 
+  const [searchMat,     setSearchMat]     = useState('');
+  const [filterCatMat,  setFilterCatMat]  = useState('');
   const [suppliers, setSuppliers] = useState([]);
   const [isSupModalOpen, setIsSupModalOpen] = useState(false);
   const [editingSupplierId, setEditingSupplierId] = useState(null);
@@ -124,7 +126,42 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
 
         {/* МАТЕРИАЛЫ */}
         <div style={{ flex: '2 1 600px', background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px', color: text, fontSize: '16px' }}>📦 Baza materiałów</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <h3 style={{ margin: 0, color: text, fontSize: '16px' }}>📦 Baza materiałów</h3>
+            <span style={{ fontSize: '12px', color: textLight }}>
+              {(searchMat || filterCatMat)
+                ? `${materials.filter(m => { const q = searchMat.toLowerCase(); return (!q || (m.name||'').toLowerCase().includes(q) || (m.symbol||'').toLowerCase().includes(q)) && (!filterCatMat || m.category === filterCatMat); }).length} / ${materials.length}`
+                : `${materials.length} poz.`}
+            </span>
+          </div>
+
+          {/* Поиск + фильтр категории */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="🔍 Szukaj materiału..."
+              value={searchMat}
+              onChange={e => setSearchMat(e.target.value)}
+              style={{ flex: 1, minWidth: '160px', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: bgInput, color: text, fontSize: '13px' }}
+            />
+            <select
+              value={filterCatMat}
+              onChange={e => setFilterCatMat(e.target.value)}
+              style={{ padding: '6px 8px', borderRadius: '6px', border: `1px solid ${border}`, background: bgInput, color: text, fontSize: '13px' }}
+            >
+              <option value="">Wszystkie kat.</option>
+              {[...new Set(materials.map(m => m.category).filter(Boolean))].sort().map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            {(searchMat || filterCatMat) && (
+              <button
+                onClick={() => { setSearchMat(''); setFilterCatMat(''); }}
+                style={{ padding: '6px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: 'transparent', color: textLight, cursor: 'pointer', fontSize: '12px' }}
+              >✕ Wyczyść</button>
+            )}
+          </div>
+
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
@@ -137,7 +174,12 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                 </tr>
               </thead>
               <tbody>
-                {materials.map((mat, index) => (
+                {materials.filter(mat => {
+                    const q = searchMat.toLowerCase();
+                    const matchSearch = !q || (mat.name || '').toLowerCase().includes(q) || (mat.symbol || '').toLowerCase().includes(q) || (mat.supplier || '').toLowerCase().includes(q);
+                    const matchCat = !filterCatMat || mat.category === filterCatMat;
+                    return matchSearch && matchCat;
+                  }).map((mat, index) => (
                   <tr key={mat.id} style={{ background: index % 2 === 0 ? stripe1 : stripe2, lineHeight: '1.2' }}>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.category}</td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>
