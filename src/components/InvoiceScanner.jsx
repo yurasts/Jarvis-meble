@@ -2,7 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '../supabase';
 
-export default function InvoiceScanner({ materials, onPricesUpdated }) {
+export default function InvoiceScanner({ materials, onPricesUpdated, isDark = false }) {
+  const c = (light, dark) => isDark ? dark : light;
   const [isOpen, setIsOpen] = useState(false);
   const [image, setImage] = useState(null);       // { base64, type, preview }
   const [scanning, setScanning] = useState(false);
@@ -24,13 +25,11 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
   };
 
   const handleScan = async () => {
-        console.log('handleScan called', image) // ← добавьте эту строку
-    if (!image) return;
+        if (!image) return;
     setScanning(true);
     setError(null);
     setResults(null);
     try {
-        console.log('Calling edge function...')  // ← добавьте
       const { data, error: fnErr } = await supabase.functions.invoke('scan-invoice', {
         body: {
           imageBase64: image.base64,
@@ -38,7 +37,6 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
           materials: materials.map(m => ({ id: m.id, name: m.name, symbol: m.symbol || null, price: m.price }))
         }
       });
-        console.log('Result:', data, 'Error:', fnErr)  // ← добавьте
       if (fnErr) throw new Error(fnErr.message);
       setResults(data?.result || []);
     } catch (err) {
@@ -77,12 +75,12 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
       {/* Модал */}
       {isOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={close}>
-          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '600px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: c('#fff','#1e293b'), borderRadius: '12px', width: '100%', maxWidth: '600px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: isDark ? '1px solid #334155' : 'none' }} onClick={e => e.stopPropagation()}>
 
             {/* Шапка */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
-                <h2 style={{ margin: 0, color: '#2d3748' }}>📸 Skanowanie faktury</h2>
+                <h2 style={{ margin: 0, color: c('#2d3748','#e2e8f0') }}>📸 Skanowanie faktury</h2>
                 <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#718096' }}>
                   Wgraj zdjęcie faktury — Jarvis rozpozna ceny i zaproponuje aktualizację
                 </p>
@@ -94,7 +92,7 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
             {!image ? (
               <div
                 onClick={() => fileInputRef.current.click()}
-                style={{ border: '2px dashed #cbd5e0', borderRadius: '10px', padding: '40px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', transition: 'border-color 0.2s' }}
+                style={{ border: `2px dashed ${c('#cbd5e0','#334155')}`, borderRadius: '10px', padding: '40px', textAlign: 'center', cursor: 'pointer', background: c('#f8fafc','#0f172a'), transition: 'border-color 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = '#6b46c1'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = '#cbd5e0'}
               >
@@ -153,10 +151,10 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
 
                 {results.length > 0 && (
                   <>
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
+                    <div style={{ border: `1px solid ${c('#e2e8f0','#334155')}`, borderRadius: '8px', overflow: 'hidden', marginBottom: '16px', background: c('#fff','#1a2535') }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead>
-                          <tr style={{ background: '#f8fafc', color: '#4a5568' }}>
+                          <tr style={{ background: c('#f8fafc','#162032'), color: c('#4a5568','#94a3b8') }}>
                             <th style={{ padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Materiał</th>
                             <th style={{ padding: '8px 12px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>Stara cena</th>
                             <th style={{ padding: '8px 12px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>Nowa cena</th>
@@ -169,8 +167,11 @@ export default function InvoiceScanner({ materials, onPricesUpdated }) {
                             const pct = ((diff / Number(item.old_price)) * 100).toFixed(1);
                             const up = diff > 0;
                             return (
-                              <tr key={i} style={{ borderBottom: i < results.length - 1 ? '1px solid #edf2f7' : 'none' }}>
-                                <td style={{ padding: '8px 12px', color: '#2d3748' }}>{item.material_name}</td>
+                              <tr key={i} style={{ borderBottom: i < results.length - 1 ? `1px solid ${c('#edf2f7','#334155')}` : 'none' }}>
+                                <td style={{ padding: '8px 12px', color: c('#2d3748','#e2e8f0') }}>
+                                  <div>{item.material_name}</div>
+                                  {item.match_reason && <div style={{ fontSize: '10px', color: '#a0aec0', marginTop: '2px' }}>🔍 {item.match_reason}</div>}
+                                </td>
                                 <td style={{ padding: '8px 12px', textAlign: 'right', color: '#718096' }}>{Number(item.old_price).toFixed(2)} zł</td>
                                 <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', color: up ? '#e53e3e' : '#38a169' }}>{Number(item.new_price).toFixed(2)} zł</td>
                                 <td style={{ padding: '8px 12px', textAlign: 'right', color: up ? '#e53e3e' : '#38a169', fontWeight: 'bold' }}>
