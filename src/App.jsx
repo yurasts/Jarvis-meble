@@ -10,6 +10,14 @@ import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
 import s from './App.module.css'
 
+const TAB_LABELS = {
+  dashboard:  '📊 Dashboard',
+  board:      '📋 Projekty',
+  production: '🛠 Produkcja',
+  materials:  '📦 Materiały',
+  settings:   '⚙️ Ustawienia',
+}
+
 const TABS = [
   { id: 'dashboard',  label: '📊 Dashboard'  },
   { id: 'board',      label: '📋 Projekty'   },
@@ -22,7 +30,7 @@ const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
 function App() {
-  const { session, profile: authProfile, profilesById, isDark, loadingSession, awaitingAccess, signOut } = useAuth()
+  const { session, profile: authProfile, profilesById, isDark, loadingSession, awaitingAccess, signOut, updatePresenceTab, onlineUsers } = useAuth()
   const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab]   = useState('dashboard')
@@ -88,6 +96,7 @@ function App() {
   const selectTab = (id) => {
     setActiveTab(id)
     setMenuOpen(false)
+    updatePresenceTab?.(id)
   }
 
   async function updateClientFields(clientId, updatedFields) {
@@ -206,6 +215,10 @@ function App() {
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
 
+  // Онлайн-пользователи кроме себя
+  const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
+  const allOnline    = Object.values(onlineUsers || {})
+
   return (
     <div className="app-container">
 
@@ -217,11 +230,38 @@ function App() {
           <div
             key={tab.id}
             className={`${s.menuItem} ${activeTab === tab.id ? s.active : ''}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); updatePresenceTab?.(tab.id); }}
           >
             {tab.label}
           </div>
         ))}
+
+        {/* Онлайн-пользователи — десктоп */}
+        {allOnline.length > 0 && (
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #2d3a50' }}>
+            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+              🟢 Online ({allOnline.length})
+            </div>
+            {allOnline.map(u => (
+              <div key={u.userId} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: u.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 'bold' }}>
+                    {(u.fullName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
+                  </div>
+                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid #1e1e2f' }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '11px', color: '#cbd5e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.userId === profile?.id ? 'Ja' : u.fullName}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {TAB_LABELS[u.activeTab] || u.activeTab}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className={s.sidebarFooter}>
           <div className={s.sidebarUser}>
@@ -255,8 +295,23 @@ function App() {
               + Nowy
             </button>
           )}
-          <div className={s.topbarAvatar} style={{ background: profile?.color || '#718096' }}>
+          {/* Онлайн-пользователи — мобайл */}
+          {othersOnline.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+              {othersOnline.slice(0, 3).map(u => (
+                <div key={u.userId} style={{ position: 'relative' }} title={`${u.fullName} — ${TAB_LABELS[u.activeTab] || u.activeTab}`}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: u.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 'bold' }}>
+                    {(u.fullName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
+                  </div>
+                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid #1e1e2f' }} />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={s.topbarAvatar} style={{ background: profile?.color || '#718096', position: 'relative' }}>
             {initials(profile?.full_name)}
+            {/* Своя зелёная точка */}
+            <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '8px', height: '8px', borderRadius: '50%', background: '#38a169', border: '1.5px solid #1e1e2f' }} />
           </div>
         </div>
 
