@@ -124,6 +124,7 @@ function App() {
         notes:              activeClient.notes,
         deadline:           activeClient.deadline,
         address:            activeClient.address,
+        phone:              activeClient.phone || '',
         calc_materials:     activeClient.calc_materials    || [],
         calc_services:      activeClient.calc_services     || [],
         calc_expenses:      activeClient.calc_expenses     || [],

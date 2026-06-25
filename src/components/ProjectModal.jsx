@@ -104,6 +104,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         notes:         client.notes         || '',
         deadline:      client.deadline      || '',
         address:       client.address       || '',
+        phone:         client.phone         || '',
         client_name:   client.client_name   || '',
         project_name:  client.project_name  || '',
       }) !== JSON.stringify({
@@ -113,6 +114,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         notes:         originalClient.notes         || '',
         deadline:      originalClient.deadline      || '',
         address:       originalClient.address       || '',
+        phone:         originalClient.phone         || '',
         client_name:   originalClient.client_name   || '',
         project_name:  originalClient.project_name  || '',
       })
@@ -249,6 +251,47 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 />
               </div>
             </div>
+
+            {/* ✅ Дополнительные поля клиента — адрес, телефон, дедлайн, заметки */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '4px 12px', marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>📍 Adres:</span>
+                <input
+                  value={client.address || ''}
+                  onChange={e => setClient(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Adres montażu"
+                  style={{ flex: 1, fontSize: '12px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>📞 Tel:</span>
+                <input
+                  value={client.phone || ''}
+                  onChange={e => setClient(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Telefon (opcjonalnie)"
+                  style={{ flex: 1, fontSize: '12px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>📅 Termin:</span>
+                <input
+                  type="date"
+                  value={client.deadline || ''}
+                  onChange={e => setClient(prev => ({ ...prev, deadline: e.target.value }))}
+                  style={{ flex: 1, fontSize: '12px', color: text, background: bgInput, border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>💬 Uwagi:</span>
+                <input
+                  value={client.notes || ''}
+                  onChange={e => setClient(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Dodatkowe informacje..."
+                  style={{ flex: 1, fontSize: '12px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
               {!isMobile && (
                 <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
