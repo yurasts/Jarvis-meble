@@ -605,3 +605,23 @@
   background: var(--bg-base);
   color: var(--text-main);
 }
+
+/* Кнопка Pliki под миниатюрой */
+.btnPliki {
+  width: 72px;
+  padding: 3px 0;
+  background: rgba(128,90,213,0.15);
+  border: 1px solid #805ad5;
+  border-radius: 5px;
+  color: #b794f4;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btnPliki:hover {
+  background: rgba(128,90,213,0.3);
+}

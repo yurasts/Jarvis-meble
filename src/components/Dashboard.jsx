@@ -218,16 +218,25 @@ const Dashboard = ({
                           )}
                         </div>
 
-                        {/* Миникартинка / placeholder */}
-                        {hasCover ? (
-                          <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                            <img src={project.cover_url} alt="okładka" />
-                          </div>
-                        ) : (
-                          <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                            📷
-                          </div>
-                        )}
+                        {/* Миникартинка + кнопка Pliki */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                          {hasCover ? (
+                            <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
+                              <img src={project.cover_url} alt="okładka" />
+                            </div>
+                          ) : (
+                            <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">
+                              📷
+                            </div>
+                          )}
+                          <button
+                            onClick={() => openProjectModal(project, 'files')}
+                            className={s.btnPliki}
+                            title="Otwórz pliki projektu"
+                          >
+                            📎 Pliki
+                          </button>
+                        </div>
                       </div>
 
                       {/* Задачи */}

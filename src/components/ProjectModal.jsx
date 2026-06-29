@@ -16,7 +16,7 @@ const STATUS_BORDER_COLOR = {
   done:       '#38a169',
 };
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, onCoverChange }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, onCoverChange, initialTab = 'materials' }) => {
   const isMobile = window.innerWidth < 640;
 
   // ✅ Цвета тёмной/светлой темы
@@ -35,7 +35,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const borderSrv = c('#c6f6d5', '#1a4a2e');
   const borderExp = c('#fed7d7', '#7b2020');
 
-  const [activeTab, setActiveTab] = useState('materials');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
