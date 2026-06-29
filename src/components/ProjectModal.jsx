@@ -36,6 +36,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const borderExp = c('#fed7d7', '#7b2020');
 
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // ✅ При каждом открытии нового проекта или смене initialTab — переключаем вкладку
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [client.id, initialTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
