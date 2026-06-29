@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import React, { useState } from 'react';
 import s from './Dashboard.module.css';
 
 const initials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -48,12 +47,6 @@ const Dashboard = ({
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
   const [expandedTaskId,     setExpandedTaskId]     = useState(null);
-  const [carouselIdx,        setCarouselIdx]        = useState({});
-  const [projectFiles,       setProjectFiles]       = useState({});
-  // Активная категория фото по проекту (null = скрыто)
-  const [activePhotoTab,     setActivePhotoTab]     = useState({});
-  // Лайтбокс: { projectId, index }
-  const [lightbox,           setLightbox]           = useState(null);
   const [expandedProjectId,  setExpandedProjectId]  = useState(null);
   // Свёрнутые группы клиентов (Set с именами клиентов)
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
@@ -63,28 +56,6 @@ const Dashboard = ({
   const toggleShowDone = (projectId) => {
     setShowDoneByProject(prev => ({ ...prev, [projectId]: !prev[projectId] }));
   };
-
-  // Загружаем фото для всех активных проектов
-  useEffect(() => {
-    const ids = (clients || [])
-      .filter(c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone')
-      .map(c => c.id);
-    if (!ids.length) return;
-    supabase.from('project_files')
-      .select('client_id, file_url, file_type, category')
-      .in('client_id', ids)
-      .order('uploaded_at', { ascending: false })
-      .then(({ data }) => {
-        if (!data) return;
-        const byProject = {};
-        data.forEach(f => {
-          if (!f.file_url || !f.file_type?.startsWith('image/')) return;
-          if (!byProject[f.client_id]) byProject[f.client_id] = [];
-          byProject[f.client_id].push({ url: f.file_url, category: f.category || 'inne' });
-        });
-        setProjectFiles(byProject);
-      });
-  }, [clients]);
 
   const activeProjects = (clients || []).filter(
     c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone'
@@ -127,7 +98,6 @@ const Dashboard = ({
   };
 
   return (
-    <>
     <div className={s.page}>
       <div className={s.list}>
 
@@ -181,7 +151,7 @@ const Dashboard = ({
                       <div className={s.projectHeader}>
                         <div className={s.projectInfo}>
 
-                          {/* Название проекта (крупно) + статус + кнопки фото */}
+                          {/* Название проекта (крупно) + статус */}
                           <div className={s.projectNameRow}>
                             <h3 className={s.projectName}>
                               {project.project_name || project.full_name}
@@ -192,35 +162,6 @@ const Dashboard = ({
                             >
                               {project.status || 'new'}
                             </span>
-
-                            {/* Кнопки категорий фото */}
-                            {(() => {
-                              const photos = projectFiles[project.id] || [];
-                              if (!photos.length) return null;
-                              const CATS = [
-                                { id: 'all',     icon: '📁', label: 'Wszystkie' },
-                                { id: 'projekt', icon: '📐', label: 'Projekt'   },
-                                { id: 'usterki', icon: '⚠️', label: 'Usterki'  },
-                                { id: 'montaz',  icon: '✅', label: 'Montaż'   },
-                                { id: 'inne',    icon: '📄', label: 'Inne'     },
-                              ];
-                              const activeCat = activePhotoTab[project.id] || null;
-                              return CATS
-                                .filter(cat => cat.id === 'all' || photos.some(p => p.category === cat.id))
-                                .map(cat => {
-                                  const count = cat.id === 'all' ? photos.length : photos.filter(p => p.category === cat.id).length;
-                                  const isActive = activeCat === cat.id;
-                                  return (
-                                    <button
-                                      key={cat.id}
-                                      onClick={e => { e.stopPropagation(); setActivePhotoTab(prev => ({ ...prev, [project.id]: isActive ? null : cat.id })); }}
-                                      style={{ padding: '1px 6px', borderRadius: '10px', border: '1px solid', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap', borderColor: isActive ? '#4da6ff' : 'var(--border)', background: isActive ? 'rgba(77,166,255,0.15)' : 'transparent', color: isActive ? '#4da6ff' : 'var(--text-muted)' }}
-                                    >
-                                      {cat.icon} {count}
-                                    </button>
-                                  );
-                                });
-                            })()}
                           </div>
 
                           {/* Адрес + дедлайн */}
@@ -253,27 +194,6 @@ const Dashboard = ({
                             )}
                           </div>
 
-                          {/* Галерея фото — показывается при нажатии на кнопку категории */}
-                          {activePhotoTab[project.id] && (() => {
-                            const photos = projectFiles[project.id] || [];
-                            const cat    = activePhotoTab[project.id];
-                            const visible = cat === 'all' ? photos : photos.filter(p => p.category === cat);
-                            if (!visible.length) return null;
-                            return (
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                                {visible.map((photo, idx) => (
-                                  <div
-                                    key={idx}
-                                    onClick={e => { e.stopPropagation(); setLightbox({ projectId: project.id, photos: visible, index: idx }); }}
-                                    style={{ width: '52px', height: '52px', borderRadius: '5px', overflow: 'hidden', cursor: 'zoom-in', flexShrink: 0, border: '1px solid var(--border)' }}
-                                  >
-                                    <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })()}
-
                           {/* Подпись редактора */}
                           {editor && (
                             <span
@@ -298,40 +218,16 @@ const Dashboard = ({
                           )}
                         </div>
 
-                        {/* Карусель фото проекта */}
-                        {(() => {
-                          const photos = projectFiles[project.id] || [];
-                          const idx = carouselIdx[project.id] || 0;
-                          const hasPhotos = photos.length > 0;
-                          const currentPhoto = hasPhotos ? photos[idx] : (project.cover_url || null);
-                          const total = hasPhotos ? photos.length : (project.cover_url ? 1 : 0);
-
-                          if (!currentPhoto) return (
-                            <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">📷</div>
-                          );
-
-                          return (
-                            <div style={{ position: 'relative', flexShrink: 0 }}>
-                              <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                                <img src={currentPhoto} alt="foto" />
-                              </div>
-                              {total > 1 && (
-                                <>
-                                  <button onClick={e => { e.stopPropagation(); setCarouselIdx(prev => ({ ...prev, [project.id]: (idx - 1 + total) % total })); }}
-                                    style={{ position: 'absolute', left: '-10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
-                                  <button onClick={e => { e.stopPropagation(); setCarouselIdx(prev => ({ ...prev, [project.id]: (idx + 1) % total })); }}
-                                    style={{ position: 'absolute', right: '-10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
-                                  <div style={{ position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '3px' }}>
-                                    {photos.slice(0, 5).map((_, i) => (
-                                      <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: i === idx ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
-                                        onClick={e => { e.stopPropagation(); setCarouselIdx(prev => ({ ...prev, [project.id]: i })); }} />
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        {/* Миникартинка / placeholder */}
+                        {hasCover ? (
+                          <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
+                            <img src={project.cover_url} alt="okładka" />
+                          </div>
+                        ) : (
+                          <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">
+                            📷
+                          </div>
+                        )}
                       </div>
 
                       {/* Задачи */}
@@ -431,26 +327,6 @@ const Dashboard = ({
         )}
       </div>
     </div>
-
-    {/* Лайтбокс с навигацией */}
-    {lightbox && (() => {
-      const { photos, index } = lightbox;
-      const total  = photos.length;
-      const goPrev = e => { e.stopPropagation(); setLightbox(prev => ({ ...prev, index: (prev.index - 1 + total) % total })); };
-      const goNext = e => { e.stopPropagation(); setLightbox(prev => ({ ...prev, index: (prev.index + 1) % total })); };
-      return (
-        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img src={photos[index].url} alt="" style={{ maxWidth: '88vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '6px' }} onClick={e => e.stopPropagation()} />
-          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: '14px', right: '18px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', width: '34px', height: '34px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-          <div style={{ position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '12px', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: '10px' }}>{index + 1} / {total}</div>
-          {total > 1 && (<>
-            <button onClick={goPrev} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-            <button onClick={goNext} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-          </>)}
-        </div>
-      );
-    })()}
-    </>
   );
 };
 
