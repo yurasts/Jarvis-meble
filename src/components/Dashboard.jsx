@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 import s from './Dashboard.module.css';
 
 const initials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -47,6 +48,8 @@ const Dashboard = ({
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
   const [expandedTaskId,     setExpandedTaskId]     = useState(null);
+  const [carouselIdx,        setCarouselIdx]        = useState({}); // { projectId: currentIndex }
+  const [projectFiles,       setProjectFiles]       = useState({}); // { projectId: [urls] }
   const [expandedProjectId,  setExpandedProjectId]  = useState(null);
   // Свёрнутые группы клиентов (Set с именами клиентов)
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
@@ -56,6 +59,28 @@ const Dashboard = ({
   const toggleShowDone = (projectId) => {
     setShowDoneByProject(prev => ({ ...prev, [projectId]: !prev[projectId] }));
   };
+
+  // Загружаем фото для всех активных проектов
+  useEffect(() => {
+    const ids = (clients || [])
+      .filter(c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone')
+      .map(c => c.id);
+    if (!ids.length) return;
+    supabase.from('project_files')
+      .select('client_id, file_url, file_type')
+      .in('client_id', ids)
+      .order('uploaded_at', { ascending: false })
+      .then(({ data }) => {
+        if (!data) return;
+        const byProject = {};
+        data.forEach(f => {
+          if (!f.file_url || !f.file_type?.startsWith('image/')) return;
+          if (!byProject[f.client_id]) byProject[f.client_id] = [];
+          byProject[f.client_id].push(f.file_url);
+        });
+        setProjectFiles(byProject);
+      });
+  }, [clients]);
 
   const activeProjects = (clients || []).filter(
     c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone'
@@ -218,16 +243,40 @@ const Dashboard = ({
                           )}
                         </div>
 
-                        {/* Миникартинка / placeholder */}
-                        {hasCover ? (
-                          <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                            <img src={project.cover_url} alt="okładka" />
-                          </div>
-                        ) : (
-                          <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                            📷
-                          </div>
-                        )}
+                        {/* Карусель фото проекта */}
+                        {(() => {
+                          const photos = projectFiles[project.id] || [];
+                          const idx = carouselIdx[project.id] || 0;
+                          const hasPhotos = photos.length > 0;
+                          const currentPhoto = hasPhotos ? photos[idx] : (project.cover_url || null);
+                          const total = hasPhotos ? photos.length : (project.cover_url ? 1 : 0);
+
+                          if (!currentPhoto) return (
+                            <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">📷</div>
+                          );
+
+                          return (
+                            <div style={{ position: 'relative', flexShrink: 0 }}>
+                              <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
+                                <img src={currentPhoto} alt="foto" />
+                              </div>
+                              {total > 1 && (
+                                <>
+                                  <button onClick={e => { e.stopPropagation(); setCarouselIdx(prev => ({ ...prev, [project.id]: (idx - 1 + total) % total })); }}
+                                    style={{ position: 'absolute', left: '-10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
+                                  <button onClick={e => { e.stopPropagation(); setCarouselIdx(prev => ({ ...prev, [project.id]: (idx + 1) % total })); }}
+                                    style={{ position: 'absolute', right: '-10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
+                                  <div style={{ position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '3px' }}>
+                                    {photos.slice(0, 5).map((_, i) => (
+                                      <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: i === idx ? '#fff' : 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
+                                        onClick={e => { e.stopPropagation(); setCarouselIdx(prev => ({ ...prev, [project.id]: i })); }} />
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Задачи */}

@@ -24,6 +24,8 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   const [lightbox,       setLightbox]       = useState(null);
   const [settingCover,   setSettingCover]   = useState(false); // лоадер при выборе обложки
   const fileInputRef = useRef();
+  // ✅ FIX: ref для категории — гарантирует актуальное значение в момент загрузки файла
+  const uploadCategoryRef = useRef('projekt');
 
   useEffect(() => { fetchFiles(); }, [clientId]);
 
@@ -51,7 +53,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         .from('project-files').getPublicUrl(path);
       const { data: row } = await supabase.from('project_files').insert([{
         client_id:         clientId,
-        category:          uploadCategory,
+        category:          uploadCategoryRef.current, // ✅ берём из ref — всегда актуально
         file_name:         file.name,
         file_path:         path,
         file_url:          publicUrl,
@@ -107,7 +109,10 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
         <select
           value={uploadCategory}
-          onChange={e => setUploadCategory(e.target.value)}
+          onChange={e => {
+            setUploadCategory(e.target.value);
+            uploadCategoryRef.current = e.target.value; // ✅ синхронно обновляем ref
+          }}
           style={{ padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '12px' }}
         >
           {CATEGORIES.filter(c => c.id !== 'all').map(c => (
@@ -290,13 +295,35 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         </div>
       )}
 
-      {/* Лайтбокс */}
-      {lightbox && (
-        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-          <img src={lightbox} alt="" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: '4px' }} onClick={e => e.stopPropagation()} />
-          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: '16px', right: '20px', background: 'none', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer' }}>✖</button>
-        </div>
-      )}
+      {/* Лайтбокс с навигацией */}
+      {lightbox && (() => {
+        const allImages = files.filter(f => isImage(f.file_type));
+        const currentIdx = allImages.findIndex(f => f.file_url === lightbox);
+        const goPrev = (e) => { e.stopPropagation(); const i = (currentIdx - 1 + allImages.length) % allImages.length; setLightbox(allImages[i].file_url); };
+        const goNext = (e) => { e.stopPropagation(); const i = (currentIdx + 1) % allImages.length; setLightbox(allImages[i].file_url); };
+        return (
+          <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={lightbox} alt="" style={{ maxWidth: '85vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '4px' }} onClick={e => e.stopPropagation()} />
+            {/* Закрыть */}
+            <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: '16px', right: '20px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            {/* Счётчик */}
+            <div style={{ position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '12px', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: '10px' }}>
+              {currentIdx + 1} / {allImages.length}
+            </div>
+            {/* Навигация */}
+            {allImages.length > 1 && (<>
+              <button onClick={goPrev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+              <button onClick={goNext} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+            </>)}
+            {/* Комментарий */}
+            {allImages[currentIdx]?.comment && (
+              <div style={{ position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '13px', background: 'rgba(0,0,0,0.6)', padding: '5px 14px', borderRadius: '8px', maxWidth: '80vw', textAlign: 'center' }}>
+                {allImages[currentIdx].comment}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
