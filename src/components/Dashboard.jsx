@@ -127,6 +127,7 @@ const Dashboard = ({
   };
 
   return (
+    <>
     <div className={s.page}>
       <div className={s.list}>
 
@@ -449,6 +450,7 @@ const Dashboard = ({
         </div>
       );
     })()}
+    </>
   );
 };
 
