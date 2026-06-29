@@ -88,9 +88,12 @@ function App() {
     fetchData()
   }, [session])
 
-  const openProjectModal = (client) => {
+  const [projectModalTab, setProjectModalTab] = useState('materials')
+
+  const openProjectModal = (client, initialTab = 'materials') => {
     setActiveClient(client)
     setOriginalClient(JSON.parse(JSON.stringify(client)))
+    setProjectModalTab(initialTab)
   }
 
   const selectTab = (id) => {
@@ -414,6 +417,7 @@ function App() {
       {/* ProjectModal */}
       {activeClient && (
         <ProjectModal
+          key={`${activeClient?.id}-${projectModalTab}`}
           client={activeClient}
           originalClient={originalClient}
           setClient={setActiveClient}
@@ -425,6 +429,7 @@ function App() {
           currentProfile={profile}
           profilesById={profilesById}
           isDark={isDark}
+          initialTab={projectModalTab}
         />
       )}
 
