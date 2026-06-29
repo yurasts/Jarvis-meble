@@ -48,8 +48,12 @@ const Dashboard = ({
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
   const [expandedTaskId,     setExpandedTaskId]     = useState(null);
-  const [carouselIdx,        setCarouselIdx]        = useState({}); // { projectId: currentIndex }
-  const [projectFiles,       setProjectFiles]       = useState({}); // { projectId: [urls] }
+  const [carouselIdx,        setCarouselIdx]        = useState({});
+  const [projectFiles,       setProjectFiles]       = useState({});
+  // Активная категория фото по проекту (null = скрыто)
+  const [activePhotoTab,     setActivePhotoTab]     = useState({});
+  // Лайтбокс: { projectId, index }
+  const [lightbox,           setLightbox]           = useState(null);
   const [expandedProjectId,  setExpandedProjectId]  = useState(null);
   // Свёрнутые группы клиентов (Set с именами клиентов)
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
@@ -67,7 +71,7 @@ const Dashboard = ({
       .map(c => c.id);
     if (!ids.length) return;
     supabase.from('project_files')
-      .select('client_id, file_url, file_type')
+      .select('client_id, file_url, file_type, category')
       .in('client_id', ids)
       .order('uploaded_at', { ascending: false })
       .then(({ data }) => {
@@ -76,7 +80,7 @@ const Dashboard = ({
         data.forEach(f => {
           if (!f.file_url || !f.file_type?.startsWith('image/')) return;
           if (!byProject[f.client_id]) byProject[f.client_id] = [];
-          byProject[f.client_id].push(f.file_url);
+          byProject[f.client_id].push({ url: f.file_url, category: f.category || 'inne' });
         });
         setProjectFiles(byProject);
       });
@@ -176,7 +180,7 @@ const Dashboard = ({
                       <div className={s.projectHeader}>
                         <div className={s.projectInfo}>
 
-                          {/* Название проекта (крупно) + статус */}
+                          {/* Название проекта (крупно) + статус + кнопки фото */}
                           <div className={s.projectNameRow}>
                             <h3 className={s.projectName}>
                               {project.project_name || project.full_name}
@@ -187,6 +191,35 @@ const Dashboard = ({
                             >
                               {project.status || 'new'}
                             </span>
+
+                            {/* Кнопки категорий фото */}
+                            {(() => {
+                              const photos = projectFiles[project.id] || [];
+                              if (!photos.length) return null;
+                              const CATS = [
+                                { id: 'all',     icon: '📁', label: 'Wszystkie' },
+                                { id: 'projekt', icon: '📐', label: 'Projekt'   },
+                                { id: 'usterki', icon: '⚠️', label: 'Usterki'  },
+                                { id: 'montaz',  icon: '✅', label: 'Montaż'   },
+                                { id: 'inne',    icon: '📄', label: 'Inne'     },
+                              ];
+                              const activeCat = activePhotoTab[project.id] || null;
+                              return CATS
+                                .filter(cat => cat.id === 'all' || photos.some(p => p.category === cat.id))
+                                .map(cat => {
+                                  const count = cat.id === 'all' ? photos.length : photos.filter(p => p.category === cat.id).length;
+                                  const isActive = activeCat === cat.id;
+                                  return (
+                                    <button
+                                      key={cat.id}
+                                      onClick={e => { e.stopPropagation(); setActivePhotoTab(prev => ({ ...prev, [project.id]: isActive ? null : cat.id })); }}
+                                      style={{ padding: '1px 6px', borderRadius: '10px', border: '1px solid', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap', borderColor: isActive ? '#4da6ff' : 'var(--border)', background: isActive ? 'rgba(77,166,255,0.15)' : 'transparent', color: isActive ? '#4da6ff' : 'var(--text-muted)' }}
+                                    >
+                                      {cat.icon} {count}
+                                    </button>
+                                  );
+                                });
+                            })()}
                           </div>
 
                           {/* Адрес + дедлайн */}
@@ -218,6 +251,27 @@ const Dashboard = ({
                               </span>
                             )}
                           </div>
+
+                          {/* Галерея фото — показывается при нажатии на кнопку категории */}
+                          {activePhotoTab[project.id] && (() => {
+                            const photos = projectFiles[project.id] || [];
+                            const cat    = activePhotoTab[project.id];
+                            const visible = cat === 'all' ? photos : photos.filter(p => p.category === cat);
+                            if (!visible.length) return null;
+                            return (
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                {visible.map((photo, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={e => { e.stopPropagation(); setLightbox({ projectId: project.id, photos: visible, index: idx }); }}
+                                    style={{ width: '52px', height: '52px', borderRadius: '5px', overflow: 'hidden', cursor: 'zoom-in', flexShrink: 0, border: '1px solid var(--border)' }}
+                                  >
+                                    <img src={photo.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
 
                           {/* Подпись редактора */}
                           {editor && (
@@ -376,6 +430,25 @@ const Dashboard = ({
         )}
       </div>
     </div>
+
+    {/* Лайтбокс с навигацией */}
+    {lightbox && (() => {
+      const { photos, index } = lightbox;
+      const total  = photos.length;
+      const goPrev = e => { e.stopPropagation(); setLightbox(prev => ({ ...prev, index: (prev.index - 1 + total) % total })); };
+      const goNext = e => { e.stopPropagation(); setLightbox(prev => ({ ...prev, index: (prev.index + 1) % total })); };
+      return (
+        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src={photos[index].url} alt="" style={{ maxWidth: '88vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '6px' }} onClick={e => e.stopPropagation()} />
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: '14px', right: '18px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', width: '34px', height: '34px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <div style={{ position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '12px', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: '10px' }}>{index + 1} / {total}</div>
+          {total > 1 && (<>
+            <button onClick={goPrev} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+            <button onClick={goNext} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer', width: '46px', height: '46px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+          </>)}
+        </div>
+      );
+    })()}
   );
 };
 
