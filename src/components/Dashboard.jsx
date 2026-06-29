@@ -50,6 +50,12 @@ const Dashboard = ({
   const [expandedProjectId,  setExpandedProjectId]  = useState(null);
   // Свёрнутые группы клиентов (Set с именами клиентов)
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
+  // По умолчанию выполненные задачи скрыты для каждого проекта
+  const [showDoneByProject,  setShowDoneByProject]  = useState({});
+
+  const toggleShowDone = (projectId) => {
+    setShowDoneByProject(prev => ({ ...prev, [projectId]: !prev[projectId] }));
+  };
 
   const activeProjects = (clients || []).filter(
     c => c.status !== 'Zrealizowane' && c.status !== 'Zakończone'
@@ -228,10 +234,20 @@ const Dashboard = ({
                       <div className={s.tasksBody}>
                         <div className={s.tasksLabel}>✅ Lista zadań</div>
                         <div className={s.taskList}>
-                          {(project.tasks || []).length === 0 && (
-                            <div className={s.noTasks}>Brak zadań.</div>
-                          )}
-                          {(project.tasks || []).map(task => {
+                          {(() => {
+                            const allTasks  = project.tasks || [];
+                            const doneTasks = allTasks.filter(t => t.isDone);
+                            const openTasks = allTasks.filter(t => !t.isDone);
+                            const showDone  = showDoneByProject[project.id];
+                            const visible   = showDone ? allTasks : openTasks;
+                            return (<>
+                              {visible.length === 0 && openTasks.length === 0 && doneTasks.length === 0 && (
+                                <div className={s.noTasks}>Brak zadań.</div>
+                              )}
+                              {visible.length === 0 && openTasks.length === 0 && doneTasks.length > 0 && (
+                                <div className={s.noTasks}>Wszystkie zadania wykonane ✅</div>
+                              )}
+                          {visible.map(task => {
                             const taskColor  = task.createdByColor || '#718096';
                             const isConfirm  = confirmDeleteId === task.id;
                             const isExpanded = expandedTaskId === task.id;
@@ -270,6 +286,24 @@ const Dashboard = ({
                               </div>
                             );
                           })}
+                          {/* Кнопка показа выполненных задач */}
+                          {(() => {
+                            const doneTasks = (project.tasks || []).filter(t => t.isDone);
+                            if (doneTasks.length === 0) return null;
+                            const showDone = showDoneByProject[project.id];
+                            return (
+                              <button
+                                onClick={() => toggleShowDone(project.id)}
+                                className={s.btnToggleDone}
+                              >
+                                {showDone
+                                  ? `▲ Ukryj wykonane (${doneTasks.length})`
+                                  : `▼ Pokaż wykonane (${doneTasks.length})`}
+                              </button>
+                            );
+                          })()}
+                            </>);
+                          })()}
                         </div>
                         <div className={s.addTaskRow}>
                           <input type="text" placeholder="Wpisz zadanie..."

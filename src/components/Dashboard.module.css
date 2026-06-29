@@ -585,3 +585,23 @@
 :global([data-theme="dark"]) .projectCard[data-status="design"]     .projectHeader { background: rgba(221,107,32,0.12); }
 :global([data-theme="dark"]) .projectCard[data-status="production"] .projectHeader { background: rgba(214,158,46,0.12); }
 :global([data-theme="dark"]) .projectCard[data-status="done"]       .projectHeader { background: rgba(56,161,105,0.12); }
+
+/* Кнопка показа/скрытия выполненных задач */
+.btnToggleDone {
+  width: 100%;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btnToggleDone:hover {
+  background: var(--bg-base);
+  color: var(--text-main);
+}
