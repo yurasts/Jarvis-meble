@@ -8,6 +8,7 @@ import MaterialsList from './components/MaterialsList'
 import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
+import AiAssistant from './components/AiAssistant';
 import s from './App.module.css'
 
 const TAB_LABELS = {
@@ -489,6 +490,8 @@ function App() {
           </div>
         </div>
       )}
+
+      <AiAssistant />
     </div>
   )
 }
