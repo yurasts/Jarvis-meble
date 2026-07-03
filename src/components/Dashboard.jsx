@@ -28,10 +28,10 @@ const STATUS_BG = {
 
 // Категории файлов проекта
 const FILE_CATEGORIES = [
-  { key: 'Projekt', label: '📐 Projekt' },
-  { key: 'Usterki', label: '⚠️ Usterki' },
-  { key: 'Montaż',  label: '✅ Montaż'  },
-  { key: 'Inne',    label: '📄 Inne'    },
+  { key: 'projekt', label: '📐 Projekt' },
+  { key: 'usterki', label: '⚠️ Usterki' },
+  { key: 'montaz',  label: '✅ Montaż'  },
+  { key: 'inne',    label: '📄 Inne'    },
 ];
 
 // Группировка проектов по client_name
