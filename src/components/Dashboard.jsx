@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { supabase } from '../supabase';
+import FileLightbox from './FileLightbox';
 import s from './Dashboard.module.css';
 
 const initials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -24,6 +26,14 @@ const STATUS_BG = {
   done:       { light: '#f0fff4', dark: '#0f2a1a' },
 };
 
+// Категории файлов проекта
+const FILE_CATEGORIES = [
+  { key: 'Projekt', label: '📐 Projekt' },
+  { key: 'Usterki', label: '⚠️ Usterki' },
+  { key: 'Montaż',  label: '✅ Montaż'  },
+  { key: 'Inne',    label: '📄 Inne'    },
+];
+
 // Группировка проектов по client_name
 const groupByClient = (projects) => {
   const map = {};
@@ -47,6 +57,17 @@ const Dashboard = ({
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
   // По умолчанию выполненные задачи скрыты для каждого проекта
   const [showDoneByProject,  setShowDoneByProject]  = useState({});
+  const [fileViewer, setFileViewer] = useState(null); // { files, categoryLabel } | null
+
+  const openFileCategory = async (project, cat) => {
+    const { data } = await supabase
+      .from('project_files')
+      .select('*')
+      .eq('client_id', project.id)
+      .eq('category', cat.key)
+      .order('uploaded_at', { ascending: true });
+    setFileViewer({ files: data || [], categoryLabel: cat.label });
+  };
 
   const toggleShowDone = (projectId) => {
     setShowDoneByProject(prev => ({ ...prev, [projectId]: !prev[projectId] }));
@@ -214,6 +235,19 @@ const Dashboard = ({
                         </div>
                       </div>
 
+                      {/* Кнопки категорий файлов */}
+                      <div className={s.fileButtonsRow}>
+                        {FILE_CATEGORIES.map(cat => (
+                          <button
+                            key={cat.key}
+                            className={s.fileCatBtn}
+                            onClick={() => openFileCategory(project, cat)}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+
                       {/* Задачи */}
                       <div className={s.tasksBody}>
                         <div className={s.addTaskRow}>
@@ -319,6 +353,14 @@ const Dashboard = ({
           })
         )}
       </div>
+
+      {fileViewer && (
+        <FileLightbox
+          files={fileViewer.files}
+          categoryLabel={fileViewer.categoryLabel}
+          onClose={() => setFileViewer(null)}
+        />
+      )}
     </div>
   );
 };

@@ -184,6 +184,28 @@
   background: transparent;
 }
 
+.fileButtonsRow {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px 8px;
+  flex-wrap: wrap;
+}
+
+.fileCatBtn {
+  background: var(--bg-kanban-col);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text-main);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fileCatBtn:hover {
+  background: var(--bg-base);
+}
+
 .taskList {
   display: flex;
   flex-direction: column;
