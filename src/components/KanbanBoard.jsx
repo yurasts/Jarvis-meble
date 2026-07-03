@@ -36,6 +36,7 @@ export default function KanbanBoard({
   handleDrop,
   profilesById = {},
 }) {
+  const [expandedEditorId, setExpandedEditorId] = React.useState(null);
   const getByStatus = (status) => clients.filter(c => c.status === status);
 
   return (
@@ -99,22 +100,29 @@ export default function KanbanBoard({
 
                   <hr className={s.divider} />
 
-                  <p className={s.cardBudget}>
-                    💰 Budżet: <strong>{budget.toFixed(2)} PLN</strong>
+                  <p className={`${s.cardZysk} ${zysk >= 0 ? s.cardZyskPositive : s.cardZyskNegative}`}>
+                    📈 Zysk: {zysk.toFixed(2)} PLN
                   </p>
-                  <p className={s.cardKoszty}>
-                    🛒 Koszty: <strong>{tCost.toFixed(2)} PLN</strong>
-                  </p>
-                  <p className={s.cardZysk}>
-                    📈 Zysk: <strong>{zysk.toFixed(2)} PLN</strong>
+                  <p className={s.cardFinanceDetail}>
+                    Budżet {budget.toFixed(2)} zł · Koszty {tCost.toFixed(2)} zł
                   </p>
 
                   {editor && (
-                    <p className={s.cardEditor}>
-                      ✎ {editor.full_name} • {new Date(client.updated_at).toLocaleString('pl-PL', {
-                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                      })}
-                    </p>
+                    <div
+                      className={s.cardEditor}
+                      onClick={(e) => { e.stopPropagation(); setExpandedEditorId(expandedEditorId === client.id ? null : client.id); }}
+                      title="Kliknij, aby zobaczyć kto i kiedy edytował"
+                    >
+                      {expandedEditorId === client.id ? (
+                        <span>
+                          ✎ {editor.full_name} • {new Date(client.updated_at).toLocaleString('pl-PL', {
+                            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      ) : (
+                        <span className={s.editorDot} style={{ background: editor.color || '#cbd5e0' }} />
+                      )}
+                    </div>
                   )}
                 </div>
               );

@@ -47,6 +47,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [filterSupplier, setFilterSupplier] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [editorExpanded, setEditorExpanded] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null);
@@ -334,13 +335,23 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             )}
           </div>
           {editor && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px' }}>
-              <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
-                {(editor.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-              </div>
-              <span style={{ fontSize: '11px', color: '#a0aec0' }}>
-                {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-              </span>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', cursor: 'pointer' }}
+              onClick={() => setEditorExpanded(v => !v)}
+              title="Kliknij, aby zobaczyć kto i kiedy edytował"
+            >
+              {editorExpanded ? (
+                <>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
+                    {(editor.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#a0aec0' }}>
+                    {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                  </span>
+                </>
+              ) : (
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: editor.color || '#cbd5e0' }} />
+              )}
             </div>
           )}
         </div>

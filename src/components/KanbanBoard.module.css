@@ -52,22 +52,29 @@
   margin: 5px 0;
 }
 
-.cardBudget {
-  margin: 2px 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.cardKoszty {
-  margin: 2px 0;
-  font-size: 13px;
-  color: #e53e3e;
-}
-
 .cardZysk {
-  margin: 4px 0;
-  font-size: 13px;
+  display: inline-block;
+  margin: 4px 0 2px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.cardZyskPositive {
   color: #38a169;
+  background: rgba(56, 161, 105, 0.12);
+}
+
+.cardZyskNegative {
+  color: #e53e3e;
+  background: rgba(229, 62, 62, 0.12);
+}
+
+.cardFinanceDetail {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .cardEditor {
@@ -76,6 +83,14 @@
   padding-top: 4px;
   border-top: 1px dashed var(--border);
   color: var(--text-muted);
+  cursor: pointer;
+}
+
+.editorDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 /* Название проекта под именем клиента */
