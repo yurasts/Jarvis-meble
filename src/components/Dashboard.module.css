@@ -209,8 +209,31 @@
   background: var(--bg-base);
 }
 
+.fileCatBtnEmpty {
+  opacity: 0.45;
+}
+
 .fileCatIcon {
+  position: relative;
   font-size: 15px;
+  line-height: 1;
+}
+
+.fileCatBadge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background: #3182ce;
+  color: #fff;
+  font-size: 8px;
+  font-weight: bold;
+  min-width: 13px;
+  height: 13px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
   line-height: 1;
 }
 

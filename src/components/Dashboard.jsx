@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import FileLightbox from './FileLightbox';
 import s from './Dashboard.module.css';
@@ -58,6 +58,21 @@ const Dashboard = ({
   // По умолчанию выполненные задачи скрыты для каждого проекта
   const [showDoneByProject,  setShowDoneByProject]  = useState({});
   const [fileViewer, setFileViewer] = useState(null); // { files, categoryLabel } | null
+  const [fileCounts, setFileCounts] = useState({}); // { [clientId]: { [category]: count } }
+
+  useEffect(() => {
+    const loadFileCounts = async () => {
+      const { data } = await supabase.from('project_files').select('client_id, category');
+      if (!data) return;
+      const counts = {};
+      data.forEach(f => {
+        if (!counts[f.client_id]) counts[f.client_id] = {};
+        counts[f.client_id][f.category] = (counts[f.client_id][f.category] || 0) + 1;
+      });
+      setFileCounts(counts);
+    };
+    loadFileCounts();
+  }, []);
 
   const openFileCategory = async (project, cat) => {
     const { data } = await supabase
@@ -237,16 +252,22 @@ const Dashboard = ({
 
                       {/* Кнопки категорий файлов */}
                       <div className={s.fileButtonsRow}>
-                        {FILE_CATEGORIES.map(cat => (
-                          <button
-                            key={cat.key}
-                            className={s.fileCatBtn}
-                            onClick={() => openFileCategory(project, cat)}
-                          >
-                            <span className={s.fileCatIcon}>{cat.icon}</span>
-                            <span className={s.fileCatLabel}>{cat.label}</span>
-                          </button>
-                        ))}
+                        {FILE_CATEGORIES.map(cat => {
+                          const count = fileCounts[project.id]?.[cat.key] || 0;
+                          return (
+                            <button
+                              key={cat.key}
+                              className={`${s.fileCatBtn} ${count === 0 ? s.fileCatBtnEmpty : ''}`}
+                              onClick={() => openFileCategory(project, cat)}
+                            >
+                              <span className={s.fileCatIcon}>
+                                {cat.icon}
+                                {count > 0 && <span className={s.fileCatBadge}>{count}</span>}
+                              </span>
+                              <span className={s.fileCatLabel}>{cat.label}</span>
+                            </button>
+                          );
+                        })}
                       </div>
 
                       {/* Задачи */}
