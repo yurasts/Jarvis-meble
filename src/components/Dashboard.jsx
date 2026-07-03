@@ -28,10 +28,10 @@ const STATUS_BG = {
 
 // Категории файлов проекта
 const FILE_CATEGORIES = [
-  { key: 'projekt', label: '📐 Projekt' },
-  { key: 'usterki', label: '⚠️ Usterki' },
-  { key: 'montaz',  label: '✅ Montaż'  },
-  { key: 'inne',    label: '📄 Inne'    },
+  { key: 'projekt', icon: '📐', label: 'Projekt' },
+  { key: 'usterki', icon: '⚠️', label: 'Usterki' },
+  { key: 'montaz',  icon: '✅', label: 'Montaż'  },
+  { key: 'inne',    icon: '📄', label: 'Inne'    },
 ];
 
 // Группировка проектов по client_name
@@ -66,7 +66,7 @@ const Dashboard = ({
       .eq('client_id', project.id)
       .eq('category', cat.key)
       .order('uploaded_at', { ascending: true });
-    setFileViewer({ files: data || [], categoryLabel: cat.label });
+    setFileViewer({ files: data || [], categoryLabel: `${cat.icon} ${cat.label}` });
   };
 
   const toggleShowDone = (projectId) => {
@@ -243,7 +243,8 @@ const Dashboard = ({
                             className={s.fileCatBtn}
                             onClick={() => openFileCategory(project, cat)}
                           >
-                            {cat.label}
+                            <span className={s.fileCatIcon}>{cat.icon}</span>
+                            <span className={s.fileCatLabel}>{cat.label}</span>
                           </button>
                         ))}
                       </div>
