@@ -181,7 +181,7 @@
 /* --- Блок задач --- */
 .tasksBody {
   padding: 10px 12px;
-  background: var(--bg-card);
+  background: transparent;
 }
 
 .taskList {
@@ -357,25 +357,42 @@
   color: var(--text-main);
 }
 
-.inputDate {
-  width: 120px;
-  padding: 6px 8px;
+.dateWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.inputDateHidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+}
+
+.dateDisplayBtn {
+  min-width: 52px;
+  padding: 6px 10px;
   border-radius: 5px;
   border: 1px solid var(--border);
   font-size: 12px;
   background: var(--input-bg);
   color: var(--text-main);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .btnAddTask {
   background: #38a169;
   color: #fff;
   border: none;
-  padding: 6px 12px;
+  width: 30px;
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
-  font-size: 12px;
+  font-size: 15px;
+  flex-shrink: 0;
 }
 
 /* ---- Кнопка "Nowy projekt" — только десктоп ---- */
@@ -398,7 +415,7 @@
 
 /* ---- Шапка проекта: info + кнопка в ряд ---- */
 .projectHeader {
-  background: var(--bg-base);
+  background: transparent;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -434,6 +451,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  background: var(--bg-base);
+}
+
+@media (max-width: 768px) {
+  .clientGroup { padding: 6px; border-radius: 8px; }
 }
 
 /* Заголовок группы клиента — кликабельный */
@@ -492,17 +517,17 @@
    Лёгкий фон шапки + полоска сверху
    ================================================ */
 
-/* Шапка карточки — лёгкая заливка */
-.projectCard[data-status="new"]        .projectHeader { background: rgba(229,62,62,0.06); }
-.projectCard[data-status="design"]     .projectHeader { background: rgba(221,107,32,0.06); }
-.projectCard[data-status="production"] .projectHeader { background: rgba(214,158,46,0.06); }
-.projectCard[data-status="done"]       .projectHeader { background: rgba(56,161,105,0.06); }
+/* Вся карточка — лёгкая заливка по статусу */
+.projectCard[data-status="new"]        { background: rgba(229,62,62,0.06); }
+.projectCard[data-status="design"]     { background: rgba(221,107,32,0.06); }
+.projectCard[data-status="production"] { background: rgba(214,158,46,0.06); }
+.projectCard[data-status="done"]       { background: rgba(56,161,105,0.06); }
 
 /* Тёмная тема — чуть интенсивнее */
-:global([data-theme="dark"]) .projectCard[data-status="new"]        .projectHeader { background: rgba(229,62,62,0.12); }
-:global([data-theme="dark"]) .projectCard[data-status="design"]     .projectHeader { background: rgba(221,107,32,0.12); }
-:global([data-theme="dark"]) .projectCard[data-status="production"] .projectHeader { background: rgba(214,158,46,0.12); }
-:global([data-theme="dark"]) .projectCard[data-status="done"]       .projectHeader { background: rgba(56,161,105,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="new"]        { background: rgba(229,62,62,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="design"]     { background: rgba(221,107,32,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="production"] { background: rgba(214,158,46,0.12); }
+:global([data-theme="dark"]) .projectCard[data-status="done"]       { background: rgba(56,161,105,0.12); }
 
 /* Кнопка показа/скрытия выполненных задач */
 .btnToggleDone {

@@ -217,16 +217,29 @@ const Dashboard = ({
                       {/* Задачи */}
                       <div className={s.tasksBody}>
                         <div className={s.addTaskRow}>
+                          <button className={s.btnAddTask} onClick={() => handleAddTask(project.id)}>+</button>
                           <input type="text" placeholder="Wpisz zadanie..."
                             value={newTaskParams[project.id]?.text || ''}
                             onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], text: e.target.value } }))}
                             onKeyDown={e => e.key === 'Enter' && handleAddTask(project.id)}
                             className={s.inputTask} />
-                          <input type="date"
-                            value={newTaskParams[project.id]?.date || ''}
-                            onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], date: e.target.value } }))}
-                            className={s.inputDate} />
-                          <button className={s.btnAddTask} onClick={() => handleAddTask(project.id)}>+</button>
+                          <div className={s.dateWrap}>
+                            <input type="date"
+                              value={newTaskParams[project.id]?.date || ''}
+                              onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], date: e.target.value } }))}
+                              className={s.inputDateHidden} />
+                            <button
+                              type="button"
+                              className={s.dateDisplayBtn}
+                              onClick={(e) => {
+                                const input = e.currentTarget.previousSibling;
+                                if (input?.showPicker) input.showPicker();
+                                else input?.focus();
+                              }}
+                            >
+                              {newTaskParams[project.id]?.date ? shortDate(newTaskParams[project.id].date) : '📅'}
+                            </button>
+                          </div>
                         </div>
                         <div className={s.taskList}>
                           {(() => {
