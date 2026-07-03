@@ -9,11 +9,6 @@ const shortDate = (dateStr) => {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 };
 
-const calcProjectCosts = (project) => {
-  const sum = (arr) => (arr || []).reduce((s, i) => s + Number(i.price || 0) * Number(i.quantity || 1), 0);
-  return sum(project.calc_materials) + sum(project.calc_services) + sum(project.calc_expenses);
-};
-
 // Цвет левой рамки карточки по статусу
 const STATUS_BORDER = {
   new:        '#e53e3e', // 🔴 красный
@@ -135,10 +130,8 @@ const Dashboard = ({
                 {!isCollapsed && projects.map(project => {
                   const editor           = project.updated_by ? profilesById[project.updated_by] : null;
                   const isProjectExpanded = expandedProjectId === project.id;
-                  const projectCosts     = calcProjectCosts(project);
                   const projectBudget    = Number(project.budget) || 0;
                   const coef             = Number(project.budget_coefficient) || 0;
-                  const hasCover         = Boolean(project.cover_url);
                   const borderColor      = STATUS_BORDER[project.status] || STATUS_BORDER.new;
 
                   return (
@@ -148,7 +141,11 @@ const Dashboard = ({
                       data-status={project.status || 'new'}
                       style={{ borderLeft: `4px solid ${borderColor}` }}
                     >
-                      <div className={s.projectHeader}>
+                      <div
+                        className={s.projectHeader}
+                        onClick={() => openProjectModal(project)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <div className={s.projectInfo}>
 
                           {/* Название проекта (крупно) + статус */}
@@ -171,6 +168,7 @@ const Dashboard = ({
                                 <a
                                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
                                   target="_blank" rel="noreferrer"
+                                  onClick={e => e.stopPropagation()}
                                   className={s.addressLink}
                                 >
                                   📍 {project.address}
@@ -184,9 +182,6 @@ const Dashboard = ({
 
                           {/* Финансы */}
                           <div className={s.financeCol}>
-                            {projectCosts > 0 && (
-                              <span className={s.koszty}>Koszty: {projectCosts.toFixed(2)} zł</span>
-                            )}
                             {projectBudget > 0 && (
                               <span className={s.budzet}>
                                 Budżet: {projectBudget.toFixed(2)} zł{coef > 0 ? ` (×${coef})` : ''}
@@ -198,7 +193,7 @@ const Dashboard = ({
                           {editor && (
                             <span
                               className={s.editorExpanded}
-                              onClick={() => setExpandedProjectId(isProjectExpanded ? null : project.id)}
+                              onClick={(e) => { e.stopPropagation(); setExpandedProjectId(isProjectExpanded ? null : project.id); }}
                             >
                               {isProjectExpanded ? (
                                 <>
@@ -217,31 +212,22 @@ const Dashboard = ({
                             </span>
                           )}
                         </div>
-
-                        {/* Миникартинка + кнопка Pliki */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
-                          {hasCover ? (
-                            <div className={s.coverThumb} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                              <img src={project.cover_url} alt="okładka" />
-                            </div>
-                          ) : (
-                            <div className={s.coverPlaceholder} onClick={() => openProjectModal(project)} title="Otwórz projekt">
-                              📷
-                            </div>
-                          )}
-                          <button
-                            onClick={() => openProjectModal(project, 'files')}
-                            className={s.btnPliki}
-                            title="Otwórz pliki projektu"
-                          >
-                            📎 Pliki
-                          </button>
-                        </div>
                       </div>
 
                       {/* Задачи */}
                       <div className={s.tasksBody}>
-                        <div className={s.tasksLabel}>✅ Lista zadań</div>
+                        <div className={s.addTaskRow}>
+                          <input type="text" placeholder="Wpisz zadanie..."
+                            value={newTaskParams[project.id]?.text || ''}
+                            onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], text: e.target.value } }))}
+                            onKeyDown={e => e.key === 'Enter' && handleAddTask(project.id)}
+                            className={s.inputTask} />
+                          <input type="date"
+                            value={newTaskParams[project.id]?.date || ''}
+                            onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], date: e.target.value } }))}
+                            className={s.inputDate} />
+                          <button className={s.btnAddTask} onClick={() => handleAddTask(project.id)}>+</button>
+                        </div>
                         <div className={s.taskList}>
                           {(() => {
                             const allTasks  = project.tasks || [];
@@ -252,9 +238,6 @@ const Dashboard = ({
                             return (<>
                               {visible.length === 0 && openTasks.length === 0 && doneTasks.length === 0 && (
                                 <div className={s.noTasks}>Brak zadań.</div>
-                              )}
-                              {visible.length === 0 && openTasks.length === 0 && doneTasks.length > 0 && (
-                                <div className={s.noTasks}>Wszystkie zadania wykonane ✅</div>
                               )}
                           {visible.map(task => {
                             const taskColor  = task.createdByColor || '#718096';
@@ -313,18 +296,6 @@ const Dashboard = ({
                           })()}
                             </>);
                           })()}
-                        </div>
-                        <div className={s.addTaskRow}>
-                          <input type="text" placeholder="Wpisz zadanie..."
-                            value={newTaskParams[project.id]?.text || ''}
-                            onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], text: e.target.value } }))}
-                            onKeyDown={e => e.key === 'Enter' && handleAddTask(project.id)}
-                            className={s.inputTask} />
-                          <input type="date"
-                            value={newTaskParams[project.id]?.date || ''}
-                            onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], date: e.target.value } }))}
-                            className={s.inputDate} />
-                          <button className={s.btnAddTask} onClick={() => handleAddTask(project.id)}>+ Dodaj</button>
                         </div>
                       </div>
                     </div>
