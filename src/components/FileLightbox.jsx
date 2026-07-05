@@ -44,6 +44,32 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
   const isImage = (file.file_type || '').startsWith('image')
     || /\.(jpe?g|png|gif|webp)$/i.test(file.file_name || file.file_url || '');
 
+  if (!isImage) {
+    return createPortal(
+      <div className={s.modalOverlay} onClick={onClose}>
+        <div className={s.modalBox} onClick={e => e.stopPropagation()}>
+          <div className={s.modalHeader}>
+            <span className={s.categoryLabel}>{categoryLabel} · {index + 1}/{files.length}</span>
+            <button className={s.closeBtn} onClick={onClose}>✕</button>
+          </div>
+          <div className={s.modalBody}>
+            <a href={file.file_url} target="_blank" rel="noreferrer" className={s.fileLinkModal}>
+              📄 {file.file_name || 'Otwórz plik'}
+            </a>
+            {file.comment && <div className={s.commentModal}>{file.comment}</div>}
+          </div>
+          {files.length > 1 && (
+            <div className={s.modalNav}>
+              <button className={s.modalNavBtn} onClick={prev}>‹ Poprzedni</button>
+              <button className={s.modalNavBtn} onClick={next}>Następny ›</button>
+            </div>
+          )}
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   return createPortal(
     <div
       className={s.overlay}
@@ -62,13 +88,7 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
       )}
 
       <div className={s.content} onClick={e => e.stopPropagation()}>
-        {isImage ? (
-          <img src={file.file_url} alt={file.file_name || ''} className={s.image} />
-        ) : (
-          <a href={file.file_url} target="_blank" rel="noreferrer" className={s.fileLink}>
-            📄 {file.file_name || 'Otwórz plik'}
-          </a>
-        )}
+        <img src={file.file_url} alt={file.file_name || ''} className={s.image} />
         {file.comment && <div className={s.comment}>{file.comment}</div>}
       </div>
 

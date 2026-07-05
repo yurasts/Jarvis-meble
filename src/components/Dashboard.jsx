@@ -259,6 +259,7 @@ const Dashboard = ({
                               key={cat.key}
                               className={`${s.fileCatBtn} ${count === 0 ? s.fileCatBtnEmpty : ''}`}
                               onClick={() => openFileCategory(project, cat)}
+                              disabled={count === 0}
                             >
                               <span className={s.fileCatIcon}>
                                 {cat.icon}
