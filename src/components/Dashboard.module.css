@@ -73,9 +73,17 @@
 
 .projectNameRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 3px;
+}
+
+.nameStatusGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .projectName {
@@ -83,6 +91,9 @@
   color: #4da6ff;
   font-size: 15px;
   font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .statusBadge {
@@ -93,6 +104,7 @@
   border-radius: 10px;
   font-weight: bold;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .metaRow {
@@ -102,16 +114,31 @@
   flex-wrap: wrap;
 }
 
-.addressLink {
-  color: #3182ce;
-  text-decoration: none;
-  font-size: 12px;
-}
-
 .deadline {
   font-size: 12px;
   color: #e53e3e;
   font-weight: bold;
+}
+
+.materialsPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 4px 0 2px;
+}
+
+.materialLine {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.materialMore {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .budzet {
@@ -122,6 +149,8 @@
   border-radius: 5px;
   padding: 1px 7px;
   font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* тёмная тема для финансов */
@@ -469,13 +498,6 @@
 }
 
 /* ---- Финансы в колонку ---- */
-.financeCol {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 3px;
-}
-
 /* ---- Шапка проекта: info + кнопка в ряд ---- */
 .projectHeader {
   background: transparent;
@@ -540,16 +562,30 @@
 
 .clientGroupHeader:hover { background: var(--bg-base); }
 
+.clientGroupNameCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
 .clientGroupName {
   font-weight: bold;
   font-size: 14px;
   color: var(--text-main);
-  flex: 1;
+}
+
+.groupAddressLink {
+  font-size: 11px;
+  color: #3182ce;
+  text-decoration: none;
 }
 
 .clientGroupMeta {
   font-size: 11px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .clientGroupArrow {

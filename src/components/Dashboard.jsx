@@ -145,6 +145,7 @@ const Dashboard = ({
         ) : (
           groups.map(([clientName, projects]) => {
             const isCollapsed = collapsedClients.has(clientName);
+            const groupAddress = projects.find(p => p.address)?.address;
             return (
               <div key={clientName} className={s.clientGroup}>
 
@@ -153,7 +154,19 @@ const Dashboard = ({
                   className={s.clientGroupHeader}
                   onClick={() => toggleClientGroup(clientName)}
                 >
-                  <span className={s.clientGroupName}>👤 {clientName}</span>
+                  <div className={s.clientGroupNameCol}>
+                    <span className={s.clientGroupName}>👤 {clientName}</span>
+                    {groupAddress && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(groupAddress)}`}
+                        target="_blank" rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className={s.groupAddressLink}
+                      >
+                        📍 {groupAddress}
+                      </a>
+                    )}
+                  </div>
                   <span className={s.clientGroupMeta}>
                     {projects.length} {projects.length === 1 ? 'projekt' : 'projekty'}
                   </span>
@@ -184,46 +197,48 @@ const Dashboard = ({
                       >
                         <div className={s.projectInfo}>
 
-                          {/* Название проекта (крупно) + статус */}
+                          {/* Название проекта (крупно) + статус + Budżet справа */}
                           <div className={s.projectNameRow}>
-                            <h3 className={s.projectName}>
-                              {project.project_name || project.full_name}
-                            </h3>
-                            <span
-                              className={s.statusBadge}
-                              style={{ borderLeft: `3px solid ${borderColor}`, paddingLeft: '6px' }}
-                            >
-                              {project.status || 'new'}
-                            </span>
-                          </div>
-
-                          {/* Адрес + дедлайн */}
-                          {(project.address || project.deadline) && (
-                            <div className={s.metaRow}>
-                              {project.address && (
-                                <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
-                                  target="_blank" rel="noreferrer"
-                                  onClick={e => e.stopPropagation()}
-                                  className={s.addressLink}
-                                >
-                                  📍 {project.address}
-                                </a>
-                              )}
-                              {project.deadline && (
-                                <span className={s.deadline}>📅 {shortDate(project.deadline)}</span>
-                              )}
+                            <div className={s.nameStatusGroup}>
+                              <h3 className={s.projectName}>
+                                {project.project_name || project.full_name}
+                              </h3>
+                              <span
+                                className={s.statusBadge}
+                                style={{ borderLeft: `3px solid ${borderColor}`, paddingLeft: '6px' }}
+                              >
+                                {project.status || 'new'}
+                              </span>
                             </div>
-                          )}
-
-                          {/* Финансы */}
-                          <div className={s.financeCol}>
                             {projectBudget > 0 && (
                               <span className={s.budzet}>
                                 Budżet: {projectBudget.toFixed(2)} zł{coef > 0 ? ` (×${coef})` : ''}
                               </span>
                             )}
                           </div>
+
+                          {/* Дедлайн */}
+                          {project.deadline && (
+                            <div className={s.metaRow}>
+                              <span className={s.deadline}>📅 {shortDate(project.deadline)}</span>
+                            </div>
+                          )}
+
+                          {/* Превью материалов проекта */}
+                          {project.calc_materials?.length > 0 && (
+                            <div className={s.materialsPreview}>
+                              {project.calc_materials.slice(0, 6).map((m, i) => (
+                                <div key={i} className={s.materialLine} title={m.name}>
+                                  ▪ {m.name}
+                                </div>
+                              ))}
+                              {project.calc_materials.length > 6 && (
+                                <div className={s.materialMore}>
+                                  +{project.calc_materials.length - 6} więcej
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Подпись редактора */}
                           {editor && (
