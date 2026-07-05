@@ -507,10 +507,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                             }}>
                               {m.name}
                             </div>
-                            <strong style={{ color: c('#2b6cb0','#63b3ed'), flexShrink: 0 }}>{Number(m.price).toFixed(2)} zł</strong>
+                            <div style={{ width: '64px', flexShrink: 0, textAlign: 'left' }}>
+                              <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
+                            </div>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleAddItem('calc_materials', calcMaterials, m); }}
-                              style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '3px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', flexShrink: 0 }}
+                              style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '3px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '62px', flexShrink: 0 }}
                             >
                               {isSelected ? '+ Kol.' : '+ Dodaj'}
                             </button>
