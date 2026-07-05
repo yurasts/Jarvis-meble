@@ -127,6 +127,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     : false;
 
   const handleClose = () => { isDirty ? setConfirmClose(true) : onClose(); };
+  const handleSaveAndClose = async () => { await onSave(); onClose(); };
 
   // Автопересчёт бюджета
   useEffect(() => {
@@ -299,13 +300,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
 
             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              {/* Временно скрыто — форма показа ещё не решена
               {!isMobile && (
                 <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                   {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
                 </button>
               )}
-              <button onClick={handleClose} style={{ padding: '6px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: confirmClose ? '#fff5f5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>✕</button>
-              <button onClick={onSave} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
+              */}
+              <button onClick={handleSaveAndClose} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
             </div>
           </div>
 
@@ -487,21 +489,39 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     {uniqueSuppliers.map(sup => <option key={sup} value={sup}>{sup}</option>)}
                   </select>
                 </div>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', overflowX: 'auto', borderTop: `1px solid ${border}`, background: bgInput, borderRadius: '4px' }}>
-                  <div style={{ minWidth: '500px' }}>
+                <div style={{ maxHeight: '220px', overflowY: 'auto', borderTop: `1px solid ${border}`, background: bgInput, borderRadius: '4px' }}>
+                  <div>
                     {filteredMaterials.slice(0, 50).map(m => {
                       const isSelected = calcMaterials.some(item => item.id === m.id);
+                      const isExpanded = expandedRows[`avail_${m.id}`];
                       return (
-                        <div key={m.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: `1px solid ${border}`, fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? bgMatRow : bgInput }}>
-                          <div style={{ width: '80px', color: textLight, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.symbol || '-'}</div>
-                          <div onClick={() => toggleRow(`avail_${m.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_${m.id}`] ? 'normal' : 'nowrap', color: text }}>{m.name}</div>
-                          <div style={{ width: '70px', color: textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.category}</div>
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
-                            <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
-                            <button onClick={() => handleAddItem('calc_materials', calcMaterials, m)} style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
+                        <div key={m.id} style={{ borderBottom: `1px solid ${border}`, backgroundColor: isSelected ? bgMatRow : bgInput }}>
+                          <div
+                            onClick={() => toggleRow(`avail_${m.id}`)}
+                            style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 8px', fontSize: '12px', cursor: 'pointer' }}
+                          >
+                            <div style={{
+                              flex: 1, fontWeight: 'bold', color: text,
+                              overflow: 'hidden', textOverflow: 'ellipsis',
+                              whiteSpace: isExpanded ? 'normal' : 'nowrap',
+                            }}>
+                              {m.name}
+                            </div>
+                            <strong style={{ color: c('#2b6cb0','#63b3ed'), flexShrink: 0 }}>{Number(m.price).toFixed(2)} zł</strong>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleAddItem('calc_materials', calcMaterials, m); }}
+                              style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '3px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', flexShrink: 0 }}
+                            >
                               {isSelected ? '+ Kol.' : '+ Dodaj'}
                             </button>
                           </div>
+                          {isExpanded && (
+                            <div style={{ padding: '0 8px 6px 8px', fontSize: '11px', color: textLight }}>
+                              {m.supplier && <>Dostawca: {m.supplier} · </>}
+                              Kategoria: {m.category || '-'}
+                              {m.symbol && <> · Symbol: {m.symbol}</>}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -712,7 +732,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               <p style={{ margin: '0 0 20px 0', color: textLight, fontSize: '13px' }}>Czy na pewno chcesz zamknąć bez zapisania?</p>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                 <button onClick={onClose} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zamknij bez zapisania</button>
-                <button onClick={() => { onSave(); setConfirmClose(false); }} style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zapisz i zamknij</button>
+                <button onClick={() => { onSave(); setConfirmClose(false); onClose(); }} style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zapisz i zamknij</button>
                 <button onClick={() => setConfirmClose(false)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Wróć</button>
               </div>
             </div>
