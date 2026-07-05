@@ -49,6 +49,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [confirmClose, setConfirmClose] = useState(false);
   const [editorExpanded, setEditorExpanded] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+  const [expandedMaterialId, setExpandedMaterialId] = useState(null);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null);
   const [priceDraft, setPriceDraft] = useState('');
@@ -493,11 +494,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   <div>
                     {filteredMaterials.slice(0, 50).map(m => {
                       const isSelected = calcMaterials.some(item => item.id === m.id);
-                      const isExpanded = expandedRows[`avail_${m.id}`];
+                      const isExpanded = expandedMaterialId === m.id;
                       return (
                         <div key={m.id} style={{ borderBottom: `1px solid ${border}`, backgroundColor: isSelected ? bgMatRow : bgInput }}>
                           <div
-                            onClick={() => toggleRow(`avail_${m.id}`)}
+                            onClick={() => setExpandedMaterialId(prev => prev === m.id ? null : m.id)}
                             style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 8px', fontSize: '12px', cursor: 'pointer' }}
                           >
                             <div style={{
