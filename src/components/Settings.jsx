@@ -24,6 +24,15 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
 
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState('installer');
+  const [newColor, setNewColor] = useState(PALETTE[0].hex);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [addSuccess, setAddSuccess] = useState(false);
+
   const allProfiles = Object.values(profilesById);
 
   const handleColorSelect = async (hex) => {
@@ -36,6 +45,48 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
       setTimeout(() => setSaved(false), 2000);
     }
     setSaving(false);
+  };
+
+  const handleAddEmployee = async () => {
+    setAddError('');
+    setAddSuccess(false);
+
+    if (!newName || !newEmail || !newPassword) {
+      setAddError('Wypełnij imię, e-mail i hasło.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setAddError('Hasło musi mieć co najmniej 6 znaków.');
+      return;
+    }
+
+    setAdding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-employee', {
+        body: {
+          email: newEmail,
+          password: newPassword,
+          full_name: newName,
+          role: newRole,
+          color: newColor,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setAddSuccess(true);
+      setNewName('');
+      setNewEmail('');
+      setNewPassword('');
+      setNewRole('installer');
+      setNewColor(PALETTE[0].hex);
+      setTimeout(() => setAddSuccess(false), 4000);
+    } catch (err) {
+      setAddError(err.message || 'Nie udało się dodać pracownika.');
+    } finally {
+      setAdding(false);
+    }
   };
 
   if (!profile) return null;
@@ -126,6 +177,73 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
           ))}
         </div>
       </div>
+
+      {/* ДОБАВИТЬ СОТРУДНИКА — только владелец */}
+      {profile.role === 'owner' && (
+        <div className={s.section}>
+          <h3 className={s.sectionTitle}>➕ Dodaj pracownika</h3>
+          <p className={s.sectionDesc}>Utwórz nowe konto logowania dla członka zespołu.</p>
+
+          <div className={s.addEmployeeForm}>
+            <input
+              className={s.formInput}
+              placeholder="Imię i nazwisko"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+            />
+            <input
+              className={s.formInput}
+              type="email"
+              placeholder="E-mail"
+              value={newEmail}
+              onChange={e => setNewEmail(e.target.value)}
+            />
+            <input
+              className={s.formInput}
+              type="password"
+              placeholder="Hasło (min. 6 znaków)"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+            />
+
+            <select
+              className={s.formInput}
+              value={newRole}
+              onChange={e => setNewRole(e.target.value)}
+            >
+              <option value="installer">Instalator</option>
+              <option value="designer">Projektant</option>
+              <option value="assembler">Monter</option>
+              <option value="owner">Właściciel</option>
+            </select>
+
+            <div className={s.palette}>
+              {PALETTE.map(({ hex, label }) => (
+                <button
+                  key={hex}
+                  type="button"
+                  className={[s.colorBtn, newColor === hex ? s.selected : ''].join(' ')}
+                  style={{
+                    background: hex,
+                    boxShadow: newColor === hex
+                      ? `0 0 0 2px var(--bg-card), 0 0 0 4px ${hex}`
+                      : '0 2px 4px rgba(0,0,0,0.15)',
+                  }}
+                  onClick={() => setNewColor(hex)}
+                  title={label}
+                />
+              ))}
+            </div>
+
+            {addError && <div className={s.formError}>{addError}</div>}
+            {addSuccess && <div className={s.savedBadge}>✓ Pracownik dodany. Odśwież stronę, aby zobaczyć go w legendzie.</div>}
+
+            <button className={s.submitBtn} onClick={handleAddEmployee} disabled={adding}>
+              {adding ? 'Dodawanie...' : '+ Dodaj pracownika'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ЛЕГЕНДА */}
       <div className={s.section}>
