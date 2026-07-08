@@ -207,13 +207,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     );
   };
 
-  // Стиль таба
+  // Стиль таба — подпись сверху, сумма снизу, делят ширину поровну
   const tabBtn = (tab, activeColor, activeBorder, activeBg) => ({
-    padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
+    padding: '6px 4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
     borderBottom: activeTab === tab ? `3px solid ${activeBorder}` : '3px solid transparent',
     background: activeTab === tab ? (isDark ? activeBg.dark : activeBg.light) : 'transparent',
     color: activeTab === tab ? activeColor : textLight,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+    flex: 1, minWidth: 0,
   });
+  const tabSum = { fontSize: '10px', fontWeight: 'normal', opacity: 0.8, whiteSpace: 'nowrap' };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
@@ -352,15 +355,18 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         )}
 
         {/* Табы — тёмная тема */}
-        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
+        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', gap: '2px' }}>
           <button onClick={() => setActiveTab('materials')} style={tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' })}>
-            📦 Materiały ({totalMaterials.toFixed(2)} zł)
+            <span>📦 Materiały</span>
+            <span style={tabSum}>{totalMaterials.toFixed(2)} zł</span>
           </button>
           <button onClick={() => setActiveTab('services')} style={tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' })}>
-            🛠 Usługi ({totalServices.toFixed(2)} zł)
+            <span>🛠 Usługi</span>
+            <span style={tabSum}>{totalServices.toFixed(2)} zł</span>
           </button>
           <button onClick={() => setActiveTab('expenses')} style={tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' })}>
-            💸 Wydatki ({totalExpenses.toFixed(2)} zł)
+            <span>💸 Wydatki</span>
+            <span style={tabSum}>{totalExpenses.toFixed(2)} zł</span>
           </button>
           <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
             📎 Pliki
