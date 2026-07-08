@@ -2,7 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import s from './FileLightbox.module.css';
 
+const isImageFile = (file) =>
+  (file.file_type || '').startsWith('image')
+  || /\.(jpe?g|png|gif|webp)$/i.test(file.file_name || file.file_url || '');
+
 export default function FileLightbox({ files, categoryLabel, onClose }) {
+  const [mode, setMode] = useState(files && files.length > 1 ? 'grid' : 'view');
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(null);
 
@@ -11,13 +16,14 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
 
   useEffect(() => {
     const handleKey = (e) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (mode !== 'view') return;
       if (e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); next(); }
       else if (e.key === 'ArrowLeft') prev();
-      else if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [files.length]);
+  }, [files?.length, mode]);
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e) => {
@@ -40,9 +46,41 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
     );
   }
 
+  // --- Шаг 1: сетка миниатюр (если файлов больше одного) ---
+  if (mode === 'grid') {
+    return createPortal(
+      <div className={s.overlay} onClick={onClose}>
+        <div className={s.gridBox} onClick={e => e.stopPropagation()}>
+          <div className={s.gridHeader}>
+            <span className={s.categoryLabel}>{categoryLabel}</span>
+            <span className={s.counter}>{files.length} plików</span>
+            <button className={s.closeBtn} onClick={onClose}>✕</button>
+          </div>
+          <div className={s.thumbGrid}>
+            {files.map((f, i) => (
+              <button
+                key={f.id || i}
+                className={s.thumbItem}
+                onClick={() => { setIndex(i); setMode('view'); }}
+                title={f.file_name || ''}
+              >
+                {isImageFile(f) ? (
+                  <img src={f.file_url} alt={f.file_name || ''} className={s.thumbImg} />
+                ) : (
+                  <div className={s.thumbFileIcon}>📄</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   const file = files[index];
-  const isImage = (file.file_type || '').startsWith('image')
-    || /\.(jpe?g|png|gif|webp)$/i.test(file.file_name || file.file_url || '');
+  const isImage = isImageFile(file);
+  const showBackBtn = files.length > 1;
 
   if (!isImage) {
     return createPortal(
@@ -50,7 +88,12 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
         <div className={s.modalBox} onClick={e => e.stopPropagation()}>
           <div className={s.modalHeader}>
             <span className={s.categoryLabel}>{categoryLabel} · {index + 1}/{files.length}</span>
-            <button className={s.closeBtn} onClick={onClose}>✕</button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {showBackBtn && (
+                <button className={s.closeBtn} onClick={() => setMode('grid')} title="Wróć do siatki">⊞</button>
+              )}
+              <button className={s.closeBtn} onClick={onClose}>✕</button>
+            </div>
           </div>
           <div className={s.modalBody}>
             <a href={file.file_url} target="_blank" rel="noreferrer" className={s.fileLinkModal}>
@@ -80,7 +123,12 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
       <div className={s.topBar} onClick={e => e.stopPropagation()}>
         <span className={s.categoryLabel}>{categoryLabel}</span>
         <span className={s.counter}>{index + 1} / {files.length}</span>
-        <button className={s.closeBtn} onClick={onClose}>✕</button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {showBackBtn && (
+            <button className={s.closeBtn} onClick={() => setMode('grid')} title="Wróć do siatki">⊞</button>
+          )}
+          <button className={s.closeBtn} onClick={onClose}>✕</button>
+        </div>
       </div>
 
       {files.length > 1 && (
