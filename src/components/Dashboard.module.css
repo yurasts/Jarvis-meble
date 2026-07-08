@@ -87,6 +87,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .metaRow {
@@ -151,52 +153,49 @@
 
 /* --- Блок задач --- */
 .tasksBody {
-  padding: 10px 12px;
+  padding: 4px 12px 8px;
   background: transparent;
-}
-
-.fileButtonsRow {
-  display: flex;
-  gap: 6px;
-  padding: 0 12px 8px;
-}
-
-.fileCatBtn {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  background: var(--bg-kanban-col);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 2px;
-  cursor: pointer;
+  gap: 4px;
 }
 
-.fileCatBtn:hover {
+.fileButtonsInline {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.fileCatBtnSmall {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fileCatBtnSmall:hover {
   background: var(--bg-base);
 }
 
-.fileCatIcon {
-  position: relative;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.fileCatBadge {
+.fileCatBadgeSmall {
   position: absolute;
-  top: -6px;
-  right: -11px;
+  top: -5px;
+  right: -5px;
   background: #3182ce;
   color: #fff;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: bold;
-  min-width: 15px;
-  height: 15px;
-  border-radius: 8px;
+  min-width: 13px;
+  height: 13px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,20 +203,11 @@
   line-height: 1;
 }
 
-.fileCatLabel {
-  font-size: 11px;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
 .taskList {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 /* --- Одна задача --- */
@@ -368,12 +358,12 @@
   background: transparent;
   border: 1px dashed var(--border);
   color: var(--text-muted);
-  padding: 5px 10px;
+  padding: 3px 8px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 12px;
   font-weight: bold;
-  margin-bottom: 8px;
+  align-self: flex-start;
 }
 
 .btnAddTaskOpen:hover {
@@ -563,15 +553,15 @@
 
 .clientGroupNameCol {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 6px;
   flex: 1;
   min-width: 0;
 }
 
 .clientGroupName {
   font-weight: bold;
-  font-size: 14px;
+  font-size: 17px;
   color: var(--text-main);
 }
 

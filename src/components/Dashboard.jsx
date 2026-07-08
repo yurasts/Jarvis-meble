@@ -144,7 +144,6 @@ const Dashboard = ({
                   onClick={() => toggleClientGroup(clientName)}
                 >
                   <div className={s.clientGroupNameCol}>
-                    <span className={s.clientGroupName}>👤 {clientName}</span>
                     {(groupAddress || groupPhone) && (
                       <button
                         className={s.clientInfoBtn}
@@ -157,6 +156,7 @@ const Dashboard = ({
                         ℹ️
                       </button>
                     )}
+                    <span className={s.clientGroupName}>👤 {clientName}</span>
                   </div>
                   <span className={s.clientGroupMeta}>
                     {projects.length} {projects.length === 1 ? 'projekt' : 'projekty'}
@@ -184,11 +184,29 @@ const Dashboard = ({
                       >
                         <div className={s.projectInfo}>
 
-                          {/* Название проекта — ярко-синим */}
+                          {/* Название проекта — ярко-синим + маленькие кнопки файлов рядом */}
                           <div className={s.projectNameRow}>
                             <h3 className={s.projectName}>
                               {project.project_name || project.full_name}
                             </h3>
+                            {FILE_CATEGORIES.some(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0) && (
+                              <div className={s.fileButtonsInline}>
+                                {FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0).map(cat => {
+                                  const count = fileCounts[project.id][cat.key];
+                                  return (
+                                    <button
+                                      key={cat.key}
+                                      className={s.fileCatBtnSmall}
+                                      onClick={(e) => { e.stopPropagation(); openFileCategory(project, cat); }}
+                                      title={`${cat.label} (${count})`}
+                                    >
+                                      {cat.icon}
+                                      <span className={s.fileCatBadgeSmall}>{count}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
 
                           {/* Дедлайн */}
@@ -222,28 +240,6 @@ const Dashboard = ({
                           )}
                         </div>
                       </div>
-
-                      {/* Кнопки категорий файлов — только те, где есть файлы */}
-                      {FILE_CATEGORIES.some(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0) && (
-                        <div className={s.fileButtonsRow}>
-                          {FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0).map(cat => {
-                            const count = fileCounts[project.id][cat.key];
-                            return (
-                              <button
-                                key={cat.key}
-                                className={s.fileCatBtn}
-                                onClick={() => openFileCategory(project, cat)}
-                              >
-                                <span className={s.fileCatIcon}>
-                                  {cat.icon}
-                                  <span className={s.fileCatBadge}>{count}</span>
-                                </span>
-                                <span className={s.fileCatLabel}>{cat.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
 
                       {/* Задачи */}
                       <div className={s.tasksBody}>
