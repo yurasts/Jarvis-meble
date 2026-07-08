@@ -11,21 +11,6 @@ const shortDate = (dateStr) => {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 };
 
-// Цвет левой рамки карточки по статусу
-const STATUS_BORDER = {
-  new:        '#e53e3e', // 🔴 красный
-  design:     '#dd6b20', // 🟠 оранжевый
-  production: '#d69e2e', // 🟡 жёлтый
-  done:       '#38a169', // 🟢 зелёный
-};
-
-const STATUS_BG = {
-  new:        { light: '#fff5f5', dark: '#2d1515' },
-  design:     { light: '#fffaf0', dark: '#2d1a00' },
-  production: { light: '#fffff0', dark: '#2d2a00' },
-  done:       { light: '#f0fff4', dark: '#0f2a1a' },
-};
-
 // Категории файлов проекта
 const FILE_CATEGORIES = [
   { key: 'projekt', icon: '📐', label: 'Projekt' },
@@ -59,6 +44,8 @@ const Dashboard = ({
   const [showDoneByProject,  setShowDoneByProject]  = useState({});
   const [fileViewer, setFileViewer] = useState(null); // { files, categoryLabel } | null
   const [fileCounts, setFileCounts] = useState({}); // { [clientId]: { [category]: count } }
+  const [addTaskModal, setAddTaskModal] = useState(null); // project | null
+  const [clientInfoModal, setClientInfoModal] = useState(null); // { clientName, address, phone } | null
 
   useEffect(() => {
     const loadFileCounts = async () => {
@@ -113,6 +100,7 @@ const Dashboard = ({
     };
     updateClient(clientId, { tasks: [...(project.tasks || []), newTask] });
     setNewTaskParams(prev => ({ ...prev, [clientId]: { text: '', date: '' } }));
+    setAddTaskModal(null);
   };
 
   const toggleTaskStatus = (clientId, taskId) => {
@@ -146,6 +134,7 @@ const Dashboard = ({
           groups.map(([clientName, projects]) => {
             const isCollapsed = collapsedClients.has(clientName);
             const groupAddress = projects.find(p => p.address)?.address;
+            const groupPhone   = projects.find(p => p.phone)?.phone;
             return (
               <div key={clientName} className={s.clientGroup}>
 
@@ -156,15 +145,17 @@ const Dashboard = ({
                 >
                   <div className={s.clientGroupNameCol}>
                     <span className={s.clientGroupName}>👤 {clientName}</span>
-                    {groupAddress && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(groupAddress)}`}
-                        target="_blank" rel="noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className={s.groupAddressLink}
+                    {(groupAddress || groupPhone) && (
+                      <button
+                        className={s.clientInfoBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setClientInfoModal({ clientName, address: groupAddress, phone: groupPhone });
+                        }}
+                        title="Informacje o kliencie"
                       >
-                        📍 {groupAddress}
-                      </a>
+                        ℹ️
+                      </button>
                     )}
                   </div>
                   <span className={s.clientGroupMeta}>
@@ -179,16 +170,12 @@ const Dashboard = ({
                 {!isCollapsed && projects.map(project => {
                   const editor           = project.updated_by ? profilesById[project.updated_by] : null;
                   const isProjectExpanded = expandedProjectId === project.id;
-                  const projectBudget    = Number(project.budget) || 0;
-                  const coef             = Number(project.budget_coefficient) || 0;
-                  const borderColor      = STATUS_BORDER[project.status] || STATUS_BORDER.new;
 
                   return (
                     <div
                       key={project.id}
                       className={s.projectCard}
                       data-status={project.status || 'new'}
-                      style={{ borderLeft: `4px solid ${borderColor}` }}
                     >
                       <div
                         className={s.projectHeader}
@@ -197,46 +184,17 @@ const Dashboard = ({
                       >
                         <div className={s.projectInfo}>
 
-                          {/* Название проекта (крупно) + статус + Budżet справа */}
+                          {/* Название проекта — ярко-синим */}
                           <div className={s.projectNameRow}>
-                            <div className={s.nameStatusGroup}>
-                              <h3 className={s.projectName}>
-                                {project.project_name || project.full_name}
-                              </h3>
-                              <span
-                                className={s.statusBadge}
-                                style={{ borderLeft: `3px solid ${borderColor}`, paddingLeft: '6px' }}
-                              >
-                                {project.status || 'new'}
-                              </span>
-                            </div>
-                            {projectBudget > 0 && (
-                              <span className={s.budzet}>
-                                Budżet: {projectBudget.toFixed(2)} zł{coef > 0 ? ` (×${coef})` : ''}
-                              </span>
-                            )}
+                            <h3 className={s.projectName}>
+                              {project.project_name || project.full_name}
+                            </h3>
                           </div>
 
                           {/* Дедлайн */}
                           {project.deadline && (
                             <div className={s.metaRow}>
                               <span className={s.deadline}>📅 {shortDate(project.deadline)}</span>
-                            </div>
-                          )}
-
-                          {/* Превью материалов проекта */}
-                          {project.calc_materials?.length > 0 && (
-                            <div className={s.materialsPreview}>
-                              {project.calc_materials.slice(0, 6).map((m, i) => (
-                                <div key={i} className={s.materialLine} title={m.name}>
-                                  ▪ {m.name}
-                                </div>
-                              ))}
-                              {project.calc_materials.length > 6 && (
-                                <div className={s.materialMore}>
-                                  +{project.calc_materials.length - 6} więcej
-                                </div>
-                              )}
                             </div>
                           )}
 
@@ -265,54 +223,33 @@ const Dashboard = ({
                         </div>
                       </div>
 
-                      {/* Кнопки категорий файлов */}
-                      <div className={s.fileButtonsRow}>
-                        {FILE_CATEGORIES.map(cat => {
-                          const count = fileCounts[project.id]?.[cat.key] || 0;
-                          return (
-                            <button
-                              key={cat.key}
-                              className={`${s.fileCatBtn} ${count === 0 ? s.fileCatBtnEmpty : ''}`}
-                              onClick={() => openFileCategory(project, cat)}
-                              disabled={count === 0}
-                            >
-                              <span className={s.fileCatIcon}>
-                                {cat.icon}
-                                {count > 0 && <span className={s.fileCatBadge}>{count}</span>}
-                              </span>
-                              <span className={s.fileCatLabel}>{cat.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {/* Кнопки категорий файлов — только те, где есть файлы */}
+                      {FILE_CATEGORIES.some(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0) && (
+                        <div className={s.fileButtonsRow}>
+                          {FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0).map(cat => {
+                            const count = fileCounts[project.id][cat.key];
+                            return (
+                              <button
+                                key={cat.key}
+                                className={s.fileCatBtn}
+                                onClick={() => openFileCategory(project, cat)}
+                              >
+                                <span className={s.fileCatIcon}>
+                                  {cat.icon}
+                                  <span className={s.fileCatBadge}>{count}</span>
+                                </span>
+                                <span className={s.fileCatLabel}>{cat.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {/* Задачи */}
                       <div className={s.tasksBody}>
-                        <div className={s.addTaskRow}>
-                          <button className={s.btnAddTask} onClick={() => handleAddTask(project.id)}>+</button>
-                          <input type="text" placeholder="Wpisz zadanie..."
-                            value={newTaskParams[project.id]?.text || ''}
-                            onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], text: e.target.value } }))}
-                            onKeyDown={e => e.key === 'Enter' && handleAddTask(project.id)}
-                            className={s.inputTask} />
-                          <div className={s.dateWrap}>
-                            <input type="date"
-                              value={newTaskParams[project.id]?.date || ''}
-                              onChange={e => setNewTaskParams(prev => ({ ...prev, [project.id]: { ...prev[project.id], date: e.target.value } }))}
-                              className={s.inputDateHidden} />
-                            <button
-                              type="button"
-                              className={s.dateDisplayBtn}
-                              onClick={(e) => {
-                                const input = e.currentTarget.previousSibling;
-                                if (input?.showPicker) input.showPicker();
-                                else input?.focus();
-                              }}
-                            >
-                              {newTaskParams[project.id]?.date ? shortDate(newTaskParams[project.id].date) : '📅'}
-                            </button>
-                          </div>
-                        </div>
+                        <button className={s.btnAddTaskOpen} onClick={() => setAddTaskModal(project)}>
+                          + Zadanie
+                        </button>
                         <div className={s.taskList}>
                           {(() => {
                             const allTasks  = project.tasks || [];
@@ -321,9 +258,6 @@ const Dashboard = ({
                             const showDone  = showDoneByProject[project.id];
                             const visible   = showDone ? allTasks : openTasks;
                             return (<>
-                              {visible.length === 0 && openTasks.length === 0 && doneTasks.length === 0 && (
-                                <div className={s.noTasks}>Brak zadań.</div>
-                              )}
                           {visible.map(task => {
                             const taskColor  = task.createdByColor || '#718096';
                             const isConfirm  = confirmDeleteId === task.id;
@@ -398,6 +332,75 @@ const Dashboard = ({
           categoryLabel={fileViewer.categoryLabel}
           onClose={() => setFileViewer(null)}
         />
+      )}
+
+      {addTaskModal && (
+        <div className={s.modalOverlay} onClick={() => setAddTaskModal(null)}>
+          <div className={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div className={s.modalHeader}>
+              <span>+ Zadanie — {addTaskModal.project_name || addTaskModal.full_name}</span>
+              <button className={s.modalCloseBtn} onClick={() => setAddTaskModal(null)}>✕</button>
+            </div>
+            <div className={s.modalBody}>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Wpisz zadanie..."
+                value={newTaskParams[addTaskModal.id]?.text || ''}
+                onChange={e => setNewTaskParams(prev => ({ ...prev, [addTaskModal.id]: { ...prev[addTaskModal.id], text: e.target.value } }))}
+                onKeyDown={e => e.key === 'Enter' && handleAddTask(addTaskModal.id)}
+                className={s.modalInput}
+              />
+              <div className={s.dateWrap}>
+                <input type="date"
+                  value={newTaskParams[addTaskModal.id]?.date || ''}
+                  onChange={e => setNewTaskParams(prev => ({ ...prev, [addTaskModal.id]: { ...prev[addTaskModal.id], date: e.target.value } }))}
+                  className={s.inputDateHidden} />
+                <button
+                  type="button"
+                  className={s.dateDisplayBtn}
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousSibling;
+                    if (input?.showPicker) input.showPicker();
+                    else input?.focus();
+                  }}
+                >
+                  {newTaskParams[addTaskModal.id]?.date ? shortDate(newTaskParams[addTaskModal.id].date) : '📅 Termin'}
+                </button>
+              </div>
+              <button className={s.modalSubmitBtn} onClick={() => handleAddTask(addTaskModal.id)}>
+                + Dodaj zadanie
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {clientInfoModal && (
+        <div className={s.modalOverlay} onClick={() => setClientInfoModal(null)}>
+          <div className={s.modalBox} onClick={e => e.stopPropagation()}>
+            <div className={s.modalHeader}>
+              <span>👤 {clientInfoModal.clientName}</span>
+              <button className={s.modalCloseBtn} onClick={() => setClientInfoModal(null)}>✕</button>
+            </div>
+            <div className={s.modalBody}>
+              {clientInfoModal.address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clientInfoModal.address)}`}
+                  target="_blank" rel="noreferrer"
+                  className={s.clientInfoLink}
+                >
+                  📍 {clientInfoModal.address}
+                </a>
+              )}
+              {clientInfoModal.phone && (
+                <a href={`tel:${clientInfoModal.phone}`} className={s.clientInfoLink}>
+                  📞 {clientInfoModal.phone}
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
