@@ -37,7 +37,6 @@ const Dashboard = ({
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
   const [expandedTaskId,     setExpandedTaskId]     = useState(null);
-  const [expandedProjectId,  setExpandedProjectId]  = useState(null);
   // Свёрнутые группы клиентов (Set с именами клиентов)
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
   // По умолчанию выполненные задачи скрыты для каждого проекта
@@ -168,9 +167,6 @@ const Dashboard = ({
 
                 {/* Проекты клиента */}
                 {!isCollapsed && projects.map(project => {
-                  const editor           = project.updated_by ? profilesById[project.updated_by] : null;
-                  const isProjectExpanded = expandedProjectId === project.id;
-
                   return (
                     <div
                       key={project.id}
@@ -209,35 +205,6 @@ const Dashboard = ({
                             )}
                           </div>
 
-                          {/* Дедлайн */}
-                          {project.deadline && (
-                            <div className={s.metaRow}>
-                              <span className={s.deadline}>📅 {shortDate(project.deadline)}</span>
-                            </div>
-                          )}
-
-                          {/* Подпись редактора */}
-                          {editor && (
-                            <span
-                              className={s.editorExpanded}
-                              onClick={(e) => { e.stopPropagation(); setExpandedProjectId(isProjectExpanded ? null : project.id); }}
-                            >
-                              {isProjectExpanded ? (
-                                <>
-                                  <div className={s.editorAvatar} style={{ background: editor.color || '#718096' }}>
-                                    {initials(editor.full_name)}
-                                  </div>
-                                  <span className={s.editorName}>
-                                    {editor.full_name} • {project.updated_at
-                                      ? new Date(project.updated_at).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
-                                      : ''}
-                                  </span>
-                                </>
-                              ) : (
-                                <div className={s.editorDot} style={{ background: editor.color || '#cbd5e0' }} />
-                              )}
-                            </span>
-                          )}
                         </div>
                       </div>
 
