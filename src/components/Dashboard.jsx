@@ -210,75 +210,71 @@ const Dashboard = ({
 
                       {/* Задачи */}
                       <div className={s.tasksBody}>
-                        <button className={s.btnAddTaskOpen} onClick={() => setAddTaskModal(project)}>
-                          + Zadanie
-                        </button>
-                        <div className={s.taskList}>
-                          {(() => {
-                            const allTasks  = project.tasks || [];
-                            const doneTasks = allTasks.filter(t => t.isDone);
-                            const openTasks = allTasks.filter(t => !t.isDone);
-                            const showDone  = showDoneByProject[project.id];
-                            const visible   = showDone ? allTasks : openTasks;
-                            return (<>
-                          {visible.map(task => {
-                            const taskColor  = task.createdByColor || '#718096';
-                            const isConfirm  = confirmDeleteId === task.id;
-                            const isExpanded = expandedTaskId === task.id;
-                            const taskItemClass = [s.taskItem, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
-                            const taskTextClass = [s.taskText, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
-                            return (
-                              <div key={task.id} className={taskItemClass}>
-                                <div className={s.taskRow} style={{ borderLeft: `3px solid ${taskColor}` }}>
-                                  <input type="checkbox" checked={task.isDone}
-                                    onChange={() => toggleTaskStatus(project.id, task.id)}
-                                    className={s.taskCheckbox} />
-                                  <div className={s.taskTextWrap} onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
-                                    <span className={taskTextClass}>{task.text}</span>
-                                  </div>
-                                  {task.date && <span className={s.taskDate}>{shortDate(task.date)}</span>}
-                                  {isConfirm ? (
-                                    <div className={s.confirmBtns}>
-                                      <button className={s.btnConfirmYes} onClick={() => deleteTask(project.id, task.id)}>Tak</button>
-                                      <button className={s.btnConfirmNo} onClick={() => setConfirmDeleteId(null)}>Nie</button>
-                                    </div>
-                                  ) : (
-                                    <button className={s.btnDelete} onClick={() => setConfirmDeleteId(task.id)}>✖</button>
-                                  )}
-                                </div>
-                                {isExpanded && task.createdByName && (
-                                  <div className={s.taskAuthor}>
-                                    <div className={s.taskAuthorAvatar} style={{ background: taskColor }}>
-                                      {initials(task.createdByName)}
-                                    </div>
-                                    <span className={s.taskAuthorName}>
-                                      {task.createdByName}
-                                      {task.createdAt ? ' • ' + new Date(task.createdAt).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
-                                    </span>
-                                  </div>
+                        {(() => {
+                          const allTasks  = project.tasks || [];
+                          const doneTasks = allTasks.filter(t => t.isDone);
+                          const openTasks = allTasks.filter(t => !t.isDone);
+                          const showDone  = showDoneByProject[project.id];
+                          const visible   = showDone ? allTasks : openTasks;
+                          return (
+                            <>
+                              <div className={s.taskActionsRow}>
+                                <button className={s.btnAddTaskOpen} onClick={() => setAddTaskModal(project)}>
+                                  + Zadanie
+                                </button>
+                                {doneTasks.length > 0 && (
+                                  <button
+                                    onClick={() => toggleShowDone(project.id)}
+                                    className={s.btnToggleDone}
+                                  >
+                                    {showDone ? '▲' : '▼'} Wykonane ({doneTasks.length})
+                                  </button>
                                 )}
                               </div>
-                            );
-                          })}
-                          {/* Кнопка показа выполненных задач */}
-                          {(() => {
-                            const doneTasks = (project.tasks || []).filter(t => t.isDone);
-                            if (doneTasks.length === 0) return null;
-                            const showDone = showDoneByProject[project.id];
-                            return (
-                              <button
-                                onClick={() => toggleShowDone(project.id)}
-                                className={s.btnToggleDone}
-                              >
-                                {showDone
-                                  ? `▲ Ukryj wykonane (${doneTasks.length})`
-                                  : `▼ Pokaż wykonane (${doneTasks.length})`}
-                              </button>
-                            );
-                          })()}
-                            </>);
-                          })()}
-                        </div>
+                              <div className={s.taskList}>
+                                {visible.map(task => {
+                                  const taskColor  = task.createdByColor || '#718096';
+                                  const isConfirm  = confirmDeleteId === task.id;
+                                  const isExpanded = expandedTaskId === task.id;
+                                  const taskItemClass = [s.taskItem, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
+                                  const taskTextClass = [s.taskText, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
+                                  return (
+                                    <div key={task.id} className={taskItemClass}>
+                                      <div className={s.taskRow} style={{ borderLeft: `3px solid ${taskColor}` }}>
+                                        <input type="checkbox" checked={task.isDone}
+                                          onChange={() => toggleTaskStatus(project.id, task.id)}
+                                          className={s.taskCheckbox} />
+                                        <div className={s.taskTextWrap} onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
+                                          <span className={taskTextClass}>{task.text}</span>
+                                        </div>
+                                        {task.date && <span className={s.taskDate}>{shortDate(task.date)}</span>}
+                                        {isConfirm ? (
+                                          <div className={s.confirmBtns}>
+                                            <button className={s.btnConfirmYes} onClick={() => deleteTask(project.id, task.id)}>Tak</button>
+                                            <button className={s.btnConfirmNo} onClick={() => setConfirmDeleteId(null)}>Nie</button>
+                                          </div>
+                                        ) : (
+                                          <button className={s.btnDelete} onClick={() => setConfirmDeleteId(task.id)}>✖</button>
+                                        )}
+                                      </div>
+                                      {isExpanded && task.createdByName && (
+                                        <div className={s.taskAuthor}>
+                                          <div className={s.taskAuthorAvatar} style={{ background: taskColor }}>
+                                            {initials(task.createdByName)}
+                                          </div>
+                                          <span className={s.taskAuthorName}>
+                                            {task.createdByName}
+                                            {task.createdAt ? ' • ' + new Date(task.createdAt).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   );

@@ -307,6 +307,13 @@
   color: #a0aec0;
 }
 
+.taskActionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 /* --- Кнопка открытия модалки добавления задачи --- */
 .btnAddTaskOpen {
   background: transparent;
@@ -576,16 +583,16 @@
 
 /* Кнопка показа/скрытия выполненных задач */
 .btnToggleDone {
-  width: 100%;
-  padding: 4px 8px;
-  margin-bottom: 6px;
+  padding: 3px 8px;
   background: transparent;
   border: 1px dashed var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: bold;
   cursor: pointer;
-  text-align: left;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s, color 0.15s;
 }
 
