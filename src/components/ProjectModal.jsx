@@ -46,7 +46,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
   const [confirmClose, setConfirmClose] = useState(false);
-  const [editorExpanded, setEditorExpanded] = useState(false);
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedMaterialId, setExpandedMaterialId] = useState(null);
@@ -188,7 +187,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     updateItems(field, [...currentItems, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak', ...authorMeta() }]);
   };
 
-  const editor = client.updated_by ? profilesById[client.updated_by] : null;
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
   // Кнопка удаления с подтверждением
@@ -286,35 +284,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               <span style={{ background: c('#ebf8ff', '#0f2236'), border: `1px solid ${c('#bee3f8', '#1a3a5c')}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: c('#2b6cb0', '#63b3ed') }}>
                 Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
               </span>
-              <button
-                onClick={() => setActiveTab('files')}
-                style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-              >
-                📎 Pliki
-              </button>
             </div>
           </div>
-
-          {editor && (
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '6px', cursor: 'pointer' }}
-              onClick={() => setEditorExpanded(v => !v)}
-              title="Kliknij, aby zobaczyć kto i kiedy edytował"
-            >
-              {editorExpanded ? (
-                <>
-                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
-                    {(editor.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#a0aec0' }}>
-                    {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
-                  </span>
-                </>
-              ) : (
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: editor.color || '#cbd5e0' }} />
-              )}
-            </div>
-          )}
         </div>
 
         {/* Модалка редактируемой информации о клиенте */}
