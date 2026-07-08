@@ -1,34 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import FileLightbox from './FileLightbox';
+import ProjectCard from './ProjectCard';
+import AddTaskModal from './AddTaskModal';
+import ClientInfoModal from './ClientInfoModal';
+import { groupByClient } from './dashboardHelpers';
 import s from './Dashboard.module.css';
-
-const initials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
-const shortDate = (dateStr) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-};
-
-// Категории файлов проекта
-const FILE_CATEGORIES = [
-  { key: 'projekt', icon: '📐', label: 'Projekt' },
-  { key: 'usterki', icon: '⚠️', label: 'Usterki' },
-  { key: 'montaz',  icon: '✅', label: 'Montaż'  },
-  { key: 'inne',    icon: '📄', label: 'Inne'    },
-];
-
-// Группировка проектов по client_name
-const groupByClient = (projects) => {
-  const map = {};
-  projects.forEach(p => {
-    const key = p.client_name || p.full_name || '—';
-    if (!map[key]) map[key] = [];
-    map[key].push(p);
-  });
-  return Object.entries(map); // [[clientName, [projects]], ...]
-};
 
 const Dashboard = ({
   clients, updateClient, openProjectModal, setIsModalOpen,
@@ -166,119 +143,24 @@ const Dashboard = ({
                 </div>
 
                 {/* Проекты клиента */}
-                {!isCollapsed && projects.map(project => {
-                  return (
-                    <div
-                      key={project.id}
-                      className={s.projectCard}
-                      data-status={project.status || 'new'}
-                    >
-                      <div
-                        className={s.projectHeader}
-                        onClick={() => openProjectModal(project)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className={s.projectInfo}>
-
-                          {/* Название проекта — ярко-синим + маленькие кнопки файлов рядом */}
-                          <div className={s.projectNameRow}>
-                            <h3 className={s.projectName}>
-                              {project.project_name || project.full_name}
-                            </h3>
-                            {FILE_CATEGORIES.some(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0) && (
-                              <div className={s.fileButtonsInline}>
-                                {FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0).map(cat => {
-                                  const count = fileCounts[project.id][cat.key];
-                                  return (
-                                    <button
-                                      key={cat.key}
-                                      className={s.fileCatBtnSmall}
-                                      onClick={(e) => { e.stopPropagation(); openFileCategory(project, cat); }}
-                                      title={`${cat.label} (${count})`}
-                                    >
-                                      {cat.icon}
-                                      <span className={s.fileCatBadgeSmall}>{count}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-
-                        </div>
-                      </div>
-
-                      {/* Задачи */}
-                      <div className={s.tasksBody}>
-                        {(() => {
-                          const allTasks  = project.tasks || [];
-                          const doneTasks = allTasks.filter(t => t.isDone);
-                          const openTasks = allTasks.filter(t => !t.isDone);
-                          const showDone  = showDoneByProject[project.id];
-                          const visible   = showDone ? allTasks : openTasks;
-                          return (
-                            <>
-                              <div className={s.taskActionsRow}>
-                                <button className={s.btnAddTaskOpen} onClick={() => setAddTaskModal(project)}>
-                                  + Zadanie
-                                </button>
-                                {doneTasks.length > 0 && (
-                                  <button
-                                    onClick={() => toggleShowDone(project.id)}
-                                    className={s.btnToggleDone}
-                                  >
-                                    {showDone ? '▲' : '▼'} Wykonane ({doneTasks.length})
-                                  </button>
-                                )}
-                              </div>
-                              <div className={s.taskList}>
-                                {visible.map(task => {
-                                  const taskColor  = task.createdByColor || '#718096';
-                                  const isConfirm  = confirmDeleteId === task.id;
-                                  const isExpanded = expandedTaskId === task.id;
-                                  const taskItemClass = [s.taskItem, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
-                                  const taskTextClass = [s.taskText, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
-                                  return (
-                                    <div key={task.id} className={taskItemClass}>
-                                      <div className={s.taskRow} style={{ borderLeft: `3px solid ${taskColor}` }}>
-                                        <input type="checkbox" checked={task.isDone}
-                                          onChange={() => toggleTaskStatus(project.id, task.id)}
-                                          className={s.taskCheckbox} />
-                                        <div className={s.taskTextWrap} onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
-                                          <span className={taskTextClass}>{task.text}</span>
-                                        </div>
-                                        {task.date && <span className={s.taskDate}>{shortDate(task.date)}</span>}
-                                        {isConfirm ? (
-                                          <div className={s.confirmBtns}>
-                                            <button className={s.btnConfirmYes} onClick={() => deleteTask(project.id, task.id)}>Tak</button>
-                                            <button className={s.btnConfirmNo} onClick={() => setConfirmDeleteId(null)}>Nie</button>
-                                          </div>
-                                        ) : (
-                                          <button className={s.btnDelete} onClick={() => setConfirmDeleteId(task.id)}>✖</button>
-                                        )}
-                                      </div>
-                                      {isExpanded && task.createdByName && (
-                                        <div className={s.taskAuthor}>
-                                          <div className={s.taskAuthorAvatar} style={{ background: taskColor }}>
-                                            {initials(task.createdByName)}
-                                          </div>
-                                          <span className={s.taskAuthorName}>
-                                            {task.createdByName}
-                                            {task.createdAt ? ' • ' + new Date(task.createdAt).toLocaleString('pl-PL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  );
-                })}
+                {!isCollapsed && projects.map(project => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    fileCounts={fileCounts}
+                    onOpenProject={() => openProjectModal(project)}
+                    onOpenFileCategory={(cat) => openFileCategory(project, cat)}
+                    onOpenAddTask={() => setAddTaskModal(project)}
+                    showDone={showDoneByProject[project.id]}
+                    onToggleShowDone={() => toggleShowDone(project.id)}
+                    confirmDeleteId={confirmDeleteId}
+                    setConfirmDeleteId={setConfirmDeleteId}
+                    expandedTaskId={expandedTaskId}
+                    setExpandedTaskId={setExpandedTaskId}
+                    onToggleTaskStatus={(taskId) => toggleTaskStatus(project.id, taskId)}
+                    onDeleteTask={(taskId) => deleteTask(project.id, taskId)}
+                  />
+                ))}
               </div>
             );
           })
@@ -294,72 +176,21 @@ const Dashboard = ({
       )}
 
       {addTaskModal && (
-        <div className={s.modalOverlay} onClick={() => setAddTaskModal(null)}>
-          <div className={s.modalBox} onClick={e => e.stopPropagation()}>
-            <div className={s.modalHeader}>
-              <span>+ Zadanie — {addTaskModal.project_name || addTaskModal.full_name}</span>
-              <button className={s.modalCloseBtn} onClick={() => setAddTaskModal(null)}>✕</button>
-            </div>
-            <div className={s.modalBody}>
-              <input
-                type="text"
-                autoFocus
-                placeholder="Wpisz zadanie..."
-                value={newTaskParams[addTaskModal.id]?.text || ''}
-                onChange={e => setNewTaskParams(prev => ({ ...prev, [addTaskModal.id]: { ...prev[addTaskModal.id], text: e.target.value } }))}
-                onKeyDown={e => e.key === 'Enter' && handleAddTask(addTaskModal.id)}
-                className={s.modalInput}
-              />
-              <div className={s.dateWrap}>
-                <input type="date"
-                  value={newTaskParams[addTaskModal.id]?.date || ''}
-                  onChange={e => setNewTaskParams(prev => ({ ...prev, [addTaskModal.id]: { ...prev[addTaskModal.id], date: e.target.value } }))}
-                  className={s.inputDateHidden} />
-                <button
-                  type="button"
-                  className={s.dateDisplayBtn}
-                  onClick={(e) => {
-                    const input = e.currentTarget.previousSibling;
-                    if (input?.showPicker) input.showPicker();
-                    else input?.focus();
-                  }}
-                >
-                  {newTaskParams[addTaskModal.id]?.date ? shortDate(newTaskParams[addTaskModal.id].date) : '📅 Termin'}
-                </button>
-              </div>
-              <button className={s.modalSubmitBtn} onClick={() => handleAddTask(addTaskModal.id)}>
-                + Dodaj zadanie
-              </button>
-            </div>
-          </div>
-        </div>
+        <AddTaskModal
+          project={addTaskModal}
+          value={newTaskParams[addTaskModal.id] || {}}
+          onChangeText={(text) => setNewTaskParams(prev => ({ ...prev, [addTaskModal.id]: { ...prev[addTaskModal.id], text } }))}
+          onChangeDate={(date) => setNewTaskParams(prev => ({ ...prev, [addTaskModal.id]: { ...prev[addTaskModal.id], date } }))}
+          onSubmit={() => handleAddTask(addTaskModal.id)}
+          onClose={() => setAddTaskModal(null)}
+        />
       )}
 
       {clientInfoModal && (
-        <div className={s.modalOverlay} onClick={() => setClientInfoModal(null)}>
-          <div className={s.modalBox} onClick={e => e.stopPropagation()}>
-            <div className={s.modalHeader}>
-              <span>👤 {clientInfoModal.clientName}</span>
-              <button className={s.modalCloseBtn} onClick={() => setClientInfoModal(null)}>✕</button>
-            </div>
-            <div className={s.modalBody}>
-              {clientInfoModal.address && (
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clientInfoModal.address)}`}
-                  target="_blank" rel="noreferrer"
-                  className={s.clientInfoLink}
-                >
-                  📍 {clientInfoModal.address}
-                </a>
-              )}
-              {clientInfoModal.phone && (
-                <a href={`tel:${clientInfoModal.phone}`} className={s.clientInfoLink}>
-                  📞 {clientInfoModal.phone}
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
+        <ClientInfoModal
+          info={clientInfoModal}
+          onClose={() => setClientInfoModal(null)}
+        />
       )}
     </div>
   );
