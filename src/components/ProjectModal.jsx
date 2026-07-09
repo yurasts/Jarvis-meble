@@ -16,14 +16,14 @@ const STATUS_BORDER_COLOR = {
   done:       '#38a169',
 };
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, onCoverChange, initialTab = 'materials' }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials' }) => {
   const isMobile = window.innerWidth < 640;
 
   // ✅ Нейтральный "хром" — через переменные темы (Jasny/Ciemny/Forest)
   const c = (light, dark) => isDark ? dark : light;
   const bg        = 'var(--modal-bg)';
   const bgHeader  = 'var(--bg-kanban-col)';
-  const bgMatRow  = c('#ebf8ff', '#0f2236');
+  const bgMatRow  = theme === 'forest' ? '#4f7057' : c('#ebf8ff', '#0f2236');
   const bgSrvRow  = c('#f0fff4', '#0f2a1a');
   const bgExpRow  = c('#fff5f5', '#2d1515');
   const bgSearch  = 'var(--bg-base)';

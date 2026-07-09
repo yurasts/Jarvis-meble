@@ -434,6 +434,7 @@ function App() {
           currentProfile={profile}
           profilesById={profilesById}
           isDark={isDarkish}
+          theme={theme}
           initialTab={projectModalTab}
         />
       )}
