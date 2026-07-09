@@ -65,6 +65,12 @@
   padding: 10px;
 }
 
+/* Превью темы Forest */
+.previewForest {
+  background: #16241c;
+  padding: 10px;
+}
+
 .previewBar {
   border-radius: 4px;
   padding: 6px 8px;
@@ -76,6 +82,7 @@
 
 .previewBarLight { background: #1e1e2f; }
 .previewBarDark  { background: #0d1117; }
+.previewBarForest { background: #2c4235; }
 
 .previewDot {
   width: 8px;
@@ -92,6 +99,7 @@
 
 .previewLineLight { background: #3b3b54; }
 .previewLineDark  { background: #1e293b; }
+.previewLineForest { background: #2c4235; }
 
 .previewCard {
   border-radius: 4px;
@@ -100,6 +108,7 @@
 
 .previewCardLight { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .previewCardDark  { background: #1e293b; }
+.previewCardForest { background: #3f5a4a; }
 
 .previewCardTitle {
   height: 6px;
@@ -110,6 +119,7 @@
 
 .previewCardTitleLight { background: #2b6cb0; }
 .previewCardTitleDark  { background: var(--accent); }
+.previewCardTitleForest { background: var(--accent); }
 
 .previewCardBody {
   height: 4px;
@@ -119,6 +129,7 @@
 
 .previewCardBodyLight { background: #e2e8f0; }
 .previewCardBodyDark  { background: #334155; }
+.previewCardBodyForest { background: #7fa88d; }
 
 .themeLabel {
   padding: 8px;

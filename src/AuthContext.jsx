@@ -104,10 +104,11 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const isDark = (profile?.theme || 'light') === 'dark'
+  const theme = profile?.theme || 'light'
+  const isDark = theme === 'dark'
 
   const value = {
-    session, profile, profilesById, isDark,
+    session, profile, profilesById, isDark, theme,
     loadingSession: session === undefined,
     awaitingAccess: !!session && profilesLoaded && !profile,
     updateTheme,

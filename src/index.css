@@ -52,6 +52,36 @@ html[data-theme="dark"] {
   --btn-sec-text:  #e2e8f0;
 }
 
+/* --- 2b. ТЕМА FOREST --- */
+html[data-theme="forest"] {
+  --bg-base:       #16241c;
+  --bg-sidebar:    #12201a;
+  --bg-card:       #3f5a4a;
+  --bg-menu-item:  #2c4235;
+  --bg-menu-hover: #375040;
+  --bg-kanban-col: #2c4235;
+
+  --text-main:     #f2f7f4;
+  --text-muted:    #b9ccbf;
+  --text-sidebar:  #f2f7f4;
+
+  --border:        #7fa88d;
+  --accent:        #4da6ff;
+
+  --modal-bg:      #2c4235;
+  --input-bg:      #34503f;
+  --input-border:  #7fa88d;
+
+  --btn-sec-bg:    #375040;
+  --btn-sec-text:  #f2f7f4;
+}
+
+html[data-theme="forest"] .modal-overlay { background: rgba(0,0,0,0.82); }
+
+html[data-theme="forest"] .client-card:hover {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+}
+
 /* --- 3. СБРОС VITE И БРАУЗЕРА --- */
 html, body, #root {
   margin: 0;

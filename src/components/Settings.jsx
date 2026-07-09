@@ -20,7 +20,7 @@ const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 const Settings = ({ profile, profilesById, onColorUpdate }) => {
-  const { isDark, updateTheme } = useAuth();
+  const { isDark, theme, updateTheme } = useAuth();
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
 
@@ -105,7 +105,7 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
         <div className={s.themeRow}>
           {/* Светлая тема */}
           <div
-            className={[s.themeOption, !isDark ? s.active : ''].join(' ')}
+            className={[s.themeOption, theme === 'light' ? s.active : ''].join(' ')}
             onClick={() => updateTheme('light')}
           >
             <div className={s.previewLight}>
@@ -118,8 +118,8 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
                 <div className={[s.previewCardBody,  s.previewCardBodyLight].join(' ')} />
               </div>
             </div>
-            <div className={[s.themeLabel, !isDark ? s.active : ''].join(' ')}>
-              {!isDark ? '✓ ' : ''}Jasny
+            <div className={[s.themeLabel, theme === 'light' ? s.active : ''].join(' ')}>
+              {theme === 'light' ? '✓ ' : ''}Jasny
             </div>
           </div>
 
@@ -140,6 +140,26 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
             </div>
             <div className={[s.themeLabel, isDark ? s.active : ''].join(' ')}>
               {isDark ? '✓ ' : ''}Ciemny
+            </div>
+          </div>
+
+          {/* Forest */}
+          <div
+            className={[s.themeOption, theme === 'forest' ? s.active : ''].join(' ')}
+            onClick={() => updateTheme('forest')}
+          >
+            <div className={s.previewForest}>
+              <div className={[s.previewBar, s.previewBarForest].join(' ')}>
+                <div className={s.previewDot} />
+                <div className={[s.previewLine, s.previewLineForest].join(' ')} />
+              </div>
+              <div className={[s.previewCard, s.previewCardForest].join(' ')}>
+                <div className={[s.previewCardTitle, s.previewCardTitleForest].join(' ')} />
+                <div className={[s.previewCardBody,  s.previewCardBodyForest].join(' ')} />
+              </div>
+            </div>
+            <div className={[s.themeLabel, theme === 'forest' ? s.active : ''].join(' ')}>
+              {theme === 'forest' ? '✓ ' : ''}Forest
             </div>
           </div>
         </div>
@@ -266,7 +286,7 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
                   {p.id === profile.id && <span className={s.legendMe}>(ja)</span>}
                 </div>
                 <div className={s.legendRole}>
-                  {p.role} • {p.theme === 'dark' ? '🌙 Ciemny' : '☀️ Jasny'}
+                  {p.role} • {p.theme === 'dark' ? '🌙 Ciemny' : p.theme === 'forest' ? '🌲 Forest' : '☀️ Jasny'}
                 </div>
               </div>
               <div
