@@ -300,7 +300,31 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+              <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
+                  title="Projekt firmowy"
+                  style={{
+                    padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                    background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg,
+                    color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight,
+                  }}
+                >
+                  🏢
+                </button>
+                <button
+                  onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
+                  title="Mój projekt"
+                  style={{
+                    padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                    background: client.project_scope === 'personal' ? '#3182ce' : bg,
+                    color: client.project_scope === 'personal' ? '#fff' : textLight,
+                  }}
+                >
+                  👤
+                </button>
+              </div>
               {/* Временно скрыто — форма показа ещё не решена
               {!isMobile && (
                 <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
