@@ -129,6 +129,9 @@ function App() {
     if (e && e.preventDefault) e.preventDefault()
     const { data, error } = await supabase.from('clients')
       .update({
+        client_name:        activeClient.client_name,
+        project_name:       activeClient.project_name,
+        project_scope:      activeClient.project_scope || 'firma',
         notes:              activeClient.notes,
         deadline:           activeClient.deadline,
         address:            activeClient.address,
