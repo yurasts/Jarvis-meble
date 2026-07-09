@@ -1,23 +1,26 @@
 /* ================================================
    App.module.css — навигация десктоп + мобайл
+   Все цвета через переменные темы (index.css) —
+   корректно работает в Jasny/Ciemny/Forest
    ================================================ */
 
 /* -------- ДЕСКТОП: компактный сайдбар -------- */
 .sidebar {
   width: 160px;
   min-width: 160px;
-  background-color: #1e1e2f;
-  color: #fff;
+  background-color: var(--bg-sidebar);
+  color: var(--text-sidebar);
   padding: 12px;
   display: flex;
   flex-direction: column;
   z-index: 10;
-  gap: 4px;
+  gap: 6px;
+  border-right: 1px solid var(--border);
 }
 
 .sidebarLogo {
   font-size: 20px;
-  color: #4da6ff;
+  color: var(--accent);
   font-weight: bold;
   text-align: center;
   margin: 0 0 12px 0;
@@ -28,21 +31,32 @@
   padding: 10px 12px;
   border-radius: 7px;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: background-color 0.15s, border-color 0.15s;
   font-size: 13px;
-  color: #cbd5e0;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border: 1px solid var(--border);
 }
 
-.menuItem:hover    { background-color: #3b3b54; color: #fff; }
-.menuItem.active   { border-left: 3px solid #4da6ff; background-color: #2a3a54; color: #fff; padding-left: 9px; }
+.menuItem:hover {
+  background-color: var(--bg-menu-hover);
+  color: var(--text-sidebar);
+}
+
+.menuItem.active {
+  border-left: 4px solid var(--accent);
+  background-color: var(--bg-menu-hover);
+  color: var(--text-sidebar);
+  padding-left: 9px;
+  font-weight: bold;
+}
 
 .sidebarFooter {
   margin-top: auto;
   padding-top: 12px;
-  border-top: 1px solid #2d3a50;
+  border-top: 1px solid var(--border);
   font-size: 12px;
 }
 
@@ -66,20 +80,20 @@
   flex-shrink: 0;
 }
 
-.sidebarName  { color: #94a3b8; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
-.sidebarRole  { color: #64748b; font-size: 10px; text-transform: uppercase; margin-bottom: 6px; }
+.sidebarName  { color: var(--text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.sidebarRole  { color: var(--text-muted); font-size: 10px; text-transform: uppercase; margin-bottom: 6px; opacity: 0.8; }
 
 .btnLogout {
   width: 100%;
   padding: 5px;
   font-size: 11px;
-  background: #334155;
-  color: #cbd5e0;
-  border: none;
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
 }
-.btnLogout:hover { background: #475569; }
+.btnLogout:hover { filter: brightness(1.15); }
 
 /* -------- МОБАЙЛ: топбар -------- */
 .topbar {
@@ -98,8 +112,8 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: #1e1e2f;
-  border-bottom: 2px solid #4da6ff;
+  background: var(--bg-sidebar);
+  border-bottom: 2px solid var(--accent);
   z-index: 300;
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
 }
@@ -107,9 +121,9 @@
 .dropdownItem {
   padding: 14px 16px;
   font-size: 15px;
-  color: #cbd5e0;
+  color: var(--text-muted);
   cursor: pointer;
-  border-bottom: 1px solid #2a2a40;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -117,14 +131,14 @@
 }
 
 .dropdownItem:active,
-.dropdownItem.active { background: #2a3a54; color: #fff; }
+.dropdownItem.active { background: var(--bg-menu-hover); color: var(--text-sidebar); }
 
 .dropdownFooter {
   padding: 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #2d3a50;
+  border-top: 1px solid var(--border);
 }
 
 .dropdownUserInfo {
@@ -132,18 +146,19 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .dropdownLogout {
   padding: 5px 12px;
   font-size: 12px;
-  background: #334155;
-  color: #cbd5e0;
-  border: none;
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
 }
+.dropdownLogout:hover { filter: brightness(1.15); }
 
 /* -------- МЕДИА -------- */
 @media (max-width: 768px) {
@@ -153,12 +168,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #1e1e2f;
+    background: var(--bg-sidebar);
     padding: 0 12px;
     height: 44px;
     position: relative;
     z-index: 100;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   .topbarLeft {
@@ -168,14 +184,15 @@
     cursor: pointer;
     padding: 6px 10px;
     border-radius: 7px;
-    background: #2a2a40;
+    background: var(--bg-menu-item);
+    border: 1px solid var(--border);
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
-  .topbarLogo   { color: #4da6ff; font-weight: bold; font-size: 16px; }
-  .topbarActive { color: #fff; font-size: 14px; }
-  .topbarArrow  { color: #64748b; font-size: 10px; transition: transform 0.2s; }
+  .topbarLogo   { color: var(--accent); font-weight: bold; font-size: 16px; }
+  .topbarActive { color: var(--text-sidebar); font-size: 14px; }
+  .topbarArrow  { color: var(--text-muted); font-size: 10px; transition: transform 0.2s; }
   .topbarArrow.open { transform: rotate(180deg); }
 
   .topbarRight {

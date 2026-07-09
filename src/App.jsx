@@ -243,8 +243,8 @@ function App() {
 
         {/* Онлайн-пользователи — десктоп */}
         {allOnline.length > 0 && (
-          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #2d3a50' }}>
-            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
               🟢 Online ({allOnline.length})
             </div>
             {allOnline.map(u => (
@@ -253,13 +253,13 @@ function App() {
                   <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: u.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 'bold' }}>
                     {(u.fullName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
                   </div>
-                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid #1e1e2f' }} />
+                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid var(--bg-sidebar)' }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', color: '#cbd5e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-sidebar)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {u.userId === profile?.id ? 'Ja' : u.fullName}
                   </div>
-                  <div style={{ fontSize: '10px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {TAB_LABELS[u.activeTab] || u.activeTab}
                   </div>
                 </div>
@@ -308,7 +308,7 @@ function App() {
                   <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: u.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 'bold' }}>
                     {(u.fullName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
                   </div>
-                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid #1e1e2f' }} />
+                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid var(--bg-sidebar)' }} />
                 </div>
               ))}
             </div>
@@ -316,7 +316,7 @@ function App() {
           <div className={s.topbarAvatar} style={{ background: profile?.color || '#718096', position: 'relative' }}>
             {initials(profile?.full_name)}
             {/* Своя зелёная точка */}
-            <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '8px', height: '8px', borderRadius: '50%', background: '#38a169', border: '1.5px solid #1e1e2f' }} />
+            <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '8px', height: '8px', borderRadius: '50%', background: '#38a169', border: '1.5px solid var(--bg-sidebar)' }} />
           </div>
         </div>
 
