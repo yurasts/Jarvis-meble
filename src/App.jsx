@@ -31,7 +31,11 @@ const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
 function App() {
-  const { session, profile: authProfile, profilesById, isDark, loadingSession, awaitingAccess, signOut, updatePresenceTab, onlineUsers } = useAuth()
+  const { session, profile: authProfile, profilesById, isDark, theme, loadingSession, awaitingAccess, signOut, updatePresenceTab, onlineUsers } = useAuth()
+  // Forest — тоже тёмная по духу тема: компонентам, красящим себя через
+  // свой light/dark-хелпер (ProjectModal, Kanban, MaterialsList, Production),
+  // передаём именно этот флаг, чтобы они не "светлели" в Forest.
+  const isDarkish = isDark || theme === 'forest'
   const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab]   = useState('dashboard')
@@ -357,7 +361,7 @@ function App() {
             profilesById={profilesById}
             canCreate={canCreate}
             currentProfile={profile}
-            isDark={isDark}
+            isDark={isDarkish}
           />
         )}
         {activeTab === 'board' && (
@@ -368,7 +372,7 @@ function App() {
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
             profilesById={profilesById}
-            isDark={isDark}
+            isDark={isDarkish}
           />
         )}
         {activeTab === 'production' && (
@@ -380,7 +384,7 @@ function App() {
             servicesList={servicesList}
             setIsMaterialModalOpen={setIsMaterialModalOpen}
             onPricesUpdated={reloadMaterials}
-            isDark={isDark}
+            isDark={isDarkish}
           />
         )}
         {activeTab === 'settings' && (
@@ -429,7 +433,7 @@ function App() {
           onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
           currentProfile={profile}
           profilesById={profilesById}
-          isDark={isDark}
+          isDark={isDarkish}
           initialTab={projectModalTab}
         />
       )}
