@@ -19,18 +19,18 @@ const STATUS_BORDER_COLOR = {
 const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, onCoverChange, initialTab = 'materials' }) => {
   const isMobile = window.innerWidth < 640;
 
-  // ✅ Цвета тёмной/светлой темы
+  // ✅ Нейтральный "хром" — через переменные темы (Jasny/Ciemny/Forest)
   const c = (light, dark) => isDark ? dark : light;
-  const bg        = c('#fff',     '#1e293b');
-  const bgHeader  = c('#edf2f7', '#162032');
+  const bg        = 'var(--modal-bg)';
+  const bgHeader  = 'var(--bg-kanban-col)';
   const bgMatRow  = c('#ebf8ff', '#0f2236');
   const bgSrvRow  = c('#f0fff4', '#0f2a1a');
   const bgExpRow  = c('#fff5f5', '#2d1515');
-  const bgSearch  = c('#f7fafc', '#1a2535');
-  const bgInput   = c('#fff',    '#0f172a');
-  const text      = c('#2d3748', '#e2e8f0');
-  const textLight = c('#4a5568', '#94a3b8');
-  const border    = c('#e2e8f0', '#334155');
+  const bgSearch  = 'var(--bg-base)';
+  const bgInput   = 'var(--input-bg)';
+  const text      = 'var(--text-main)';
+  const textLight = 'var(--text-muted)';
+  const border    = 'var(--border)';
   const borderMat = c('#bee3f8', '#1a3a5c');
   const borderSrv = c('#c6f6d5', '#1a4a2e');
   const borderExp = c('#fed7d7', '#7b2020');
@@ -45,8 +45,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const [clientInfoOpen, setClientInfoOpen] = useState(false);
+  const [editorExpanded, setEditorExpanded] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedMaterialId, setExpandedMaterialId] = useState(null);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
@@ -187,6 +188,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     updateItems(field, [...currentItems, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak', ...authorMeta() }]);
   };
 
+  const handleCopyPortalLink = async () => {
+    if (!client.portal_token) { alert('Ten projekt nie ma jeszcze portal_token. Sprawdź migrację SQL albo odśwież stronę.'); return; }
+    const url = `${window.location.origin}/portal/${client.portal_token}`;
+    try { await navigator.clipboard.writeText(url); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }
+    catch { alert(url); }
+  };
+
+  const editor = client.updated_by ? profilesById[client.updated_by] : null;
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
   // Кнопка удаления с подтверждением
@@ -207,16 +216,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     );
   };
 
-  // Стиль таба — подпись сверху, сумма снизу, делят ширину поровну
+  // Стиль таба
   const tabBtn = (tab, activeColor, activeBorder, activeBg) => ({
-    padding: '6px 4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
+    padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
     borderBottom: activeTab === tab ? `3px solid ${activeBorder}` : '3px solid transparent',
     background: activeTab === tab ? (isDark ? activeBg.dark : activeBg.light) : 'transparent',
     color: activeTab === tab ? activeColor : textLight,
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-    flex: 1, minWidth: 0,
   });
-  const tabSum = { fontSize: '10px', fontWeight: 'normal', opacity: 0.8, whiteSpace: 'nowrap' };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
@@ -231,142 +237,138 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         }} onClick={e => e.stopPropagation()}>
 
         {/* Шапка */}
-        <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px', position: 'relative' }}>
-
-          {/* 💾 Zapisz — всегда фиксирован в правом верхнем углу */}
-          <button
-            onClick={handleSaveAndClose}
-            style={{ position: 'absolute', top: 0, right: 0, padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', zIndex: 1 }}
-          >
-            💾 Zapisz
-          </button>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '100px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
-              <input
-                value={client.client_name || ''}
-                onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
-                placeholder="Imię klienta"
-                style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '80px', flex: 1 }}
-              />
-              <button
-                onClick={() => setClientInfoOpen(true)}
-                title="Informacje o kliencie"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0, flexShrink: 0 }}
-              >
-                ℹ️
-              </button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
-              <input
-                value={client.project_name || ''}
-                onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
-                placeholder="Nazwa projektu (szafa, kuchnia...)"
-                style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '100px', flex: 1 }}
-              />
+        <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
+                <input
+                  value={client.client_name || ''}
+                  onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
+                  placeholder="Imię klienta"
+                  style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '80px', flex: 1 }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
+                <input
+                  value={client.project_name || ''}
+                  onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
+                  placeholder="Nazwa projektu (szafa, kuchnia...)"
+                  style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '100px', flex: 1 }}
+                />
+              </div>
             </div>
 
-            {/* ✅ Koszty + коэффициент + Budżet + Pliki — сразу под названием */}
-            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
-              <span style={{ color: textLight }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
-              <span style={{ color: '#a0aec0' }}>×</span>
-              <input
-                type="number" min="1" max="10" step="0.1"
-                value={coefficient}
-                onChange={e => {
-                  const val = parseFloat(e.target.value);
-                  setCoefficient(e.target.value);
-                  if (!isNaN(val) && val > 0) {
-                    setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
-                  }
-                }}
-                style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
-              />
-              <span style={{ background: c('#ebf8ff', '#0f2236'), border: `1px solid ${c('#bee3f8', '#1a3a5c')}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: c('#2b6cb0', '#63b3ed') }}>
-                Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
-              </span>
+            {/* ✅ Дополнительные поля клиента — адрес, телефон, дедлайн, заметки */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '4px 12px', marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>📍 Adres:</span>
+                <input
+                  value={client.address || ''}
+                  onChange={e => setClient(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Adres montażu"
+                  style={{ flex: 1, fontSize: '12px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>📞 Tel:</span>
+                <input
+                  value={client.phone || ''}
+                  onChange={e => setClient(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Telefon (opcjonalnie)"
+                  style={{ flex: 1, fontSize: '12px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>📅 Termin:</span>
+                <input
+                  type="date"
+                  value={client.deadline || ''}
+                  onChange={e => setClient(prev => ({ ...prev, deadline: e.target.value }))}
+                  style={{ flex: 1, fontSize: '12px', color: text, background: bgInput, border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '52px' }}>💬 Uwagi:</span>
+                <input
+                  value={client.notes || ''}
+                  onChange={e => setClient(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Dodatkowe informacje..."
+                  style={{ flex: 1, fontSize: '12px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '1px 0' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+              {/* Временно скрыто — форма показа ещё не решена
+              {!isMobile && (
+                <button onClick={handleCopyPortalLink} style={{ padding: '6px 12px', borderRadius: '6px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, color: text, cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                  {linkCopied ? '✓ Skopiowano' : '🔗 Link dla klienta'}
+                </button>
+              )}
+              */}
+              <button onClick={handleSaveAndClose} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
             </div>
           </div>
+
+          {/* ✅ Koszty + коэффициент + Budżet — тёмная тема */}
+          <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
+            <span style={{ color: textLight }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
+            <span style={{ color: '#a0aec0' }}>×</span>
+            <input
+              type="number" min="1" max="10" step="0.1"
+              value={coefficient}
+              onChange={e => {
+                const val = parseFloat(e.target.value);
+                setCoefficient(e.target.value);
+                if (!isNaN(val) && val > 0) {
+                  setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
+                }
+              }}
+              style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
+            />
+            <span style={{ background: c('#ebf8ff', '#0f2236'), border: `1px solid ${c('#bee3f8', '#1a3a5c')}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: c('#2b6cb0', '#63b3ed') }}>
+              Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
+            </span>
+            {isMobile && (
+              <button onClick={handleCopyPortalLink} style={{ padding: '4px 8px', borderRadius: '5px', border: `1px solid ${border}`, background: linkCopied ? '#c6f6d5' : bg, cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', color: text }}>
+                {linkCopied ? '✓' : '🔗'}
+              </button>
+            )}
+          </div>
+          {editor && (
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', cursor: 'pointer' }}
+              onClick={() => setEditorExpanded(v => !v)}
+              title="Kliknij, aby zobaczyć kto i kiedy edytował"
+            >
+              {editorExpanded ? (
+                <>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: editor.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 'bold' }}>
+                    {(editor.full_name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#a0aec0' }}>
+                    {editor.full_name} • {client.updated_at ? new Date(client.updated_at).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}
+                  </span>
+                </>
+              ) : (
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: editor.color || '#cbd5e0' }} />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Модалка редактируемой информации о клиенте */}
-        {clientInfoOpen && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setClientInfoOpen(false)}>
-            <div style={{ background: bg, color: text, width: '100%', maxWidth: '380px', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: `1px solid ${border}`, fontSize: '13px', fontWeight: 'bold' }}>
-                <span>👤 Informacje o kliencie</span>
-                <button onClick={() => setClientInfoOpen(false)} style={{ background: 'none', border: 'none', color: text, fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
-              </div>
-              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>📍 Adres:</span>
-                  <input
-                    value={client.address || ''}
-                    onChange={e => setClient(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Adres montażu"
-                    style={{ flex: 1, fontSize: '13px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
-                  />
-                  {client.address && (
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.address)}`}
-                      target="_blank" rel="noreferrer"
-                      title="Otwórz w Mapach Google"
-                      style={{ flexShrink: 0, fontSize: '14px' }}
-                    >
-                      🗺️
-                    </a>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>📞 Tel:</span>
-                  <input
-                    value={client.phone || ''}
-                    onChange={e => setClient(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Telefon (opcjonalnie)"
-                    style={{ flex: 1, fontSize: '13px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
-                  />
-                  {client.phone && (
-                    <a href={`tel:${client.phone}`} title="Zadzwoń" style={{ flexShrink: 0, fontSize: '14px' }}>📲</a>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>📅 Termin:</span>
-                  <input
-                    type="date"
-                    value={client.deadline || ''}
-                    onChange={e => setClient(prev => ({ ...prev, deadline: e.target.value }))}
-                    style={{ flex: 1, fontSize: '13px', color: text, background: bgInput, border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>💬 Uwagi:</span>
-                  <input
-                    value={client.notes || ''}
-                    onChange={e => setClient(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Dodatkowe informacje..."
-                    style={{ flex: 1, fontSize: '13px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Табы — тёмная тема */}
-        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', gap: '2px' }}>
+        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
           <button onClick={() => setActiveTab('materials')} style={tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' })}>
-            <span>📦 Materiały</span>
-            <span style={tabSum}>{totalMaterials.toFixed(2)} zł</span>
+            📦 Materiały ({totalMaterials.toFixed(2)} zł)
           </button>
           <button onClick={() => setActiveTab('services')} style={tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' })}>
-            <span>🛠 Usługi</span>
-            <span style={tabSum}>{totalServices.toFixed(2)} zł</span>
+            🛠 Usługi ({totalServices.toFixed(2)} zł)
           </button>
           <button onClick={() => setActiveTab('expenses')} style={tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' })}>
-            <span>💸 Wydatki</span>
-            <span style={tabSum}>{totalExpenses.toFixed(2)} zł</span>
+            💸 Wydatki ({totalExpenses.toFixed(2)} zł)
           </button>
           <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
             📎 Pliki

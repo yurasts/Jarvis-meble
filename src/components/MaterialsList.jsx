@@ -7,10 +7,10 @@ const PriceTrend = ({ mat, isDark = false }) => {
   const [showHistory, setShowHistory] = useState(false);
   const history = mat.price_history || [];
   const last = history.length > 0 ? history[history.length - 1] : null;
-  const bg     = isDark ? '#1e293b' : '#fff';
-  const border = isDark ? '#334155' : '#e2e8f0';
-  const text   = isDark ? '#e2e8f0' : '#2d3748';
-  const textMuted = isDark ? '#94a3b8' : '#718096';
+  const bg     = 'var(--bg-card)';
+  const border = 'var(--border)';
+  const text   = 'var(--text-main)';
+  const textMuted = 'var(--text-muted)';
 
   let arrow = null;
   if (last) {
@@ -49,14 +49,14 @@ const PriceTrend = ({ mat, isDark = false }) => {
 
 const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated, isDark = false }) => {
   const c = (light, dark) => isDark ? dark : light;
-  const bg       = c('#fff',     '#1e293b');
-  const bgCard   = c('#f8fafc', '#162032');
-  const bgInput  = c('#fff',    '#0f172a');
-  const text     = c('#2d3748', '#e2e8f0');
-  const textLight= c('#4a5568', '#94a3b8');
-  const border   = c('#e2e8f0', '#334155');
-  const stripe1  = c('#ffffff', '#1a2535');
-  const stripe2  = c('#f1f5f9', '#111827');
+  const bg       = 'var(--bg-card)';
+  const bgCard   = 'var(--bg-kanban-col)';
+  const bgInput  = 'var(--input-bg)';
+  const text     = 'var(--text-main)';
+  const textLight= 'var(--text-muted)';
+  const border   = 'var(--border)';
+  const stripe1  = 'var(--bg-card)';
+  const stripe2  = 'var(--bg-kanban-col)';
   const bgNote   = c('#fffff0', '#1a1a00');
   const borderNote = c('#fefcbf', '#3d3d00');
 
@@ -165,7 +165,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: c('#edf2f7','#253347'), textAlign: 'left' }}>
+                <tr style={{ background: 'var(--bg-kanban-col)', textAlign: 'left' }}>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Kategoria</th>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Cena, PLN</th>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Nazwa materiału</th>
@@ -201,7 +201,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: c('#edf2f7','#253347'), textAlign: 'left' }}>
+                <tr style={{ background: 'var(--bg-kanban-col)', textAlign: 'left' }}>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight, width: '30%' }}>Cena, PLN</th>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight, width: '70%' }}>Nazwa usługi</th>
                 </tr>
@@ -241,7 +241,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                   {confirmDeleteSupId === supplier.id ? (
                     <>
                       <button onClick={() => handleDeleteSupplier(supplier.id)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Tak</button>
-                      <button onClick={() => setConfirmDeleteSupId(null)} style={{ background: c('#e2e8f0','#334155'), color: text, border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
+                      <button onClick={() => setConfirmDeleteSupId(null)} style={{ background: 'var(--btn-sec-bg)', color: text, border: 'none', padding: '2px 7px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
                     </>
                   ) : (
                     <>
@@ -254,7 +254,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                   <h3 style={{ margin: 0, fontSize: '16px', color: text }}>{supplier.name}</h3>
                 </div>
                 <div style={{ marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', background: c('#edf2f7','#253347'), color: textLight, padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>{supplier.category}</span>
+                  <span style={{ fontSize: '11px', background: 'var(--bg-kanban-col)', color: textLight, padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>{supplier.category}</span>
                 </div>
                 <div style={{ fontSize: '13px', color: textLight, display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {supplier.phone && <div>📞 <a href={`tel:${supplier.phone}`} style={{ color: '#3182ce', textDecoration: 'none', fontWeight: 'bold' }}>{supplier.phone}</a></div>}
@@ -311,7 +311,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                   style={{ ...inputStyle, resize: 'vertical' }} placeholder="Osoba kontaktowa, rabaty..."></textarea>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => setIsSupModalOpen(false)} style={{ background: c('#edf2f7','#334155'), color: text, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Anuluj</button>
+                <button type="button" onClick={() => setIsSupModalOpen(false)} style={{ background: 'var(--btn-sec-bg)', color: text, border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Anuluj</button>
                 <button type="submit" style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Zapisz</button>
               </div>
             </form>
