@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 /* ================================================
    JARVIS — index.css
    Световая тема через CSS-переменные.
@@ -86,7 +88,6 @@ html[data-theme="forest"] .client-card:hover {
 }
 
 /* --- 3. СБРОС VITE И БРАУЗЕРА --- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 html, body, #root {
   margin: 0;
