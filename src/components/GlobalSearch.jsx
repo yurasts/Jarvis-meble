@@ -24,6 +24,7 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
   const wrapRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Ctrl+K / Cmd+K — фокус на поиск из любого места приложения
   useEffect(() => {
@@ -41,7 +42,9 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
   // Закрытие по клику снаружи
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setIsOpen(false);
+      const clickedWrap = wrapRef.current && wrapRef.current.contains(e.target);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!clickedWrap && !clickedDropdown) setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -148,6 +151,7 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
 
       {isOpen && query.trim() && createPortal(
         <div
+          ref={dropdownRef}
           className={s.dropdown}
           style={{
             position: 'absolute',
