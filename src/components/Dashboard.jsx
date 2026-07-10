@@ -32,7 +32,8 @@ const groupByClient = (projects) => {
 
 const Dashboard = ({
   clients, updateClient, openProjectModal, setIsModalOpen,
-  profilesById = {}, canCreate = true, currentProfile = null
+  profilesById = {}, canCreate = true, currentProfile = null,
+  focusTarget = null, onFocusHandled,
 }) => {
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
@@ -49,6 +50,7 @@ const Dashboard = ({
   const [clientInfoModal, setClientInfoModal] = useState(null); // { clientName, address, phone } | null
   const [scopeView, setScopeView] = useState(null); // 'firma' | 'personal' | null (ещё не определён)
   const [expandedProjects, setExpandedProjects] = useState(new Set()); // id проектов, развёрнутых в аккордеоне
+  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
 
   // Один раз подставляем вид по умолчанию, когда профиль сотрудника загрузится
   useEffect(() => {
@@ -56,6 +58,28 @@ const Dashboard = ({
       setScopeView(currentProfile.default_scope || 'firma');
     }
   }, [currentProfile]);
+
+  // Переход к задаче из глобального поиска: разворачиваем клиента и проект, подсвечиваем задачу
+  useEffect(() => {
+    if (!focusTarget) return;
+    const { clientName, projectId, taskId } = focusTarget;
+
+    setCollapsedClients(prev => {
+      const next = new Set(prev);
+      next.delete(clientName);
+      return next;
+    });
+    setExpandedProjects(prev => new Set(prev).add(projectId));
+    setHighlightedTaskId(taskId);
+
+    const scrollTimer = setTimeout(() => {
+      document.getElementById(`task-${taskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    const clearTimer = setTimeout(() => setHighlightedTaskId(null), 2500);
+
+    onFocusHandled?.();
+    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
+  }, [focusTarget]);
 
   useEffect(() => {
     const loadFileCounts = async () => {
@@ -294,7 +318,11 @@ const Dashboard = ({
                                     setEditingTaskId(null);
                                   };
                                   return (
-                                    <div key={task.id} className={taskItemClass}>
+                                    <div
+                                      key={task.id}
+                                      id={`task-${task.id}`}
+                                      className={`${taskItemClass} ${highlightedTaskId === task.id ? s.taskHighlighted : ''}`}
+                                    >
                                       <div className={s.taskRow}>
                                         <input type="checkbox" checked={task.isDone}
                                           onChange={() => toggleTaskStatus(project.id, task.id)}

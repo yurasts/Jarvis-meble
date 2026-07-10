@@ -176,6 +176,16 @@
   margin-bottom: 0;
 }
 
+.taskHighlighted {
+  animation: taskFlash 2s ease;
+  border-radius: 6px;
+}
+
+@keyframes taskFlash {
+  0%, 100% { background-color: transparent; }
+  15%, 60% { background-color: var(--accent-soft); }
+}
+
 /* --- Одна задача --- */
 .taskItem {
   border-radius: 5px;

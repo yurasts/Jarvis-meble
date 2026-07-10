@@ -82,7 +82,7 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
           taskMatches.push({
             kind: 'task', icon: '☐', title: t.text,
             meta: `${c.project_name || c.full_name} · ${c.client_name || c.full_name}`,
-            action: () => onNavigate({ type: 'project', client: c }),
+            action: () => onNavigate({ type: 'task', client: c, task: t }),
           });
         }
       });

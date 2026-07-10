@@ -48,6 +48,7 @@ function App() {
 
   const [isModalOpen,     setIsModalOpen]     = useState(false)
   const [activeClient,    setActiveClient]    = useState(null)
+  const [searchFocusTarget, setSearchFocusTarget] = useState(null) // { clientName, projectId, taskId } | null
   const [originalClient,  setOriginalClient]  = useState(null)
 
   const [name,     setName]     = useState('')
@@ -366,6 +367,13 @@ function App() {
             onNavigate={(action) => {
               if (action.type === 'project') {
                 openProjectModal(action.client);
+              } else if (action.type === 'task') {
+                setActiveTab('dashboard');
+                setSearchFocusTarget({
+                  clientName: action.client.client_name || action.client.full_name,
+                  projectId: action.client.id,
+                  taskId: action.task.id,
+                });
               } else if (action.type === 'client') {
                 setActiveTab('dashboard');
               } else if (action.type === 'material') {
@@ -385,6 +393,8 @@ function App() {
             canCreate={canCreate}
             currentProfile={profile}
             isDark={isDarkish}
+            focusTarget={searchFocusTarget}
+            onFocusHandled={() => setSearchFocusTarget(null)}
           />
         )}
         {activeTab === 'board' && (
