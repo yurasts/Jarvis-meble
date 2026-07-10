@@ -37,10 +37,15 @@ export default function KanbanBoard({
   handleDrop,
   updateClient,
   profilesById = {},
+  scopeView,
+  setScopeView,
 }) {
   const [fileCounts, setFileCounts] = useState({}); // { [clientId]: totalCount }
   const [addingTaskFor, setAddingTaskFor] = useState(null); // client.id | null
   const [newTaskText, setNewTaskText] = useState('');
+
+  const effectiveScope = scopeView || 'firma';
+  const scopedClients = clients.filter(c => (c.project_scope || 'firma') === effectiveScope);
 
   useEffect(() => {
     const loadFileCounts = async () => {
@@ -53,7 +58,7 @@ export default function KanbanBoard({
     loadFileCounts();
   }, []);
 
-  const getByStatus = (status) => clients.filter(c => c.status === status);
+  const getByStatus = (status) => scopedClients.filter(c => c.status === status);
 
   const toggleTask = (e, client, taskId) => {
     e.stopPropagation();
@@ -80,6 +85,21 @@ export default function KanbanBoard({
   return (
     <>
       <h1 className={s.pageTitle}>Projekty</h1>
+
+      <div className={s.scopeToggle}>
+        <button
+          className={`${s.scopeBtn} ${effectiveScope === 'firma' ? s.scopeBtnActive : ''}`}
+          onClick={() => setScopeView('firma')}
+        >
+          🏢 Firma
+        </button>
+        <button
+          className={`${s.scopeBtn} ${effectiveScope === 'personal' ? s.scopeBtnActive : ''}`}
+          onClick={() => setScopeView('personal')}
+        >
+          👤 Moje
+        </button>
+      </div>
 
       <div className="kanban-board">
         {STATUSES.map((status, index) => (

@@ -41,6 +41,7 @@ function App() {
   const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab]   = useState('dashboard')
+  const [scopeView, setScopeView] = useState(null) // 'firma' | 'personal' | null — общий фильтр для Dashboard и Kanban
   const [menuOpen,  setMenuOpen]    = useState(false)
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
@@ -230,6 +231,13 @@ function App() {
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
 
+  // Один раз подставляем вид Firma/Moje по умолчанию, когда профиль сотрудника загрузится
+  useEffect(() => {
+    if (scopeView === null && profile) {
+      setScopeView(profile.default_scope || 'firma')
+    }
+  }, [profile])
+
   // Онлайн-пользователи кроме себя
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
   const allOnline    = Object.values(onlineUsers || {})
@@ -395,6 +403,8 @@ function App() {
             isDark={isDarkish}
             focusTarget={searchFocusTarget}
             onFocusHandled={() => setSearchFocusTarget(null)}
+            scopeView={scopeView}
+            setScopeView={setScopeView}
           />
         )}
         {activeTab === 'board' && (
@@ -407,6 +417,8 @@ function App() {
             updateClient={updateClientFields}
             profilesById={profilesById}
             isDark={isDarkish}
+            scopeView={scopeView}
+            setScopeView={setScopeView}
           />
         )}
         {activeTab === 'production' && (

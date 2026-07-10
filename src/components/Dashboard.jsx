@@ -34,6 +34,7 @@ const Dashboard = ({
   clients, updateClient, openProjectModal, setIsModalOpen,
   profilesById = {}, canCreate = true, currentProfile = null,
   focusTarget = null, onFocusHandled,
+  scopeView, setScopeView,
 }) => {
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
@@ -48,16 +49,8 @@ const Dashboard = ({
   const [fileCounts, setFileCounts] = useState({}); // { [clientId]: { [category]: count } }
   const [addTaskModal, setAddTaskModal] = useState(null); // project | null
   const [clientInfoModal, setClientInfoModal] = useState(null); // { clientName, address, phone } | null
-  const [scopeView, setScopeView] = useState(null); // 'firma' | 'personal' | null (ещё не определён)
   const [expandedProjects, setExpandedProjects] = useState(new Set()); // id проектов, развёрнутых в аккордеоне
   const [highlightedTaskId, setHighlightedTaskId] = useState(null);
-
-  // Один раз подставляем вид по умолчанию, когда профиль сотрудника загрузится
-  useEffect(() => {
-    if (scopeView === null && currentProfile) {
-      setScopeView(currentProfile.default_scope || 'firma');
-    }
-  }, [currentProfile]);
 
   // Переход к задаче из глобального поиска: разворачиваем клиента и проект, подсвечиваем задачу
   useEffect(() => {
