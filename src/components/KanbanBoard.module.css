@@ -1,102 +1,184 @@
 /* ================================
    KanbanBoard.module.css
+   Redesign: компактные карточки с превью задач
    ================================ */
 
-/* --- Заголовок страницы --- */
 .pageTitle {
   margin: 0 0 4px 0;
   font-size: 20px;
+  font-weight: 700;
   color: var(--text-main);
 }
 
-/* --- Карточка клиента --- */
-/* Базовые стили (.client-card) уже есть в index.css,
-   здесь только специфика содержимого карточки */
+.columnTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px 4px;
+}
+
+.columnCount {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* --- Шапка карточки: имя клиента --- */
+.cardHeader {
+  display: flex;
+  align-items: center;
+}
 
 .cardName {
-  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardProject {
   font-size: 14px;
-  color: var(--text-main);
+  font-weight: 500;
+  color: var(--accent);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cardPhone {
-  margin: 2px 0;
-  font-size: 13px;
-  color: var(--text-main);
-}
-
-.cardAddress {
-  margin: 4px 0;
-  font-size: 12px;
-}
-
-.addressLink {
-  color: #3182ce;
-  text-decoration: none;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.cardDeadline {
-  font-weight: bold;
-  font-size: 12px;
-  margin-top: 4px;
+/* --- Бейдж срока --- */
+.deadlineBadge {
   display: inline-block;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 5px 0;
-}
-
-.cardZysk {
-  display: inline-block;
-  margin: 4px 0 2px;
-  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
   border-radius: 6px;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.cardZyskPositive {
-  color: #38a169;
-  background: rgba(56, 161, 105, 0.12);
-}
-
-.cardZyskNegative {
-  color: #e53e3e;
-  background: rgba(229, 62, 62, 0.12);
-}
-
-.cardFinanceDetail {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.cardEditor {
-  font-size: 11px;
   margin-top: 6px;
-  padding-top: 4px;
-  border-top: 1px dashed var(--border);
+}
+
+.deadlineGreen  { background: rgba(34,197,94,0.12);  color: #16803d; }
+.deadlineYellow { background: rgba(234,179,8,0.14);  color: #a16207; }
+.deadlineRed    { background: rgba(239,68,68,0.12);  color: #dc2626; }
+
+:global([data-theme="dark"])   .deadlineGreen,
+:global([data-theme="forest"]) .deadlineGreen  { color: #4ade80; }
+:global([data-theme="dark"])   .deadlineYellow,
+:global([data-theme="forest"]) .deadlineYellow { color: #fbbf24; }
+:global([data-theme="dark"])   .deadlineRed,
+:global([data-theme="forest"]) .deadlineRed    { color: #f87171; }
+
+/* --- Превью задач --- */
+.tasksLabel {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 8px;
+}
+
+.taskPreviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.taskPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.taskPreviewCheckbox {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
   cursor: pointer;
 }
 
-.editorDot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.taskPreviewText {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Название проекта под именем клиента */
-.cardProject {
-  margin: 0 0 4px 0;
+.taskMore {
   font-size: 12px;
-  font-weight: bold;
-  color: #4da6ff;
+  color: var(--text-muted);
+  padding-left: 19px;
+  margin-top: 1px;
 }
+
+/* --- Добавить задачу --- */
+.addTaskLink {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 6px;
+  transition: color 0.15s ease;
+}
+
+.addTaskLink:hover { color: var(--accent); }
+
+.addTaskInput {
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-base);
+  color: var(--text-main);
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* --- Подвал карточки: файлы/материалы --- */
+.cardFooter {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.footerBadge {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* --- Пустая колонка --- */
+.emptyColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  min-height: 140px;
+}
+
+.emptyIcon { font-size: 20px; opacity: 0.5; margin-bottom: 6px; }
+.emptyTitle { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.emptyHint { font-size: 12px; margin-top: 2px; opacity: 0.8; }

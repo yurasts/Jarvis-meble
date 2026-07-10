@@ -404,6 +404,7 @@ function App() {
             handleDragStart={handleDragStart}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
+            updateClient={updateClientFields}
             profilesById={profilesById}
             isDark={isDarkish}
           />
