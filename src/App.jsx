@@ -84,6 +84,14 @@ function App() {
     }
   }, [menuOpen])
 
+  // Один раз подставляем вид Firma/Moje по умолчанию, когда профиль сотрудника загрузится
+  useEffect(() => {
+    const p = localProfile ?? authProfile
+    if (scopeView === null && p) {
+      setScopeView(p.default_scope || 'firma')
+    }
+  }, [localProfile, authProfile])
+
   useEffect(() => {
     if (!session) return
     async function fetchData() {
@@ -230,13 +238,6 @@ function App() {
   const profile   = localProfile ?? authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
-
-  // Один раз подставляем вид Firma/Moje по умолчанию, когда профиль сотрудника загрузится
-  useEffect(() => {
-    if (scopeView === null && profile) {
-      setScopeView(profile.default_scope || 'firma')
-    }
-  }, [profile])
 
   // Онлайн-пользователи кроме себя
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
