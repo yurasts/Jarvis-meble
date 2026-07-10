@@ -48,6 +48,7 @@ const Dashboard = ({
   const [addTaskModal, setAddTaskModal] = useState(null); // project | null
   const [clientInfoModal, setClientInfoModal] = useState(null); // { clientName, address, phone } | null
   const [scopeView, setScopeView] = useState(null); // 'firma' | 'personal' | null (ещё не определён)
+  const [expandedProjects, setExpandedProjects] = useState(new Set()); // id проектов, развёрнутых в аккордеоне
 
   // Один раз подставляем вид по умолчанию, когда профиль сотрудника загрузится
   useEffect(() => {
@@ -97,6 +98,14 @@ const Dashboard = ({
     setCollapsedClients(prev => {
       const next = new Set(prev);
       next.has(clientName) ? next.delete(clientName) : next.add(clientName);
+      return next;
+    });
+  };
+
+  const toggleProjectExpand = (projectId) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      next.has(projectId) ? next.delete(projectId) : next.add(projectId);
       return next;
     });
   };
@@ -203,48 +212,48 @@ const Dashboard = ({
 
                 {/* Проекты клиента */}
                 {!isCollapsed && projects.map(project => {
+                  const isProjectExpanded = expandedProjects.has(project.id);
+                  const allTasksCount = (project.tasks || []).length;
+                  const availableCats = FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0);
                   return (
-                    <div
-                      key={project.id}
-                      className={s.projectCard}
-                      data-status={project.status || 'new'}
-                    >
+                    <div key={project.id} className={s.projectRowWrap}>
                       <div
-                        className={s.projectHeader}
-                        onClick={() => openProjectModal(project)}
-                        style={{ cursor: 'pointer' }}
+                        className={s.projectRow}
+                        onClick={() => toggleProjectExpand(project.id)}
                       >
-                        <div className={s.projectInfo}>
-
-                          {/* Название проекта — ярко-синим + маленькие кнопки файлов рядом */}
-                          <div className={s.projectNameRow}>
-                            <h3 className={s.projectName}>
-                              {project.project_name || project.full_name}
-                            </h3>
-                            {FILE_CATEGORIES.some(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0) && (
-                              <div className={s.fileButtonsInline}>
-                                {FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0).map(cat => {
-                                  const count = fileCounts[project.id][cat.key];
-                                  return (
-                                    <button
-                                      key={cat.key}
-                                      className={s.fileCatBtnSmall}
-                                      onClick={(e) => { e.stopPropagation(); openFileCategory(project, cat); }}
-                                      title={`${cat.label} (${count})`}
-                                    >
-                                      {cat.icon}
-                                      <span className={s.fileCatBadgeSmall}>{count}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
+                        <span className={s.projectDot} data-status={project.status || 'new'} />
+                        <span
+                          className={s.projectRowName}
+                          onClick={(e) => { e.stopPropagation(); openProjectModal(project); }}
+                        >
+                          {project.project_name || project.full_name}
+                        </span>
+                        <span className={s.projectRowMeta}>
+                          {allTasksCount} {allTasksCount === 1 ? 'zadanie' : 'zadań'}
+                        </span>
+                        {availableCats.length > 0 && (
+                          <div className={s.fileButtonsInline} onClick={e => e.stopPropagation()}>
+                            {availableCats.map(cat => {
+                              const count = fileCounts[project.id][cat.key];
+                              return (
+                                <button
+                                  key={cat.key}
+                                  className={s.fileCatBtnSmall}
+                                  onClick={() => openFileCategory(project, cat)}
+                                  title={`${cat.label} (${count})`}
+                                >
+                                  {cat.icon}
+                                  <span className={s.fileCatBadgeSmall}>{count}</span>
+                                </button>
+                              );
+                            })}
                           </div>
-
-                        </div>
+                        )}
+                        <span className={s.projectRowArrow}>{isProjectExpanded ? '▼' : '▶'}</span>
                       </div>
 
-                      {/* Задачи */}
+                      {/* Задачи — только когда развёрнуто */}
+                      {isProjectExpanded && (
                       <div className={s.tasksBody}>
                         {(() => {
                           const allTasks  = project.tasks || [];
@@ -337,6 +346,7 @@ const Dashboard = ({
                           );
                         })()}
                       </div>
+                      )}
                     </div>
                   );
                 })}

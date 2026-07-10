@@ -13,7 +13,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
 }
 
 /* --- Заголовок --- */
@@ -53,71 +53,77 @@
 }
 
 /* --- Карточка проекта --- */
-/* --- Карточка проекта --- */
-.projectCard {
-  background: var(--bg-card);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
-  overflow: hidden;
-  transition: box-shadow 0.18s ease;
-  margin-left: 12px; /* отступ — показывает вложенность в группу */
+/* --- Строка проекта (аккордеон, 40-44px) --- */
+.projectRowWrap {
+  border-bottom: 1px solid var(--border);
 }
 
-/* --- Шапка проекта --- */
-.projectHeader {
-  background: transparent;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
+.projectRowWrap:last-child {
+  border-bottom: none;
+}
+
+.projectRow {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.projectInfo { flex: 1; min-width: 200px; }
-
-.projectNameRow {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 3px;
+  min-height: 42px;
+  padding: 4px 8px 4px 20px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
-.projectName {
-  margin: 0;
-  color: var(--text-main);
-  font-size: 18px;
+.projectRow:hover {
+  background-color: var(--bg-menu-hover);
+}
+
+.projectDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.projectDot[data-status="new"]        { background: #ef4444; }
+.projectDot[data-status="design"]     { background: #f59e0b; }
+.projectDot[data-status="production"] { background: #eab308; }
+.projectDot[data-status="done"]       { background: #22c55e; }
+
+.projectRowName {
+  font-size: 14px;
   font-weight: 600;
+  color: var(--text-main);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
-  min-width: 0;
+  cursor: pointer;
 }
 
-/* --- Кнопка открыть проект --- */
-.btnOpen {
-  background: #3182ce;
-  color: #fff;
-  border: none;
-  padding: 7px 18px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: bold;
-  white-space: nowrap;
+.projectRowName:hover {
+  color: var(--accent);
+}
+
+.projectRowMeta {
+  font-size: 12px;
+  color: var(--text-muted);
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.projectRowArrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
 }
 
 /* --- Блок задач --- */
 .tasksBody {
-  padding: 16px 20px 20px;
+  padding: 6px 12px 10px 28px;
   background: transparent;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 .fileButtonsInline {
@@ -166,7 +172,7 @@
 .taskList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
   margin-bottom: 0;
 }
 
@@ -201,8 +207,8 @@
 .taskRow {
   display: flex;
   align-items: center;
-  min-height: 46px;
-  border-radius: 8px;
+  min-height: 34px;
+  border-radius: 6px;
   transition: background-color 0.15s ease;
 }
 
@@ -534,28 +540,6 @@
   .desktopNewBtn { display: none; }
 }
 
-/* ---- Финансы в колонку ---- */
-/* ---- Шапка проекта: info + кнопка в ряд ---- */
-.projectInfo {
-  flex: 1;
-  min-width: 0;               /* чтобы текст не выходил за края */
-}
-
-/* ---- Кнопка "Otwórz" — компактнее ---- */
-.btnOpen {
-  background: #3182ce;
-  color: #fff;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: bold;
-  white-space: nowrap;
-  flex-shrink: 0;
-  align-self: center;
-}
-
 /* ================================================
    ГРУППИРОВКА ПО КЛИЕНТУ
    ================================================ */
@@ -563,10 +547,10 @@
 .clientGroup {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 12px 16px;
   background: var(--bg-card);
   box-shadow: 0 1px 2px rgba(15,23,42,0.04);
 }
@@ -580,11 +564,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 0 4px 0;
+  padding: 2px 0 8px 0;
   cursor: pointer;
   user-select: none;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
   transition: opacity 0.15s ease;
 }
 
@@ -601,7 +584,7 @@
 
 .clientGroupName {
   font-weight: 600;
-  font-size: 20px;
+  font-size: 15px;
   color: var(--text-main);
 }
 
@@ -633,26 +616,6 @@
   .clientGroupHeader { border-radius: 5px; }
 }
 
-
-/* ================================================
-   СТАТУС ПРОЕКТА — точка-индикатор перед названием
-   (вместо тяжёлой заливки всей карточки)
-   ================================================ */
-
-.projectCard[data-status="new"]        .projectName::before { background: #ef4444; }
-.projectCard[data-status="design"]     .projectName::before { background: #f59e0b; }
-.projectCard[data-status="production"] .projectName::before { background: #eab308; }
-.projectCard[data-status="done"]       .projectName::before { background: #22c55e; }
-
-.projectName::before {
-  content: '';
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
 
 /* Кнопка показа/скрытия выполненных задач */
 .btnToggleDone {
