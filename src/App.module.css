@@ -1,38 +1,42 @@
 /* ================================================
    App.module.css — навигация десктоп + мобайл
-   Все цвета через переменные темы (index.css) —
-   корректно работает в Jasny/Ciemny/Forest
+   Redesign 2026: Linear/Notion-style sidebar
+   Все цвета через переменные темы (index.css)
    ================================================ */
 
-/* -------- ДЕСКТОП: компактный сайдбар -------- */
+/* -------- ДЕСКТОП: сайдбар -------- */
 .sidebar {
-  width: 160px;
-  min-width: 160px;
+  width: 248px;
+  min-width: 248px;
   background-color: var(--bg-sidebar);
   color: var(--text-sidebar);
-  padding: 12px;
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
   z-index: 10;
-  gap: 6px;
+  gap: 2px;
   border-right: 1px solid var(--border);
 }
 
 .sidebarLogo {
   font-size: 20px;
-  color: var(--accent);
-  font-weight: bold;
-  text-align: center;
-  margin: 0 0 12px 0;
-  letter-spacing: 1px;
+  color: var(--text-main);
+  font-weight: 700;
+  text-align: left;
+  margin: 4px 8px 24px 8px;
+  letter-spacing: -0.02em;
 }
 
 .menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
-  border-radius: 7px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
-  font-size: 13px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -41,20 +45,18 @@
 
 .menuItem:hover {
   background-color: var(--bg-menu-hover);
-  color: var(--text-sidebar);
+  color: var(--text-main);
 }
 
 .menuItem.active {
-  border-left: 4px solid var(--accent);
-  background-color: var(--bg-menu-hover);
-  color: var(--text-sidebar);
-  padding-left: 9px;
-  font-weight: bold;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .sidebarFooter {
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
   font-size: 12px;
 }
@@ -62,37 +64,40 @@
 .sidebarUser {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 4px;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
 }
 
 .sidebarAvatar {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 10px;
-  font-weight: bold;
+  font-size: 11px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.sidebarName  { color: var(--text-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
-.sidebarRole  { color: var(--text-muted); font-size: 10px; text-transform: uppercase; margin-bottom: 6px; opacity: 0.8; }
+.sidebarName  { color: var(--text-main); font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.sidebarRole  { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; padding: 0 4px; }
 
 .btnLogout {
   width: 100%;
-  padding: 5px;
-  font-size: 11px;
+  height: 34px;
+  font-size: 12px;
+  font-weight: 600;
   background: var(--btn-sec-bg);
   color: var(--btn-sec-text);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
-.btnLogout:hover { filter: brightness(1.15); }
+.btnLogout:hover { background: var(--bg-menu-hover); border-color: #cbd5e1; }
 
 /* -------- МОБАЙЛ: топбар -------- */
 .topbar {
@@ -112,25 +117,26 @@
   left: 0;
   right: 0;
   background: var(--bg-sidebar);
-  border-bottom: 2px solid var(--accent);
+  border-bottom: 1px solid var(--border);
   z-index: 300;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(15,23,42,0.12);
 }
 
 .dropdownItem {
   padding: 14px 16px;
   font-size: 15px;
+  font-weight: 500;
   color: var(--text-muted);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 10px;
-  transition: background 0.1s;
+  transition: background 0.15s ease;
 }
 
 .dropdownItem:active,
-.dropdownItem.active { background: var(--bg-menu-hover); color: var(--text-sidebar); }
+.dropdownItem.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 .dropdownFooter {
   padding: 10px 16px;
@@ -151,13 +157,15 @@
 .dropdownLogout {
   padding: 5px 12px;
   font-size: 12px;
+  font-weight: 600;
   background: var(--btn-sec-bg);
   color: var(--btn-sec-text);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
-.dropdownLogout:hover { filter: brightness(1.15); }
+.dropdownLogout:hover { background: var(--bg-menu-hover); }
 
 /* -------- МЕДИА -------- */
 @media (max-width: 768px) {
@@ -169,7 +177,7 @@
     justify-content: space-between;
     background: var(--bg-sidebar);
     padding: 0 12px;
-    height: 44px;
+    height: 48px;
     position: relative;
     z-index: 100;
     flex-shrink: 0;
@@ -182,16 +190,15 @@
     gap: 8px;
     cursor: pointer;
     padding: 6px 10px;
-    border-radius: 7px;
-    background: var(--bg-menu-item);
-    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-menu-hover);
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
-  .topbarLogo   { color: var(--accent); font-weight: bold; font-size: 16px; }
-  .topbarActive { color: var(--text-sidebar); font-size: 14px; }
-  .topbarArrow  { color: var(--text-muted); font-size: 10px; transition: transform 0.2s; }
+  .topbarLogo   { color: var(--text-main); font-weight: 700; font-size: 16px; }
+  .topbarActive { color: var(--text-main); font-size: 14px; font-weight: 500; }
+  .topbarArrow  { color: var(--text-muted); font-size: 10px; transition: transform 0.2s ease; }
   .topbarArrow.open { transform: rotate(180deg); }
 
   .topbarRight {
@@ -201,16 +208,19 @@
   }
 
   .btnNewProjectTop {
-    background: #38a169;
+    background: var(--accent);
     color: #fff;
     border: none;
-    padding: 5px 11px;
-    border-radius: 6px;
+    padding: 0 14px;
+    height: 34px;
+    border-radius: 8px;
     font-size: 13px;
-    font-weight: bold;
+    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    transition: background-color 0.15s ease;
   }
+  .btnNewProjectTop:hover { background: #1d4ed8; }
 
   .topbarAvatar {
     width: 28px;
@@ -221,7 +231,7 @@
     justify-content: center;
     color: #fff;
     font-size: 11px;
-    font-weight: bold;
+    font-weight: 600;
     flex-shrink: 0;
   }
 }

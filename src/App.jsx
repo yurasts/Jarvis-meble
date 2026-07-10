@@ -9,22 +9,23 @@ import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
 import AiAssistant from './components/AiAssistant';
+import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
 const TAB_LABELS = {
-  dashboard:  '📊 Dashboard',
-  board:      '📋 Projekty',
-  production: '🛠 Produkcja',
-  materials:  '📦 Materiały',
-  settings:   '⚙️ Ustawienia',
+  dashboard:  'Dashboard',
+  board:      'Projekty',
+  production: 'Produkcja',
+  materials:  'Materiały',
+  settings:   'Ustawienia',
 }
 
 const TABS = [
-  { id: 'dashboard',  label: '📊 Dashboard'  },
-  { id: 'board',      label: '📋 Projekty'   },
-  { id: 'production', label: '🛠 Produkcja'  },
-  { id: 'materials',  label: '📦 Materiały'  },
-  { id: 'settings',   label: '⚙️ Ustawienia' },
+  { id: 'dashboard',  label: 'Dashboard',  Icon: LayoutDashboard },
+  { id: 'board',      label: 'Projekty',   Icon: FolderKanban    },
+  { id: 'production', label: 'Produkcja',  Icon: Wrench          },
+  { id: 'materials',  label: 'Materiały',  Icon: Package         },
+  { id: 'settings',   label: 'Ustawienia', Icon: SettingsIcon    },
 ]
 
 const initials = (name) =>
@@ -244,6 +245,7 @@ function App() {
             className={`${s.menuItem} ${activeTab === tab.id ? s.active : ''}`}
             onClick={() => { setActiveTab(tab.id); updatePresenceTab?.(tab.id); }}
           >
+            <tab.Icon size={18} strokeWidth={2} />
             {tab.label}
           </div>
         ))}
@@ -337,6 +339,7 @@ function App() {
                 onTouchStart={() => selectTab(tab.id)}
                 onClick={() => selectTab(tab.id)}
               >
+                <tab.Icon size={18} strokeWidth={2} />
                 {tab.label}
               </div>
             ))}

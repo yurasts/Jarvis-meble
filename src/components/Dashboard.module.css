@@ -13,7 +13,7 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 /* --- Заголовок --- */
@@ -30,15 +30,18 @@
 }
 
 .btnNewProject {
-  background: #38a169;
+  background: var(--accent);
   color: #fff;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: bold;
-  font-size: 13px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background-color 0.18s ease;
 }
+.btnNewProject:hover { background: #1d4ed8; }
 
 /* --- Пустое состояние --- */
 .empty {
@@ -50,18 +53,21 @@
 }
 
 /* --- Карточка проекта --- */
+/* --- Карточка проекта --- */
 .projectCard {
   background: var(--bg-card);
-  border-radius: 10px;
+  border-radius: 16px;
   border: 1px solid var(--border);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
   overflow: hidden;
+  transition: box-shadow 0.18s ease;
+  margin-left: 12px; /* отступ — показывает вложенность в группу */
 }
 
 /* --- Шапка проекта --- */
 .projectHeader {
-  background: var(--bg-base);
-  padding: 10px 14px;
+  background: transparent;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -81,9 +87,9 @@
 
 .projectName {
   margin: 0;
-  color: #2563eb;
-  font-size: 15px;
-  font-weight: bold;
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -107,11 +113,11 @@
 
 /* --- Блок задач --- */
 .tasksBody {
-  padding: 4px 12px 8px;
+  padding: 16px 20px 20px;
   background: transparent;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
 }
 
 .fileButtonsInline {
@@ -160,7 +166,7 @@
 .taskList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
   margin-bottom: 0;
 }
 
@@ -195,6 +201,13 @@
 .taskRow {
   display: flex;
   align-items: center;
+  min-height: 46px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.taskItem:hover .taskRow {
+  background-color: var(--bg-menu-hover);
 }
 
 .taskCheckbox {
@@ -280,13 +293,20 @@
 .btnEdit {
   background: none;
   border: none;
-  color: #cbd5e0;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0 4px;
   font-size: 13px;
   flex-shrink: 0;
   line-height: 1;
-  transition: color 0.15s;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.taskItem:hover .btnEdit {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .btnEdit:hover { color: #4da6ff; }
@@ -294,13 +314,20 @@
 .btnDelete {
   background: none;
   border: none;
-  color: #cbd5e0;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0 8px;
   font-size: 14px;
   flex-shrink: 0;
   line-height: 1;
-  transition: color 0.15s;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.taskItem:hover .btnDelete {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .btnDelete:hover { color: #fc8181; }
@@ -473,28 +500,28 @@
 }
 
 .scopeBtn {
-  padding: 6px 14px;
-  border-radius: 7px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-muted);
   font-size: 13px;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.scopeBtn:hover {
-  background: var(--bg-kanban-col);
-}
+.scopeBtn:hover { background: var(--bg-menu-hover); }
 
 .scopeBtnActive {
-  background: #3182ce;
-  border-color: #3182ce;
+  background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
 }
 
 .scopeBtnActive:hover {
-  background: #3182ce;
+  background: var(--accent);
 }
 
 /* ---- Кнопка "Nowy projekt" — только десктоп ---- */
@@ -509,15 +536,6 @@
 
 /* ---- Финансы в колонку ---- */
 /* ---- Шапка проекта: info + кнопка в ряд ---- */
-.projectHeader {
-  background: transparent;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;        /* кнопка по центру высоты */
-  gap: 10px;
-}
-
 .projectInfo {
   flex: 1;
   min-width: 0;               /* чтобы текст не выходил за края */
@@ -545,12 +563,12 @@
 .clientGroup {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   border: 1px solid var(--border);
-  border-left: 4px solid #805ad5;
-  border-radius: 12px;
-  padding: 8px;
-  background: var(--bg-base);
+  border-radius: 16px;
+  padding: 20px;
+  background: var(--bg-card);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
 }
 
 @media (max-width: 768px) {
@@ -562,16 +580,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  background: var(--bg-kanban-col);
-  border-radius: 7px;
+  padding: 0 0 4px 0;
   cursor: pointer;
   user-select: none;
-  border: 1px solid var(--border);
-  transition: background 0.15s;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  transition: opacity 0.15s ease;
 }
 
-.clientGroupHeader:hover { background: var(--bg-base); }
+.clientGroupHeader:hover { opacity: 0.7; }
+
 
 .clientGroupNameCol {
   display: flex;
@@ -582,8 +600,8 @@
 }
 
 .clientGroupName {
-  font-weight: bold;
-  font-size: 17px;
+  font-weight: 600;
+  font-size: 20px;
   color: var(--text-main);
 }
 
@@ -610,15 +628,6 @@
 }
 
 /* Карточка проекта */
-.projectCard {
-  background: var(--bg-card);
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-  overflow: hidden;
-  margin-left: 12px; /* отступ — показывает вложенность в группу */
-}
-
 @media (max-width: 768px) {
   .projectCard { margin-left: 0; }
   .clientGroupHeader { border-radius: 5px; }
@@ -626,21 +635,24 @@
 
 
 /* ================================================
-   ЦВЕТНАЯ ЗАЛИВКА КАРТОЧЕК ПО СТАТУСУ
-   Лёгкий фон шапки + полоска сверху
+   СТАТУС ПРОЕКТА — точка-индикатор перед названием
+   (вместо тяжёлой заливки всей карточки)
    ================================================ */
 
-/* Вся карточка — лёгкая заливка по статусу */
-.projectCard[data-status="new"]        { background: rgba(229,62,62,0.06); }
-.projectCard[data-status="design"]     { background: rgba(221,107,32,0.06); }
-.projectCard[data-status="production"] { background: rgba(214,158,46,0.06); }
-.projectCard[data-status="done"]       { background: rgba(56,161,105,0.06); }
+.projectCard[data-status="new"]        .projectName::before { background: #ef4444; }
+.projectCard[data-status="design"]     .projectName::before { background: #f59e0b; }
+.projectCard[data-status="production"] .projectName::before { background: #eab308; }
+.projectCard[data-status="done"]       .projectName::before { background: #22c55e; }
 
-/* Тёмная тема — чуть интенсивнее */
-:global([data-theme="dark"]) .projectCard[data-status="new"]        { background: rgba(229,62,62,0.12); }
-:global([data-theme="dark"]) .projectCard[data-status="design"]     { background: rgba(221,107,32,0.12); }
-:global([data-theme="dark"]) .projectCard[data-status="production"] { background: rgba(214,158,46,0.12); }
-:global([data-theme="dark"]) .projectCard[data-status="done"]       { background: rgba(56,161,105,0.12); }
+.projectName::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
 
 /* Кнопка показа/скрытия выполненных задач */
 .btnToggleDone {
