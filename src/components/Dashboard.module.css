@@ -160,17 +160,16 @@
 .taskList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   margin-bottom: 0;
 }
 
 /* --- Одна задача --- */
 .taskItem {
   border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg-base);
+  background: transparent;
   overflow: hidden;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s;
 }
 
 .taskItem.done {
@@ -208,7 +207,7 @@
 
 .taskTextWrap {
   flex: 1;
-  padding: 5px 4px;
+  padding: 2px 4px;
   cursor: pointer;
 }
 
@@ -267,6 +266,31 @@
   color: #e2e8f0;
 }
 
+.taskEditInput {
+  flex: 1;
+  padding: 2px 4px;
+  font-size: 13px;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-main);
+  outline: none;
+}
+
+.btnEdit {
+  background: none;
+  border: none;
+  color: #cbd5e0;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.btnEdit:hover { color: #4da6ff; }
+
 .btnDelete {
   background: none;
   border: none;
@@ -319,11 +343,16 @@
   background: transparent;
   border: 1px dashed var(--border);
   color: var(--text-muted);
-  padding: 3px 8px;
-  border-radius: 5px;
+  width: 27px;
+  height: 27px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 18px;
   font-weight: bold;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   align-self: flex-start;
 }
 

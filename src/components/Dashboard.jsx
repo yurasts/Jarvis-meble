@@ -37,6 +37,8 @@ const Dashboard = ({
   const [newTaskParams,      setNewTaskParams]      = useState({});
   const [confirmDeleteId,    setConfirmDeleteId]    = useState(null);
   const [expandedTaskId,     setExpandedTaskId]     = useState(null);
+  const [editingTaskId,      setEditingTaskId]      = useState(null);
+  const [editTaskText,       setEditTaskText]       = useState('');
   // Свёрнутые группы клиентов (Set с именами клиентов)
   const [collapsedClients,   setCollapsedClients]   = useState(new Set());
   // По умолчанию выполненные задачи скрыты для каждого проекта
@@ -124,6 +126,14 @@ const Dashboard = ({
     const project = activeProjects.find(c => c.id === clientId);
     updateClient(clientId, { tasks: (project.tasks || []).filter(t => t.id !== taskId) });
     setConfirmDeleteId(null);
+  };
+
+  const updateTaskText = (clientId, taskId, newText) => {
+    if (!newText.trim()) return;
+    const project = activeProjects.find(c => c.id === clientId);
+    updateClient(clientId, {
+      tasks: (project.tasks || []).map(t => t.id === taskId ? { ...t, text: newText } : t)
+    });
   };
 
   return (
@@ -246,7 +256,7 @@ const Dashboard = ({
                             <>
                               <div className={s.taskActionsRow}>
                                 <button className={s.btnAddTaskOpen} onClick={() => setAddTaskModal(project)}>
-                                  + Zadanie
+                                  +
                                 </button>
                                 {doneTasks.length > 0 && (
                                   <button
@@ -262,17 +272,39 @@ const Dashboard = ({
                                   const taskColor  = task.createdByColor || '#718096';
                                   const isConfirm  = confirmDeleteId === task.id;
                                   const isExpanded = expandedTaskId === task.id;
+                                  const isEditing  = editingTaskId === task.id;
                                   const taskItemClass = [s.taskItem, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
                                   const taskTextClass = [s.taskText, task.isDone ? s.done : '', isConfirm ? s.confirm : ''].join(' ');
+                                  const startEditing = (e) => {
+                                    e.stopPropagation();
+                                    setEditingTaskId(task.id);
+                                    setEditTaskText(task.text);
+                                  };
+                                  const saveEditing = () => {
+                                    updateTaskText(project.id, task.id, editTaskText);
+                                    setEditingTaskId(null);
+                                  };
                                   return (
                                     <div key={task.id} className={taskItemClass}>
-                                      <div className={s.taskRow} style={{ borderLeft: `3px solid ${taskColor}` }}>
+                                      <div className={s.taskRow}>
                                         <input type="checkbox" checked={task.isDone}
                                           onChange={() => toggleTaskStatus(project.id, task.id)}
                                           className={s.taskCheckbox} />
-                                        <div className={s.taskTextWrap} onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
-                                          <span className={taskTextClass}>{task.text}</span>
-                                        </div>
+                                        {isEditing ? (
+                                          <input
+                                            autoFocus
+                                            value={editTaskText}
+                                            onChange={e => setEditTaskText(e.target.value)}
+                                            onBlur={saveEditing}
+                                            onKeyDown={e => e.key === 'Enter' && saveEditing()}
+                                            onClick={e => e.stopPropagation()}
+                                            className={s.taskEditInput}
+                                          />
+                                        ) : (
+                                          <div className={s.taskTextWrap} onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
+                                            <span className={taskTextClass}>{task.text}</span>
+                                          </div>
+                                        )}
                                         {task.date && <span className={s.taskDate}>{shortDate(task.date)}</span>}
                                         {isConfirm ? (
                                           <div className={s.confirmBtns}>
@@ -280,7 +312,10 @@ const Dashboard = ({
                                             <button className={s.btnConfirmNo} onClick={() => setConfirmDeleteId(null)}>Nie</button>
                                           </div>
                                         ) : (
-                                          <button className={s.btnDelete} onClick={() => setConfirmDeleteId(task.id)}>✖</button>
+                                          <>
+                                            <button className={s.btnEdit} onClick={startEditing}>✎</button>
+                                            <button className={s.btnDelete} onClick={() => setConfirmDeleteId(task.id)}>✖</button>
+                                          </>
                                         )}
                                       </div>
                                       {isExpanded && task.createdByName && (

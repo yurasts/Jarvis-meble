@@ -7,7 +7,7 @@
 /* --- 1. CSS-ПЕРЕМЕННЫЕ (светлая тема по умолчанию) --- */
 :root {
   --bg-base:       #f4f7f6;
-  --bg-sidebar:    #1e1e2f;
+  --bg-sidebar:    #ffffff;
   --bg-card:       #ffffff;
   --bg-menu-item:  #2a2a40;
   --bg-menu-hover: #3b3b54;
@@ -15,7 +15,7 @@
 
   --text-main:     #2d3748;
   --text-muted:    #4a5568;
-  --text-sidebar:  #ffffff;
+  --text-sidebar:  #2d3748;
 
   --border:        #cbd5e0;
   --accent:        #4da6ff;
