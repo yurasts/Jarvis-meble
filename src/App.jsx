@@ -9,6 +9,7 @@ import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
 import AiAssistant from './components/AiAssistant';
+import GlobalSearch from './components/GlobalSearch';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -357,7 +358,23 @@ function App() {
       </div>
 
       {/* ======== КОНТЕНТ ======== */}
-      <div className="main-content">
+      <div className={s.contentWrapper}>
+        <div className={s.topHeader}>
+          <GlobalSearch
+            clients={clients}
+            materials={materials}
+            onNavigate={(action) => {
+              if (action.type === 'project') {
+                openProjectModal(action.client);
+              } else if (action.type === 'client') {
+                setActiveTab('dashboard');
+              } else if (action.type === 'material') {
+                setActiveTab('materials');
+              }
+            }}
+          />
+        </div>
+        <div className="main-content">
         {activeTab === 'dashboard' && (
           <Dashboard
             clients={clients}
@@ -400,6 +417,7 @@ function App() {
             onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))}
           />
         )}
+        </div>
       </div>
 
       {/* Модал: новый проект */}

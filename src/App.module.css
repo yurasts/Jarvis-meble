@@ -27,6 +27,30 @@
   letter-spacing: -0.02em;
 }
 
+/* -------- Обёртка контента + шапка с поиском -------- */
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+}
+
+.topHeader {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+@media (max-width: 768px) {
+  .topHeader { display: none; }
+  .contentWrapper { height: auto; min-height: 100vh; }
+}
+
 .menuItem {
   display: flex;
   align-items: center;
