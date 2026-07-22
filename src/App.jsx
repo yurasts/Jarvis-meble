@@ -10,23 +10,26 @@ import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
 import AiAssistant from './components/AiAssistant';
 import GlobalSearch from './components/GlobalSearch';
+import ProjectNav from './components/ProjectNav';
+import ProjectListPanel from './components/ProjectListPanel';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
+// "Panel", а не "Dzisiaj" — отдельный экран "на сегодня" пока не реализован (см. ADR-002).
 const TAB_LABELS = {
-  dashboard:  'Dashboard',
-  board:      'Projekty',
+  dashboard:  'Panel',
+  board:      'Tablica projektów',
   production: 'Produkcja',
   materials:  'Materiały',
   settings:   'Ustawienia',
 }
 
 const TABS = [
-  { id: 'dashboard',  label: 'Dashboard',  Icon: LayoutDashboard },
-  { id: 'board',      label: 'Projekty',   Icon: FolderKanban    },
-  { id: 'production', label: 'Produkcja',  Icon: Wrench          },
-  { id: 'materials',  label: 'Materiały',  Icon: Package         },
-  { id: 'settings',   label: 'Ustawienia', Icon: SettingsIcon    },
+  { id: 'dashboard',  label: 'Panel',              Icon: LayoutDashboard },
+  { id: 'board',      label: 'Tablica projektów',  Icon: FolderKanban    },
+  { id: 'production', label: 'Produkcja',          Icon: Wrench          },
+  { id: 'materials',  label: 'Materiały',          Icon: Package         },
+  { id: 'settings',   label: 'Ustawienia',         Icon: SettingsIcon    },
 ]
 
 const initials = (name) =>
@@ -238,6 +241,7 @@ function App() {
   const profile   = localProfile ?? authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
+  const displayName = profile?.full_name || session.user.email
 
   // Онлайн-пользователи кроме себя
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
@@ -246,59 +250,23 @@ function App() {
   return (
     <div className="app-container">
 
-      {/* ======== ДЕСКТОП: боковое меню ======== */}
-      <div className={s.sidebar}>
-        <div className={s.sidebarLogo}>Jarvis</div>
-
-        {TABS.map(tab => (
-          <div
-            key={tab.id}
-            className={`${s.menuItem} ${activeTab === tab.id ? s.active : ''}`}
-            onClick={() => { setActiveTab(tab.id); updatePresenceTab?.(tab.id); }}
-          >
-            <tab.Icon size={18} strokeWidth={2} />
-            {tab.label}
-          </div>
-        ))}
-
-        {/* Онлайн-пользователи — десктоп */}
-        {allOnline.length > 0 && (
-          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-              🟢 Online ({allOnline.length})
-            </div>
-            {allOnline.map(u => (
-              <div key={u.userId} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: u.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 'bold' }}>
-                    {(u.fullName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
-                  </div>
-                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid var(--bg-sidebar)' }} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', color: 'var(--text-sidebar)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {u.userId === profile?.id ? 'Ja' : u.fullName}
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {TAB_LABELS[u.activeTab] || u.activeTab}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className={s.sidebarFooter}>
-          <div className={s.sidebarUser}>
-            <div className={s.sidebarAvatar} style={{ background: profile?.color || '#718096' }}>
-              {initials(profile?.full_name)}
-            </div>
-            <span className={s.sidebarName}>{profile?.full_name || session.user.email}</span>
-          </div>
-          <div className={s.sidebarRole}>{profile?.role}</div>
-          <button className={s.btnLogout} onClick={signOut}>Wyloguj</button>
-        </div>
-      </div>
+      {/* ======== ДЕСКТОП: проект-центричная навигация (ADR-002) ======== */}
+      <ProjectNav
+        tabs={TABS}
+        activeTab={activeTab}
+        onSelectTab={(id) => { setActiveTab(id); updatePresenceTab?.(id); }}
+        clients={clients}
+        scopeView={scopeView}
+        setScopeView={setScopeView}
+        canCreate={canCreate}
+        onNewProject={() => setIsModalOpen(true)}
+        onOpenProject={openProjectModal}
+        profile={profile}
+        displayName={displayName}
+        onlineUsers={allOnline}
+        tabLabels={TAB_LABELS}
+        onSignOut={signOut}
+      />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
       <div className={s.topbar} ref={topbarRef}>
@@ -354,6 +322,19 @@ function App() {
                 {tab.label}
               </div>
             ))}
+
+            {/* Lista projektów — dostępna też na wąskim ekranie (drawer), nie znika */}
+            <div style={{ maxHeight: '50vh', overflowY: 'auto', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              <ProjectListPanel
+                clients={clients}
+                scopeView={scopeView}
+                setScopeView={setScopeView}
+                canCreate={canCreate}
+                onNewProject={() => { setMenuOpen(false); setIsModalOpen(true); }}
+                onOpenProject={(client) => { setMenuOpen(false); openProjectModal(client); }}
+              />
+            </div>
+
             <div className={s.dropdownFooter}>
               <div className={s.dropdownUserInfo}>
                 <div className={s.sidebarAvatar} style={{ background: profile?.color || '#718096', width:24, height:24, fontSize:10 }}>
