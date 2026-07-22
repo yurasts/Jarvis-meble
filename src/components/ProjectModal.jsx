@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import FilesTab from './FilesTab';
 
 // Лёгкая заливка фона по статусу проекта
@@ -16,8 +16,12 @@ const STATUS_BORDER_COLOR = {
   done:       '#38a169',
 };
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials' }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal' }) => {
   const isMobile = window.innerWidth < 640;
+  // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
+  // variant='modal' (по умолчанию) — прежнее поведение без изменений (адаптивный fallback на узком экране).
+  // Вся внутренняя логика сметы ниже общая для обоих вариантов — меняется только внешняя обёртка.
+  const isEmbedded = variant === 'embedded';
 
   // ✅ Нейтральный "хром" — через переменные темы (Jasny/Ciemny/Forest)
   const c = (light, dark) => isDark ? dark : light;
@@ -126,8 +130,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       })
     : false;
 
-  const handleClose = () => { isDirty ? setConfirmClose(true) : onClose(); };
+  const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : onClose(); }, [isDirty, onClose]);
   const handleSaveAndClose = async () => { await onSave(); onClose(); };
+
+  // Escape w widoku embedded: idzie przez ten sam handleClose (z potwierdzeniem
+  // niezapisanych zmian) — nigdy nie zamyka bezpośrednio przez onClose().
+  useEffect(() => {
+    if (!isEmbedded) return;
+    const onKeyDown = (e) => { if (e.key === 'Escape') handleClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isEmbedded, handleClose]);
 
   // Автопересчёт бюджета
   useEffect(() => {
@@ -215,17 +228,40 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     color: activeTab === tab ? activeColor : textLight,
   });
 
+  const outerStyle = isEmbedded
+    ? { position: 'relative', width: '100%', height: '100%' }
+    : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
+
+  const innerStyle = {
+    background: bg,
+    backgroundImage: `linear-gradient(${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']}, ${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']})`,
+    borderRadius: isEmbedded ? '10px' : (isMobile ? 0 : '10px'),
+    width: isEmbedded ? '100%' : '95%',
+    maxWidth: isEmbedded ? '1400px' : '1100px',
+    padding: '15px',
+    boxShadow: isEmbedded ? 'none' : '0 10px 25px rgba(0,0,0,0.3)',
+    position: 'relative',
+    borderTop: `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
+  };
+
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' }} onClick={handleClose}>
-      <div style={{
-          background: bg,
-          backgroundImage: `linear-gradient(${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']}, ${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']})`,
-          borderRadius: isMobile ? 0 : '10px',
-          width: '95%', maxWidth: '1100px', padding: '15px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
-          position: 'relative',
-          borderTop: `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
-        }} onClick={e => e.stopPropagation()}>
+    <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
+      <div style={innerStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
+
+        {isEmbedded && (
+          <button
+            onClick={handleClose}
+            title="Wróć do poprzedniego widoku"
+            aria-label="Wróć do poprzedniego widoku"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: textLight, fontSize: '13px', fontWeight: 'bold', padding: '4px 2px',
+            }}
+          >
+            ← Wróć
+          </button>
+        )}
 
         {/* Шапка */}
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px', position: 'relative' }}>

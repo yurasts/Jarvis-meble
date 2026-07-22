@@ -12,6 +12,7 @@ import AiAssistant from './components/AiAssistant';
 import GlobalSearch from './components/GlobalSearch';
 import ProjectNav from './components/ProjectNav';
 import ProjectListPanel from './components/ProjectListPanel';
+import { useIsDesktop } from './utils/useIsDesktop';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -44,6 +45,9 @@ function App() {
   const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab]   = useState('dashboard')
+  // 'tab' — обычный контент активного раздела; 'project' — рабочая область проекта справа (desktop, ADR-002 UX-фаза 2)
+  const [viewMode, setViewMode] = useState('tab')
+  const isDesktop = useIsDesktop()
   const [scopeView, setScopeView] = useState(null) // 'firma' | 'personal' | null — общий фильтр для Dashboard и Kanban
   const [menuOpen,  setMenuOpen]    = useState(false)
   const [clients,   setClients]     = useState([])
@@ -114,12 +118,18 @@ function App() {
     setActiveClient(client)
     setOriginalClient(JSON.parse(JSON.stringify(client)))
     setProjectModalTab(initialTab)
+    setViewMode('project') // на desktop открывает рабочую область справа; на mobile ни на что не влияет (там всегда модалка)
+  }
+
+  const goToTab = (id) => {
+    setActiveTab(id)
+    setViewMode('tab') // уходя в глобальный раздел, скрываем рабочую область проекта (сам выбранный проект не сбрасываем)
+    updatePresenceTab?.(id)
   }
 
   const selectTab = (id) => {
-    setActiveTab(id)
+    goToTab(id)
     setMenuOpen(false)
-    updatePresenceTab?.(id)
   }
 
   async function updateClientFields(clientId, updatedFields) {
@@ -247,6 +257,10 @@ function App() {
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
   const allOnline    = Object.values(onlineUsers || {})
 
+  // Рабочая область проекта справа — только desktop (ADR-002, UX-фаза 2). На узком экране
+  // всегда используется прежняя модалка (ниже, отдельным условием с !isDesktop).
+  const showWorkspace = isDesktop && viewMode === 'project' && !!activeClient
+
   return (
     <div className="app-container">
 
@@ -254,7 +268,7 @@ function App() {
       <ProjectNav
         tabs={TABS}
         activeTab={activeTab}
-        onSelectTab={(id) => { setActiveTab(id); updatePresenceTab?.(id); }}
+        onSelectTab={goToTab}
         clients={clients}
         scopeView={scopeView}
         setScopeView={setScopeView}
@@ -358,21 +372,41 @@ function App() {
               if (action.type === 'project') {
                 openProjectModal(action.client);
               } else if (action.type === 'task') {
-                setActiveTab('dashboard');
+                goToTab('dashboard'); // скрывает рабочую область проекта, если была открыта
                 setSearchFocusTarget({
                   clientName: action.client.client_name || action.client.full_name,
                   projectId: action.client.id,
                   taskId: action.task.id,
                 });
               } else if (action.type === 'client') {
-                setActiveTab('dashboard');
+                goToTab('dashboard');
               } else if (action.type === 'material') {
-                setActiveTab('materials');
+                goToTab('materials');
               }
             }}
           />
         </div>
-        <div className="main-content">
+        <div className="main-content" style={showWorkspace ? { display: 'flex', flexDirection: 'column' } : undefined}>
+        {showWorkspace ? (
+          <ProjectModal
+            key={`workspace-${activeClient?.id}-${projectModalTab}`}
+            variant="embedded"
+            client={activeClient}
+            originalClient={originalClient}
+            setClient={setActiveClient}
+            materials={materials}
+            servicesList={servicesList}
+            onClose={() => setViewMode('tab')}
+            onSave={handleUpdateClient}
+            onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
+            currentProfile={profile}
+            profilesById={profilesById}
+            isDark={isDarkish}
+            theme={theme}
+            initialTab={projectModalTab}
+          />
+        ) : (
+        <>
         {activeTab === 'dashboard' && (
           <Dashboard
             clients={clients}
@@ -422,6 +456,8 @@ function App() {
             onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))}
           />
         )}
+        </>
+        )}
         </div>
       </div>
 
@@ -448,10 +484,11 @@ function App() {
         </div>
       )}
 
-      {/* ProjectModal */}
-      {activeClient && (
+      {/* ProjectModal — адаптивный fallback на узком экране (на desktop используется embedded-рабочая область выше) */}
+      {!isDesktop && activeClient && (
         <ProjectModal
-          key={`${activeClient?.id}-${projectModalTab}`}
+          key={`modal-${activeClient?.id}-${projectModalTab}`}
+          variant="modal"
           client={activeClient}
           originalClient={originalClient}
           setClient={setActiveClient}
