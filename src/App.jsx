@@ -15,7 +15,6 @@ import ProjectListPanel from './components/ProjectListPanel';
 import MobileProjectsScreen from './components/MobileProjectsScreen';
 import MobileBottomNav from './components/MobileBottomNav';
 import { useIsDesktop } from './utils/useIsDesktop';
-import { useIsMobileShell } from './utils/useIsMobileShell';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -50,10 +49,11 @@ function App() {
   const [activeTab, setActiveTab]   = useState('dashboard')
   // 'tab' — обычный контент активного раздела; 'project' — рабочая область проекта справа (desktop, ADR-002 UX-фаза 2)
   const [viewMode, setViewMode] = useState('tab')
+  // Единая граница mobile shell / desktop-tablet — 767px и ниже, 768px и выше (см. useIsDesktop.js).
+  // !isDesktop используется и как признак mobile shell (ADR-003) — отдельного хука больше нет,
+  // раньше isMobileShell был на (max-width: 767px), а isDesktop — на (min-width: 769px), из-за
+  // чего 768px не попадал ни в тот, ни в другой диапазон.
   const isDesktop = useIsDesktop()
-  // Строго до 767px (ADR-003, Mobile Field Mode) — отдельный, более узкий брейкпоинт,
-  // не трогает существующую логику isDesktop/768px-CSS. На 768px и выше — без изменений.
-  const isMobileShell = useIsMobileShell()
   // Показывать ли мобильный экран Projekty вместо обычного контента активной вкладки.
   // true по умолчанию — на мобильном свежая загрузка сразу открывает список проектов.
   const [showMobileHome, setShowMobileHome] = useState(true)
@@ -306,9 +306,9 @@ function App() {
   // всегда используется прежняя модалка (ниже, отдельным условием с !isDesktop).
   const showWorkspace = isDesktop && viewMode === 'project' && !!activeClient
 
-  // Мобильный экран Projekty (ADR-003) — строго до 767px, независимо от showWorkspace/isDesktop
-  // (взаимоисключающие диапазоны ширины, конфликта нет).
-  const showMobileProjects = isMobileShell && showMobileHome
+  // Мобильный экран Projekty (ADR-003) — !isDesktop, т.е. до 767px включительно (единая граница,
+  // см. useIsDesktop.js). showWorkspace требует isDesktop=true, поэтому они взаимоисключающие.
+  const showMobileProjects = !isDesktop && showMobileHome
   // Подсветка активного пункта нижней навигации: "Projekty" — когда открыт мобильный экран
   // списка; "Produkcja"/"Materiały" — когда открыта соответствующая вкладка (независимо от того,
   // как в неё попали — через нижнюю навигацию, dropdown топбара или глобальный поиск);
