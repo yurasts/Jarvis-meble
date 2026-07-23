@@ -92,6 +92,10 @@
   padding: 10px 4px;
 }
 
+/* Только для мобильного экрана Projekty (ADR-003) — резервирует место под закреплённую
+   нижнюю навигацию, чтобы последняя строка списка не пряталась под ней. */
+.listExtraBottom { padding-bottom: 84px; }
+
 .row {
   display: flex;
   align-items: center;

@@ -339,7 +339,7 @@ html[data-theme="dark"] .client-card:hover {
 }
 
 /* --- 11. МОБИЛЬНАЯ АДАПТАЦИЯ --- */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .app-container  { flex-direction: column; }
 
   .sidebar {
@@ -390,7 +390,7 @@ html[data-theme="dark"] .client-card:hover {
 }
 
 /* --- ТОПБАР: body/root не должны блокировать overflow на мобайле --- */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   html, body, #root {
     overflow: visible;
     height: auto;

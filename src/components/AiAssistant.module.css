@@ -109,3 +109,10 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* Мобильная нижняя навигация (ADR-003, MobileBottomNav.module.css) занимает нижние ~58px
+   строго до 767px — поднимаем виджет ассистента над ней, чтобы не перекрывать её. */
+@media (max-width: 767px) {
+  .fab { bottom: 76px; }
+  .panel { bottom: 140px; max-height: calc(100vh - 180px); }
+}

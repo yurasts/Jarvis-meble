@@ -1,0 +1,18 @@
+/* Мобильный экран Projekty (ADR-003). position: fixed — сознательно, чтобы не зависеть от
+   .main-content/.contentWrapper (у них на мобильном брейкпоинте height:auto/overflow-y:visible,
+   см. index.css) и гарантировать ровно один вертикальный скролл — внутри ProjectListPanel (.list),
+   без вложенного скролла. */
+.screen {
+  position: fixed;
+  top: 48px; /* высота .topbar в App.module.css — держать значения в синхроне */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50; /* ниже .topbar (100)/его dropdown (300) и ProjectModal/AiAssistant (1000) */
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hidden { display: none; }

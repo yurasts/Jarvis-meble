@@ -63,6 +63,10 @@ export default function ProjectListPanel({
   onNewProject,
   onOpenProject,
   activeProjectId,
+  // Доп. отступ снизу у списка — нужен только для мобильного экрана Projekty (ADR-003),
+  // где список перекрывался бы закреплённой нижней навигацией. На desktop/в мобильном
+  // dropdown (существующие вызовы) не передаётся — поведение там не меняется.
+  extraBottomPadding = false,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
@@ -147,7 +151,7 @@ export default function ProjectListPanel({
         </button>
       </div>
 
-      <div className={s.list}>
+      <div className={`${s.list} ${extraBottomPadding ? s.listExtraBottom : ''}`}>
         {active.length === 0 && <div className={s.empty}>Brak projektów.</div>}
         <ClientGroups projects={active} onOpen={handleOpen} activeProjectId={activeProjectId} />
       </div>

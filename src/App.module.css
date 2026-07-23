@@ -25,7 +25,7 @@
   background: var(--bg-card);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .topHeader { display: none; }
   .contentWrapper { height: auto; min-height: 100vh; }
 }
@@ -114,7 +114,7 @@
 
 /* -------- МЕДИА -------- */
 /* .sidebar (ProjectNav) скрывается своим собственным media-query в ProjectNav.module.css */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .topbar {
     display: flex;
     align-items: center;

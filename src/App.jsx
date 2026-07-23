@@ -12,6 +12,8 @@ import AiAssistant from './components/AiAssistant';
 import GlobalSearch from './components/GlobalSearch';
 import ProjectNav from './components/ProjectNav';
 import ProjectListPanel from './components/ProjectListPanel';
+import MobileProjectsScreen from './components/MobileProjectsScreen';
+import MobileBottomNav from './components/MobileBottomNav';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -47,7 +49,14 @@ function App() {
   const [activeTab, setActiveTab]   = useState('dashboard')
   // 'tab' — обычный контент активного раздела; 'project' — рабочая область проекта справа (desktop, ADR-002 UX-фаза 2)
   const [viewMode, setViewMode] = useState('tab')
+  // Единая граница mobile shell / desktop-tablet — 767px и ниже, 768px и выше (см. useIsDesktop.js).
+  // !isDesktop используется и как признак mobile shell (ADR-003) — отдельного хука больше нет,
+  // раньше isMobileShell был на (max-width: 767px), а isDesktop — на (min-width: 769px), из-за
+  // чего 768px не попадал ни в тот, ни в другой диапазон.
   const isDesktop = useIsDesktop()
+  // Показывать ли мобильный экран Projekty вместо обычного контента активной вкладки.
+  // true по умолчанию — на мобильном свежая загрузка сразу открывает список проектов.
+  const [showMobileHome, setShowMobileHome] = useState(true)
   const [scopeView, setScopeView] = useState(null) // 'firma' | 'personal' | null — общий фильтр для Dashboard и Kanban
   const [menuOpen,  setMenuOpen]    = useState(false)
   const [clients,   setClients]     = useState([])
@@ -79,12 +88,17 @@ function App() {
   const [matPrice,    setMatPrice]    = useState('')
 
   const topbarRef = useRef(null)
+  // Кнопка "Więcej" мобильной нижней навигации тоже открывает dropdown топбара (ADR-003) —
+  // клики по ней не должны считаться "снаружи" в обработчике ниже.
+  const bottomNavRef = useRef(null)
 
-  // Закрываем dropdown при тапе вне него
+  // Закрываем dropdown при тапе вне него (топбара и мобильной нижней навигации)
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e) => {
-      if (topbarRef.current && !topbarRef.current.contains(e.target)) {
+      const insideTopbar = topbarRef.current && topbarRef.current.contains(e.target)
+      const insideBottomNav = bottomNavRef.current && bottomNavRef.current.contains(e.target)
+      if (!insideTopbar && !insideBottomNav) {
         setMenuOpen(false)
       }
     }
@@ -150,11 +164,15 @@ function App() {
     setActiveTab(id)
     setViewMode('tab') // уходя в глобальный раздел, скрываем рабочую область проекта (сам выбранный проект не сбрасываем)
     setPendingClient(null) // не оставляем «зависший» диалог переключения, если он был открыт
+    setShowMobileHome(false) // уходя на конкретную вкладку — скрываем мобильный экран Projekty (ADR-003)
+    setMenuOpen(false) // закрываем dropdown топбара, если был открыт (в т.ч. если попали сюда через "Więcej")
     updatePresenceTab?.(id)
   }
 
-  const selectTab = (id) => {
-    goToTab(id)
+  // Мобильная нижняя навигация (ADR-003): "Projekty" возвращает к мобильному экрану списка
+  // проектов, не трогая activeTab — сам выбранный desktop-раздел под ним не сбрасывается.
+  const showMobileProjectsHome = () => {
+    setShowMobileHome(true)
     setMenuOpen(false)
   }
 
@@ -288,6 +306,21 @@ function App() {
   // всегда используется прежняя модалка (ниже, отдельным условием с !isDesktop).
   const showWorkspace = isDesktop && viewMode === 'project' && !!activeClient
 
+  // Мобильный экран Projekty (ADR-003) — !isDesktop, т.е. до 767px включительно (единая граница,
+  // см. useIsDesktop.js). showWorkspace требует isDesktop=true, поэтому они взаимоисключающие.
+  const showMobileProjects = !isDesktop && showMobileHome
+  // Подсветка активного пункта нижней навигации: "Projekty" — когда открыт мобильный экран
+  // списка; "Produkcja"/"Materiały" — когда открыта соответствующая вкладка (независимо от того,
+  // как в неё попали — через нижнюю навигацию, dropdown топбара или глобальный поиск);
+  // всё остальное (Panel/Tablica projektów/Ustawienia) считается "Więcej".
+  const mobileNavActive = showMobileProjects
+    ? 'projekty'
+    : activeTab === 'production'
+      ? 'production'
+      : activeTab === 'materials'
+        ? 'materials'
+        : 'wiecej'
+
   return (
     <div className="app-container">
 
@@ -357,8 +390,8 @@ function App() {
               <div
                 key={tab.id}
                 className={`${s.dropdownItem} ${activeTab === tab.id ? s.active : ''}`}
-                onTouchStart={() => selectTab(tab.id)}
-                onClick={() => selectTab(tab.id)}
+                onTouchStart={() => goToTab(tab.id)}
+                onClick={() => goToTab(tab.id)}
               >
                 <tab.Icon size={18} strokeWidth={2} />
                 {tab.label}
@@ -595,6 +628,31 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Мобильный экран Projekty (ADR-003, Mobile Field Mode). Смонтирован всегда — видимость
+          переключается через className внутри компонента, чтобы поиск/фильтр не сбрасывались
+          при переходе на Produkcja/Materiały/Więcej и обратно. На 768px и выше всегда скрыт. */}
+      <MobileProjectsScreen
+        visible={showMobileProjects}
+        clients={clients}
+        scopeView={scopeView}
+        setScopeView={setScopeView}
+        canCreate={canCreate}
+        onNewProject={() => setIsModalOpen(true)}
+        onOpenProject={requestOpenProject}
+        activeProjectId={activeClient?.id}
+      />
+
+      {/* Нижняя мобильная навигация (ADR-003). Видимость — чисто через CSS-медиазапрос
+          (max-width: 767px) в MobileBottomNav.module.css, компонент смонтирован всегда. */}
+      <MobileBottomNav
+        ref={bottomNavRef}
+        active={mobileNavActive}
+        onProjekty={showMobileProjectsHome}
+        onProdukcja={() => goToTab('production')}
+        onMaterialy={() => goToTab('materials')}
+        onWiecej={() => setMenuOpen(o => !o)}
+      />
 
       <AiAssistant />
     </div>
