@@ -15,16 +15,17 @@ const STATUS_COLOR = {
 // трактуем их как «завершён», не трогая сами данные.
 const COMPLETED_STATUSES = new Set(['done', 'Zrealizowane', 'Zakończone']);
 
-function ProjectRow({ client, onOpen }) {
+function ProjectRow({ client, onOpen, isActive }) {
   const projectName = client.project_name || client.full_name || '—';
   const openTasks = (client.tasks || []).filter((t) => !t.isDone).length;
   const color = STATUS_COLOR[client.status] || STATUS_COLOR.new;
 
   return (
     <div
-      className={s.row}
+      className={`${s.row} ${isActive ? s.rowActive : ''}`}
       role="button"
       tabIndex={0}
+      aria-current={isActive ? 'page' : undefined}
       onClick={() => onOpen(client)}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen(client); }}
     >
@@ -43,12 +44,12 @@ function ProjectRow({ client, onOpen }) {
 // Группы «клиент → проекты» — временное представление поверх текущих данных clients
 // (тот же group-by, что уже используется в Dashboard.jsx через dashboardHelpers.groupByClient).
 // Никакой новой сущности «клиент» не создаётся.
-function ClientGroups({ projects, onOpen }) {
+function ClientGroups({ projects, onOpen, activeProjectId }) {
   return groupByClient(projects).map(([clientName, group]) => (
     <div key={clientName} className={s.clientGroup}>
       <div className={s.clientGroupHeader}>{clientName}</div>
       {group.map((c) => (
-        <ProjectRow key={c.id} client={c} onOpen={onOpen} />
+        <ProjectRow key={c.id} client={c} onOpen={onOpen} isActive={c.id === activeProjectId} />
       ))}
     </div>
   ));
@@ -61,6 +62,7 @@ export default function ProjectListPanel({
   canCreate,
   onNewProject,
   onOpenProject,
+  activeProjectId,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
@@ -147,7 +149,7 @@ export default function ProjectListPanel({
 
       <div className={s.list}>
         {active.length === 0 && <div className={s.empty}>Brak projektów.</div>}
-        <ClientGroups projects={active} onOpen={handleOpen} />
+        <ClientGroups projects={active} onOpen={handleOpen} activeProjectId={activeProjectId} />
       </div>
 
       {completed.length > 0 && (
@@ -162,7 +164,7 @@ export default function ProjectListPanel({
           </button>
           {completedOpen && (
             <div className={s.completedList}>
-              <ClientGroups projects={completed} onOpen={handleOpen} />
+              <ClientGroups projects={completed} onOpen={handleOpen} activeProjectId={activeProjectId} />
             </div>
           )}
         </div>

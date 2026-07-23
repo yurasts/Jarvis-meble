@@ -58,6 +58,11 @@ function App() {
   const [activeClient,    setActiveClient]    = useState(null)
   const [searchFocusTarget, setSearchFocusTarget] = useState(null) // { clientName, projectId, taskId } | null
   const [originalClient,  setOriginalClient]  = useState(null)
+  // Czy aktualnie zamontowany ProjectModal (embedded lub modal) zgłasza niezapisane zmiany —
+  // źródło prawdy pozostaje w ProjectModal (isDirty), tu tylko odbieramy stan (ADR-002, UX-faza 2.1).
+  const [workspaceDirty,  setWorkspaceDirty]  = useState(false)
+  // Projekt, który użytkownik próbuje otworzyć zamiast aktualnego (gdy są niezapisane zmiany)
+  const [pendingClient,   setPendingClient]   = useState(null) // { client, initialTab } | null
 
   const [name,     setName]     = useState('')
   const [projectName, setProjectName] = useState('')
@@ -121,9 +126,30 @@ function App() {
     setViewMode('project') // на desktop открывает рабочую область справа; на mobile ни на что не влияет (там всегда модалка)
   }
 
+  // Точка входа для всех мест открытия проекта (левая панель, Dashboard, Kanban, поиск):
+  // если открыт ДРУГОЙ проект с несохранёнными изменениями — не заменяет его сразу, а просит
+  // подтверждение через тот же диалог, что и закрытие карточки (ADR-002, UX-faza 2.1).
+  const requestOpenProject = (client, initialTab = 'materials') => {
+    if (activeClient && workspaceDirty && client.id !== activeClient.id) {
+      setPendingClient({ client, initialTab })
+      setViewMode('project') // возвращает рабочую область в видимость, чтобы диалог было видно
+      return
+    }
+    openProjectModal(client, initialTab)
+  }
+
+  const confirmPendingSwitch = () => {
+    const target = pendingClient
+    setPendingClient(null)
+    if (target) openProjectModal(target.client, target.initialTab)
+  }
+
+  const cancelPendingSwitch = () => setPendingClient(null)
+
   const goToTab = (id) => {
     setActiveTab(id)
     setViewMode('tab') // уходя в глобальный раздел, скрываем рабочую область проекта (сам выбранный проект не сбрасываем)
+    setPendingClient(null) // не оставляем «зависший» диалог переключения, если он был открыт
     updatePresenceTab?.(id)
   }
 
@@ -172,6 +198,7 @@ function App() {
       setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
       setOriginalClient(JSON.parse(JSON.stringify(data[0])))
     }
+    return { error }
   }
 
   async function handleAddMaterial(e) {
@@ -274,7 +301,8 @@ function App() {
         setScopeView={setScopeView}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
-        onOpenProject={openProjectModal}
+        onOpenProject={requestOpenProject}
+        activeProjectId={activeClient?.id}
         profile={profile}
         displayName={displayName}
         onlineUsers={allOnline}
@@ -345,7 +373,8 @@ function App() {
                 setScopeView={setScopeView}
                 canCreate={canCreate}
                 onNewProject={() => { setMenuOpen(false); setIsModalOpen(true); }}
-                onOpenProject={(client) => { setMenuOpen(false); openProjectModal(client); }}
+                onOpenProject={(client) => { setMenuOpen(false); requestOpenProject(client); }}
+                activeProjectId={activeClient?.id}
               />
             </div>
 
@@ -370,7 +399,7 @@ function App() {
             materials={materials}
             onNavigate={(action) => {
               if (action.type === 'project') {
-                openProjectModal(action.client);
+                requestOpenProject(action.client);
               } else if (action.type === 'task') {
                 goToTab('dashboard'); // скрывает рабочую область проекта, если была открыта
                 setSearchFocusTarget({
@@ -404,6 +433,10 @@ function App() {
             isDark={isDarkish}
             theme={theme}
             initialTab={projectModalTab}
+            onDirtyChange={setWorkspaceDirty}
+            pendingProjectLabel={pendingClient ? (pendingClient.client.project_name || pendingClient.client.client_name || pendingClient.client.full_name || '—') : null}
+            onConfirmSwitch={confirmPendingSwitch}
+            onCancelSwitch={cancelPendingSwitch}
           />
         ) : (
         <>
@@ -411,7 +444,7 @@ function App() {
           <Dashboard
             clients={clients}
             updateClient={updateClientFields}
-            openProjectModal={openProjectModal}
+            openProjectModal={requestOpenProject}
             setIsModalOpen={setIsModalOpen}
             profilesById={profilesById}
             canCreate={canCreate}
@@ -426,7 +459,7 @@ function App() {
         {activeTab === 'board' && (
           <KanbanBoard
             clients={clients}
-            setActiveClient={openProjectModal}
+            setActiveClient={requestOpenProject}
             handleDragStart={handleDragStart}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
@@ -502,6 +535,7 @@ function App() {
           isDark={isDarkish}
           theme={theme}
           initialTab={projectModalTab}
+          onDirtyChange={setWorkspaceDirty}
         />
       )}
 

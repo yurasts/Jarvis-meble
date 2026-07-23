@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
 
 // Лёгкая заливка фона по статусу проекта
@@ -16,7 +16,7 @@ const STATUS_BORDER_COLOR = {
   done:       '#38a169',
 };
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal' }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch }) => {
   const isMobile = window.innerWidth < 640;
   // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
   // variant='modal' (по умолчанию) — прежнее поведение без изменений (адаптивный fallback на узком экране).
@@ -131,7 +131,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     : false;
 
   const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : onClose(); }, [isDirty, onClose]);
-  const handleSaveAndClose = async () => { await onSave(); onClose(); };
 
   // Escape w widoku embedded: idzie przez ten sam handleClose (z potwierdzeniem
   // niezapisanych zmian) — nigdy nie zamyka bezpośrednio przez onClose().
@@ -141,6 +140,36 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isEmbedded, handleClose]);
+
+  // Rodzic (App.jsx) śledzi aktualny stan niezapisanych zmian, żeby zablokować
+  // natychmiastową zmianę projektu z listy/Dashboard/Kanban (ADR-002, UX-faza 2.1).
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  // null | 'saved' | 'error' — komunikat pod przyciskiem Zapisz, tylko w widoku embedded.
+  const [saveStatus, setSaveStatus] = useState(null);
+  const saveStatusTimerRef = useRef(null);
+  useEffect(() => () => { if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current); }, []);
+
+  // Zapisz i zamknij — zachowanie sprzed UX-fazy 2.1, używane na mobile oraz w dialogu
+  // potwierdzenia niezapisanych zmian (Zapisz i zamknij / Zapisz i przejdź dalej).
+  const handleSaveAndClose = async () => {
+    const result = await onSave();
+    if (result?.error) { setSaveStatus('error'); return; }
+    onClose();
+  };
+
+  // Główny przycisk „Zapisz” w widoku embedded: workspace zostaje otwarty, pokazuje tylko
+  // krótkie potwierdzenie „Zapisano” lub czytelny błąd — bez zamykania (ADR-002, UX-faza 2.1).
+  const handleSaveClick = async () => {
+    if (!isEmbedded) { await handleSaveAndClose(); return; }
+    const result = await onSave();
+    if (result?.error) { setSaveStatus('error'); return; }
+    setSaveStatus('saved');
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
+  };
 
   // Автопересчёт бюджета
   useEffect(() => {
@@ -267,32 +296,39 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px', position: 'relative' }}>
 
           {/* 💾 Zapisz + переключатель Firma/Moje — всегда в правом верхнем углу */}
-          <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: '6px', alignItems: 'center', zIndex: 1 }}>
-            <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
-              <button
-                onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
-                title="Projekt firmowy"
-                style={{
-                  padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
-                  background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg,
-                  color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight,
-                }}
-              >
-                🏢
-              </button>
-              <button
-                onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
-                title="Mój projekt"
-                style={{
-                  padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
-                  background: client.project_scope === 'personal' ? '#3182ce' : bg,
-                  color: client.project_scope === 'personal' ? '#fff' : textLight,
-                }}
-              >
-                👤
-              </button>
+          <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', zIndex: 1 }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
+                  title="Projekt firmowy"
+                  style={{
+                    padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                    background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg,
+                    color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight,
+                  }}
+                >
+                  🏢
+                </button>
+                <button
+                  onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
+                  title="Mój projekt"
+                  style={{
+                    padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                    background: client.project_scope === 'personal' ? '#3182ce' : bg,
+                    color: client.project_scope === 'personal' ? '#fff' : textLight,
+                  }}
+                >
+                  👤
+                </button>
+              </div>
+              <button onClick={handleSaveClick} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
             </div>
-            <button onClick={handleSaveAndClose} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
+            {isEmbedded && saveStatus && (
+              <div style={{ fontSize: '11px', fontWeight: 'bold', color: saveStatus === 'saved' ? '#38a169' : '#e53e3e', maxWidth: '220px', textAlign: 'right' }}>
+                {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '140px' }}>
@@ -774,17 +810,46 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         </div>
 
-        {/* Подтверждение закрытия */}
-        {confirmClose && (
+        {/* Подтверждение закрытия / переключения на другой проект (тот же диалог, ADR-002 UX-faza 2.1) */}
+        {(confirmClose || pendingProjectLabel) && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-            <div style={{ background: bg, borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '340px', border: `1px solid ${border}` }}>
+            <div style={{ background: bg, borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '360px', border: `1px solid ${border}` }}>
               <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
               <h3 style={{ margin: '0 0 8px 0', color: text, fontSize: '16px' }}>Masz niezapisane zmiany</h3>
-              <p style={{ margin: '0 0 20px 0', color: textLight, fontSize: '13px' }}>Czy na pewno chcesz zamknąć bez zapisania?</p>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button onClick={onClose} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zamknij bez zapisania</button>
-                <button onClick={() => { onSave(); setConfirmClose(false); onClose(); }} style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Zapisz i zamknij</button>
-                <button onClick={() => setConfirmClose(false)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>Wróć</button>
+              <p style={{ margin: '0 0 8px 0', color: textLight, fontSize: '13px' }}>
+                {pendingProjectLabel
+                  ? `Chcesz otworzyć „${pendingProjectLabel}” — odrzucić niezapisane zmiany w tym projekcie?`
+                  : 'Czy na pewno chcesz zamknąć bez zapisania?'}
+              </p>
+              {saveStatus === 'error' && (
+                <p style={{ margin: '0 0 12px 0', color: '#e53e3e', fontSize: '12px', fontWeight: 'bold' }}>
+                  Nie udało się zapisać zmian. Spróbuj ponownie.
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+                <button
+                  onClick={() => { pendingProjectLabel ? onConfirmSwitch?.() : onClose(); }}
+                  style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  {pendingProjectLabel ? 'Odrzuć zmiany' : 'Zamknij bez zapisania'}
+                </button>
+                <button
+                  onClick={async () => {
+                    const result = await onSave();
+                    if (result?.error) { setSaveStatus('error'); return; }
+                    setConfirmClose(false);
+                    pendingProjectLabel ? onConfirmSwitch?.() : onClose();
+                  }}
+                  style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  {pendingProjectLabel ? 'Zapisz i przejdź dalej' : 'Zapisz i zamknij'}
+                </button>
+                <button
+                  onClick={() => { pendingProjectLabel ? onCancelSwitch?.() : setConfirmClose(false); }}
+                  style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  {pendingProjectLabel ? 'Anuluj' : 'Wróć'}
+                </button>
               </div>
             </div>
           </div>
