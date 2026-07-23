@@ -16,12 +16,28 @@ const STATUS_BORDER_COLOR = {
   done:       '#38a169',
 };
 
+// Krótkie polskie etykiety statusu dla kompaktowej pigułki w nagłówku mobilnym (ADR-003,
+// Mobile Field Mode faza 2) — skrócone wersje tych samych statusów co w Settings.jsx
+// ("Legenda statusów projektów"), bez nowej logiki.
+const STATUS_LABEL = {
+  new:        'Nowy',
+  design:     'Projektowanie',
+  production: 'Produkcja',
+  done:       'Gotowe',
+};
+
 const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch }) => {
   const isMobile = window.innerWidth < 640;
   // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
-  // variant='modal' (по умолчанию) — прежнее поведение без изменений (адаптивный fallback на узком экране).
-  // Вся внутренняя логика сметы ниже общая для обоих вариантов — меняется только внешняя обёртка.
+  // variant='mobile' — полноэкранный мобильный экран проекта до 767px (ADR-003, Mobile Field
+  // Mode faza 2), заменяет прежний modal-fallback на этой ширине;
+  // variant='modal' (по умолчанию) — прежнее поведение без изменений (адаптивный fallback).
+  // Вся внутренняя логика сметы ниже общая для всех трёх вариантов — меняется только обёртка.
   const isEmbedded = variant === 'embedded';
+  const isMobileVariant = variant === 'mobile';
+  // Zapisz zostawia ekran otwarty (nie zamyka) zarówno w embedded, jak i w mobile — tylko
+  // "zwykły" modal zamyka się po zapisaniu (zachowanie sprzed UX-fazy 2.1).
+  const staysOpenOnSave = isEmbedded || isMobileVariant;
 
   // ✅ Нейтральный "хром" — через переменные темы (Jasny/Ciemny/Forest)
   const c = (light, dark) => isDark ? dark : light;
@@ -51,6 +67,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [filterSupplier, setFilterSupplier] = useState('');
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  // Sekcja "Szczegóły" (Koszt/mnożnik/Budżet) w wariancie mobile — zwinięta domyślnie (ADR-003).
+  const [szczegolyOpen, setSzczegolyOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedMaterialId, setExpandedMaterialId] = useState(null);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
@@ -130,16 +148,67 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       })
     : false;
 
-  const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : onClose(); }, [isDirty, onClose]);
+  // Refy — zawsze aktualne wartości dla obsługi History API poniżej (efekt montuje się raz,
+  // nie może zależeć od isDirty/onClose bez re-subskrybowania popstate co każdą zmianę pola).
+  const isDirtyRef = useRef(isDirty);
+  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  // Czy bieżący wpis w historii przeglądarki (dodany przy otwarciu w wariancie mobile) wciąż
+  // "należy" do tego ekranu — pozwala domknąć go dokładnie raz, bez podwójnego cofania.
+  const hasPushedHistoryRef = useRef(false);
 
-  // Escape w widoku embedded: idzie przez ten sam handleClose (z potwierdzeniem
+  // Historia przeglądarki dla sprzętowego/przeglądarkowego przycisku "wstecz" — tylko w wariancie
+  // mobile, bez wprowadzania routera (ADR-003, Mobile Field Mode faza 2). Push raz przy otwarciu;
+  // popstate przechodzi przez tę samą ochronę niezapisanych zmian co "← Projekty" — jeśli są
+  // zmiany, cofnięcie jest "odtwarzane" (ponowny push) i pokazywany jest dialog zamiast realnego
+  // wyjścia z ekranu.
+  useEffect(() => {
+    if (!isMobileVariant) return;
+    window.history.pushState({ jarvisMobileProject: true }, '');
+    hasPushedHistoryRef.current = true;
+    const onPopState = () => {
+      if (isDirtyRef.current) {
+        window.history.pushState({ jarvisMobileProject: true }, '');
+        setConfirmClose(true);
+      } else {
+        hasPushedHistoryRef.current = false;
+        onCloseRef.current();
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    // Czyścimy tylko nasłuch (jak wymagane) — celowo NIE wołamy tu history.back(): to wywołanie
+    // jest asynchroniczne (wynikowy popstate przychodzi później), więc w React StrictMode (dev —
+    // efekt montuje się dwukrotnie: mount → cleanup → mount) spóźniony popstate z PIERWSZEGO
+    // cleanupu potrafi trafić już w DRUGI, świeży mount i błędnie go zamknąć. Ewentualny jeden
+    // "widmowy" wpis w historii przy realnie nietypowym zniknięciu ekranu (np. zmiana szerokości
+    // okna na desktop w trakcie) jest nieszkodliwy — najwyżej jedno dodatkowe wciśnięcie "wstecz"
+    // później, zanim użytkownik faktycznie opuści aplikację.
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [isMobileVariant]);
+
+  // Realne zamknięcie z poziomu UI (przycisk "← Projekty"/Wróć, dialog potwierdzenia) —
+  // w wariancie mobile domyka też wpis historii dodany przy otwarciu.
+  const finalizeClose = useCallback(() => {
+    if (isMobileVariant && hasPushedHistoryRef.current) {
+      hasPushedHistoryRef.current = false;
+      window.history.back();
+    }
+    onClose();
+  }, [isMobileVariant, onClose]);
+
+  const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : finalizeClose(); }, [isDirty, finalizeClose]);
+
+  // Escape w widoku embedded i mobile: idzie przez ten sam handleClose (z potwierdzeniem
   // niezapisanych zmian) — nigdy nie zamyka bezpośrednio przez onClose().
   useEffect(() => {
-    if (!isEmbedded) return;
+    if (!isEmbedded && !isMobileVariant) return;
     const onKeyDown = (e) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isEmbedded, handleClose]);
+  }, [isEmbedded, isMobileVariant, handleClose]);
 
   // Rodzic (App.jsx) śledzi aktualny stan niezapisanych zmian, żeby zablokować
   // natychmiastową zmianę projektu z listy/Dashboard/Kanban (ADR-002, UX-faza 2.1).
@@ -147,23 +216,23 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
-  // null | 'saved' | 'error' — komunikat pod przyciskiem Zapisz, tylko w widoku embedded.
+  // null | 'saved' | 'error' — komunikat pod przyciskiem Zapisz w widoku embedded i mobile.
   const [saveStatus, setSaveStatus] = useState(null);
   const saveStatusTimerRef = useRef(null);
   useEffect(() => () => { if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current); }, []);
 
-  // Zapisz i zamknij — zachowanie sprzed UX-fazy 2.1, używane na mobile oraz w dialogu
-  // potwierdzenia niezapisanych zmian (Zapisz i zamknij / Zapisz i przejdź dalej).
+  // Zapisz i zamknij — zachowanie sprzed UX-fazy 2.1, używane w zwykłym modalu oraz w dialogu
+  // potwierdzenia niezapisanych zmian (Zapisz i zamknij / Zapisz i przejdź dalej / Zapisz i wróć).
   const handleSaveAndClose = async () => {
     const result = await onSave();
     if (result?.error) { setSaveStatus('error'); return; }
-    onClose();
+    finalizeClose();
   };
 
-  // Główny przycisk „Zapisz” w widoku embedded: workspace zostaje otwarty, pokazuje tylko
-  // krótkie potwierdzenie „Zapisano” lub czytelny błąd — bez zamykania (ADR-002, UX-faza 2.1).
+  // Główny przycisk „Zapisz” w widoku embedded/mobile: ekran zostaje otwarty, pokazuje tylko
+  // krótkie potwierdzenie „Zapisano” lub czytelny błąd — bez zamykania (ADR-002, UX-faza 2.1/ADR-003).
   const handleSaveClick = async () => {
-    if (!isEmbedded) { await handleSaveAndClose(); return; }
+    if (!staysOpenOnSave) { await handleSaveAndClose(); return; }
     const result = await onSave();
     if (result?.error) { setSaveStatus('error'); return; }
     setSaveStatus('saved');
@@ -231,21 +300,24 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
-  // Кнопка удаления с подтверждением
-  const renderDeleteBtn = (field, currentItems, index) => {
+  // Кнопка удаления с подтверждением. Tag='td' (по умолчанию, для таблиц) или 'span' (для
+  // мобильных карточек, где обёртка — flex-row <div>, а не <table>/<tr> — ADR-003, Mobile Field
+  // Mode faza 2: раньше здесь всегда возвращался <td>, даже внутри <div>, что было невалидным
+  // HTML — уже существовавший баг в mobile-карточках materials/services, тут же исправленный).
+  const renderDeleteBtn = (field, currentItems, index, Tag = 'td') => {
     const key = `${field}-${index}`;
     if (confirmDeleteKey === key) return (
-      <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+      <Tag style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
         <span style={{ fontSize: '11px', color: '#e53e3e', fontWeight: 'bold', marginRight: '4px' }}>Usunąć?</span>
         <button onClick={() => handleRemoveItem(field, currentItems, index)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', marginRight: '2px' }}>Tak</button>
         <button onClick={() => setConfirmDeleteKey(null)} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
-      </td>
+      </Tag>
     );
     return (
-      <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+      <Tag style={{ padding: '4px 8px', textAlign: 'center' }}>
         <button onClick={() => setConfirmDeleteKey(key)} style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
           onMouseEnter={e => e.target.style.color = '#e53e3e'} onMouseLeave={e => e.target.style.color = '#cbd5e0'} title="Usuń">✖</button>
-      </td>
+      </Tag>
     );
   };
 
@@ -257,21 +329,41 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     color: activeTab === tab ? activeColor : textLight,
   });
 
+  // variant='mobile' (ADR-003, Mobile Field Mode faza 2): pełnoekranowy widok do 767px, zastępuje
+  // dotychczasowy modal-fallback. outerStyle sam jest kontenerem przewijania (jeden główny scroll);
+  // sticky nagłówek/pasek Zapisz wewnątrz innerStyle "przyklejają się" do jego viewportu.
   const outerStyle = isEmbedded
     ? { position: 'relative', width: '100%', height: '100%' }
-    : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
+    : isMobileVariant
+      ? { position: 'fixed', inset: 0, zIndex: 1000, background: bg, overflowY: 'auto' }
+      : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
 
   const innerStyle = {
     background: bg,
     backgroundImage: `linear-gradient(${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']}, ${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']})`,
-    borderRadius: isEmbedded ? '10px' : (isMobile ? 0 : '10px'),
-    width: isEmbedded ? '100%' : '95%',
-    maxWidth: isEmbedded ? '1400px' : '1100px',
+    borderRadius: isEmbedded ? '10px' : isMobileVariant ? 0 : (isMobile ? 0 : '10px'),
+    width: (isEmbedded || isMobileVariant) ? '100%' : '95%',
+    maxWidth: isEmbedded ? '1400px' : isMobileVariant ? 'none' : '1100px',
     padding: '15px',
-    boxShadow: isEmbedded ? 'none' : '0 10px 25px rgba(0,0,0,0.3)',
+    boxShadow: (isEmbedded || isMobileVariant) ? 'none' : '0 10px 25px rgba(0,0,0,0.3)',
     position: 'relative',
-    borderTop: `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
+    borderTop: isMobileVariant ? 'none' : `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
+    minHeight: isMobileVariant ? '100%' : undefined,
   };
+
+  // Etykiety/komunikat dialogu potwierdzenia — wyliczone raz, bez IIFE w JSX (ostatnie powodowało
+  // fałszywy błąd react-hooks/refs, bo finalizeClose zamyka się nad refem historii).
+  const closeLabels = pendingProjectLabel
+    ? { discard: 'Odrzuć zmiany', save: 'Zapisz i przejdź dalej', cancel: 'Anuluj' }
+    : isMobileVariant
+      ? { discard: 'Odrzuć zmiany', save: 'Zapisz i wróć', cancel: 'Anuluj' }
+      : { discard: 'Zamknij bez zapisania', save: 'Zapisz i zamknij', cancel: 'Wróć' };
+
+  const closeMessage = pendingProjectLabel
+    ? `Chcesz otworzyć „${pendingProjectLabel}” — odrzucić niezapisane zmiany w tym projekcie?`
+    : isMobileVariant
+      ? 'Chcesz wrócić do listy projektów — odrzucić niezapisane zmiany?'
+      : 'Czy na pewno chcesz zamknąć bez zapisania?';
 
   return (
     <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
@@ -292,7 +384,114 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </button>
         )}
 
+        {/* Nagłówek mobile (ADR-003, Mobile Field Mode faza 2): przyklejony do góry jedynego
+            scrolla (outerStyle). Ujemne marginesy kompensują padding: '15px' z innerStyle, żeby
+            pasek sięgał krawędzi ekranu. */}
+        {isMobileVariant && (
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 5, background: bg,
+            marginLeft: '-15px', marginRight: '-15px', paddingLeft: '15px', paddingRight: '15px',
+            paddingTop: '2px', paddingBottom: '8px', borderBottom: `2px solid ${border}`,
+          }}>
+            <button
+              onClick={handleClose}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: textLight, fontSize: '13px', fontWeight: 'bold', padding: '4px 2px',
+              }}
+            >
+              ← Projekty
+            </button>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {client.client_name || 'Klient'}
+                  </span>
+                  <button
+                    onClick={() => setClientInfoOpen(true)}
+                    title="Informacje o kliencie"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', padding: 0, flexShrink: 0 }}
+                  >
+                    ℹ️
+                  </button>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {client.project_name || 'Projekt'}
+                </div>
+              </div>
+              <span style={{
+                flexShrink: 0, fontSize: '10.5px', fontWeight: 'bold', color: '#fff',
+                background: STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new,
+                padding: '3px 9px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '1px',
+              }}>
+                {STATUS_LABEL[client.status] || STATUS_LABEL.new}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Sekcja Szczegóły (Koszt/mnożnik/Budżet + rodzaj projektu) — tylko mobile, zwinięta
+            domyślnie, żeby długie dane finansowe nie zajmowały miejsca u góry (ADR-003). */}
+        {isMobileVariant && (
+          <div style={{ marginBottom: '14px' }}>
+            <button
+              onClick={() => setSzczegolyOpen(o => !o)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: bgHeader, border: `1px solid ${border}`, borderRadius: '8px',
+                padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: text }}>Szczegóły</span>
+              <span style={{ fontSize: '11px', color: textLight }}>{szczegolyOpen ? '▾' : '▸'}</span>
+            </button>
+            {szczegolyOpen && (
+              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
+                  <span style={{ color: textLight }}>Koszt: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
+                  <span style={{ color: '#a0aec0' }}>×</span>
+                  <input
+                    type="number" min="1" max="10" step="0.1"
+                    value={coefficient}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      setCoefficient(e.target.value);
+                      if (!isNaN(val) && val > 0) {
+                        setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
+                      }
+                    }}
+                    style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
+                  />
+                  <span style={{ background: bgMatRow, border: `1px solid ${borderMat}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: theme === 'forest' ? '#eafff0' : c('#2b6cb0', '#63b3ed') }}>
+                    Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', color: textLight }}>Rodzaj:</span>
+                  <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                    <button
+                      onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
+                      style={{ padding: '5px 9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg, color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight }}
+                    >
+                      🏢 Firma
+                    </button>
+                    <button
+                      onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
+                      style={{ padding: '5px 9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', background: client.project_scope === 'personal' ? '#3182ce' : bg, color: client.project_scope === 'personal' ? '#fff' : textLight }}
+                    >
+                      👤 Moje
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Шапка */}
+        {!isMobileVariant && (
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px', position: 'relative' }}>
 
           {/* 💾 Zapisz + переключатель Firma/Moje — всегда в правом верхнем углу */}
@@ -380,6 +579,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           </div>
         </div>
+        )}
 
         {/* Модалка редактируемой информации о клиенте */}
         {clientInfoOpen && (
@@ -497,7 +697,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           />
                           <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
                           <strong style={{ color: c('#2b6cb0','#63b3ed'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                          {renderDeleteBtn('calc_materials', calcMaterials, index)}
+                          {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
                         </div>
                       </div>
                     ))}
@@ -586,7 +786,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                             style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 8px', fontSize: '12px', cursor: 'pointer' }}
                           >
                             <div style={{
-                              flex: 1, fontWeight: 'bold', color: text,
+                              flex: 1, minWidth: 0, fontWeight: 'bold', color: text,
                               overflow: 'hidden', textOverflow: 'ellipsis',
                               whiteSpace: isExpanded ? 'normal' : 'nowrap',
                             }}>
@@ -654,7 +854,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           />
                           <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
                           <strong style={{ color: c('#276749','#68d391'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                          {renderDeleteBtn('calc_services', calcServices, index)}
+                          {renderDeleteBtn('calc_services', calcServices, index, 'span')}
                         </div>
                       </div>
                     ))}
@@ -727,7 +927,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     const isSelected = calcServices.some(item => item.id === s.id);
                     return (
                       <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: `1px solid ${border}`, fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? bgSrvRow : bgInput }}>
-                        <div onClick={() => toggleRow(`avail_srv_${s.id}`)} style={{ flex: 1, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_srv_${s.id}`] ? 'normal' : 'nowrap', color: text }}>{s.name}</div>
+                        <div onClick={() => toggleRow(`avail_srv_${s.id}`)} style={{ flex: 1, minWidth: 0, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_srv_${s.id}`] ? 'normal' : 'nowrap', color: text }}>{s.name}</div>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
                           <strong style={{ color: c('#276749','#68d391') }}>{Number(s.price).toFixed(2)} zł</strong>
                           <button onClick={() => handleAddItem('calc_services', calcServices, s)} style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
@@ -751,6 +951,43 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               <div style={{ marginBottom: '15px' }}>
                 <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
               </div>
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {calcExpenses.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodatkowych wydatków</div>}
+                  {calcExpenses.map((item, index) => (
+                    <div key={index} style={{ background: bgExpRow, borderRadius: '7px', border: `1px solid ${borderExp}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
+                      <div style={{ fontWeight: 'bold', color: c('#c53030','#fc8181'), fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {editingPrice === `exp-${index}` ? (
+                          <input autoFocus type="number" step="0.01" value={priceDraft}
+                            onChange={e => setPriceDraft(e.target.value)}
+                            onBlur={() => handlePriceSave('calc_expenses', calcExpenses, index)}
+                            onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_expenses', calcExpenses, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                            style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                          />
+                        ) : (
+                          <span onClick={() => { setEditingPrice(`exp-${index}`); setPriceDraft(String(item.price)); }}
+                            style={{ cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
+                            {Number(item.price).toFixed(2)} zł
+                          </span>
+                        )}
+                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>×</span>
+                        <input type="text"
+                          value={qtyDraft[`exp-${index}`] !== undefined ? qtyDraft[`exp-${index}`] : (item.quantity || 1)}
+                          onFocus={() => handleQtyFocus(`exp-${index}`, item.quantity || 1)}
+                          onChange={e => handleQtyChange(`exp-${index}`, e.target.value)}
+                          onBlur={() => handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`)}
+                          onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`); e.target.blur(); } }}
+                          style={{ width: '65px', padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                        />
+                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
+                        <strong style={{ color: c('#c53030','#fc8181'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
+                        {renderDeleteBtn('calc_expenses', calcExpenses, index, 'span')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
                   <thead>
@@ -800,6 +1037,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 
@@ -810,17 +1048,36 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         </div>
 
-        {/* Подтверждение закрытия / переключения на другой проект (тот же диалог, ADR-002 UX-faza 2.1) */}
+        {/* Закреплённая внизу зона действий (ADR-003, Mobile Field Mode faza 2) — sticky do dołu
+            jedynego scrolla (outerStyle), zamiast globalnej nawigacji dolnej na tym ekranie. */}
+        {isMobileVariant && (
+          <div style={{
+            position: 'sticky', bottom: 0, marginLeft: '-15px', marginRight: '-15px',
+            paddingLeft: '15px', paddingRight: '15px', paddingTop: '10px', paddingBottom: '10px',
+            background: bgHeader, borderTop: `2px solid ${border}`,
+          }}>
+            <button
+              onClick={handleSaveClick}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
+            >
+              💾 Zapisz
+            </button>
+            {saveStatus && (
+              <div style={{ marginTop: '6px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold', color: saveStatus === 'saved' ? '#38a169' : '#e53e3e' }}>
+                {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Подтверждение закрытия / переключения на другой проект / возврата к списку на mobile
+            (тот же диалог, ADR-002 UX-faza 2.1 + ADR-003 faza 2 — не дублируется). */}
         {(confirmClose || pendingProjectLabel) && (
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: isMobileVariant ? 0 : '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
             <div style={{ background: bg, borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '360px', border: `1px solid ${border}` }}>
               <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
               <h3 style={{ margin: '0 0 8px 0', color: text, fontSize: '16px' }}>Masz niezapisane zmiany</h3>
-              <p style={{ margin: '0 0 8px 0', color: textLight, fontSize: '13px' }}>
-                {pendingProjectLabel
-                  ? `Chcesz otworzyć „${pendingProjectLabel}” — odrzucić niezapisane zmiany w tym projekcie?`
-                  : 'Czy na pewno chcesz zamknąć bez zapisania?'}
-              </p>
+              <p style={{ margin: '0 0 8px 0', color: textLight, fontSize: '13px' }}>{closeMessage}</p>
               {saveStatus === 'error' && (
                 <p style={{ margin: '0 0 12px 0', color: '#e53e3e', fontSize: '12px', fontWeight: 'bold' }}>
                   Nie udało się zapisać zmian. Spróbuj ponownie.
@@ -828,27 +1085,27 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
                 <button
-                  onClick={() => { pendingProjectLabel ? onConfirmSwitch?.() : onClose(); }}
+                  onClick={() => { pendingProjectLabel ? onConfirmSwitch?.() : finalizeClose(); }}
                   style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
-                  {pendingProjectLabel ? 'Odrzuć zmiany' : 'Zamknij bez zapisania'}
+                  {closeLabels.discard}
                 </button>
                 <button
                   onClick={async () => {
                     const result = await onSave();
                     if (result?.error) { setSaveStatus('error'); return; }
                     setConfirmClose(false);
-                    pendingProjectLabel ? onConfirmSwitch?.() : onClose();
+                    pendingProjectLabel ? onConfirmSwitch?.() : finalizeClose();
                   }}
                   style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
-                  {pendingProjectLabel ? 'Zapisz i przejdź dalej' : 'Zapisz i zamknij'}
+                  {closeLabels.save}
                 </button>
                 <button
                   onClick={() => { pendingProjectLabel ? onCancelSwitch?.() : setConfirmClose(false); }}
                   style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
-                  {pendingProjectLabel ? 'Anuluj' : 'Wróć'}
+                  {closeLabels.cancel}
                 </button>
               </div>
             </div>

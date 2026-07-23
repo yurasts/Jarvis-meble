@@ -550,11 +550,12 @@ function App() {
         </div>
       )}
 
-      {/* ProjectModal — адаптивный fallback на узком экране (на desktop используется embedded-рабочая область выше) */}
+      {/* ProjectModal — полноэкранный мобильный экран проекта до 767px (ADR-003, Mobile Field Mode
+          faza 2; на desktop/tablet используется embedded-рабочая область выше) */}
       {!isDesktop && activeClient && (
         <ProjectModal
-          key={`modal-${activeClient?.id}-${projectModalTab}`}
-          variant="modal"
+          key={`mobile-${activeClient?.id}-${projectModalTab}`}
+          variant="mobile"
           client={activeClient}
           originalClient={originalClient}
           setClient={setActiveClient}
