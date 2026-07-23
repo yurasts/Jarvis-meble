@@ -97,11 +97,18 @@
   align-items: center;
   gap: 8px;
   padding: 7px 6px;
+  border-left: 3px solid transparent;
   border-radius: 6px;
   cursor: pointer;
 }
 .row:hover, .row:focus-visible { background: var(--bg-menu-hover); }
 .row:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+/* Podświetlenie aktualnie otwartego projektu — widoczne we wszystkich 3 motywach dzięki
+   var(--accent)/var(--accent-soft) (ADR-002, UX-faza 2.1). */
+.rowActive { background: var(--accent-soft); border-left-color: var(--accent); }
+.rowActive:hover { background: var(--accent-soft); }
+.rowActive .rowProject { color: var(--accent); }
 
 .statusDot {
   width: 8px;

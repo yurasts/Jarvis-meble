@@ -16,6 +16,7 @@ export default function ProjectNav({
   canCreate,
   onNewProject,
   onOpenProject,
+  activeProjectId,
   profile,
   displayName,
   onlineUsers = [],
@@ -50,6 +51,7 @@ export default function ProjectNav({
         canCreate={canCreate}
         onNewProject={onNewProject}
         onOpenProject={onOpenProject}
+        activeProjectId={activeProjectId}
       />
 
       {onlineUsers.length > 0 && (
