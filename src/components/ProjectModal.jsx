@@ -330,12 +330,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   });
 
   // variant='mobile' (ADR-003, Mobile Field Mode faza 2): pełnoekranowy widok do 767px, zastępuje
-  // dotychczasowy modal-fallback. outerStyle sam jest kontenerem przewijania (jeden główny scroll);
-  // sticky nagłówek/pasek Zapisz wewnątrz innerStyle "przyklejają się" do jego viewportu.
+  // dotychczasowy modal-fallback. Układ to przewidywalna kolumna flex (bez ujemnych marginesów):
+  // outerStyle → sztywna wysokość viewportu; innerStyle → kolumna [nagłówek][obszar przewijania
+  // flex:1][pasek Zapisz]; przewija się WYŁĄCZNIE środkowy obszar (contentAreaStyle) — nagłówek
+  // i pasek Zapisz są zwykłymi elementami flex (flexShrink:0), nie sticky.
   const outerStyle = isEmbedded
     ? { position: 'relative', width: '100%', height: '100%' }
     : isMobileVariant
-      ? { position: 'fixed', inset: 0, zIndex: 1000, background: bg, overflowY: 'auto' }
+      ? { position: 'fixed', inset: 0, zIndex: 1000, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
       : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
 
   const innerStyle = {
@@ -344,12 +346,18 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     borderRadius: isEmbedded ? '10px' : isMobileVariant ? 0 : (isMobile ? 0 : '10px'),
     width: (isEmbedded || isMobileVariant) ? '100%' : '95%',
     maxWidth: isEmbedded ? '1400px' : isMobileVariant ? 'none' : '1100px',
-    padding: '15px',
+    padding: isMobileVariant ? 0 : '15px',
     boxShadow: (isEmbedded || isMobileVariant) ? 'none' : '0 10px 25px rgba(0,0,0,0.3)',
     position: 'relative',
     borderTop: isMobileVariant ? 'none' : `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
-    minHeight: isMobileVariant ? '100%' : undefined,
+    ...(isMobileVariant ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' } : {}),
   };
+
+  // Jedyny przewijany obszar ekranu mobilnego (między sztywnym nagłówkiem a paskiem Zapisz) —
+  // zawiera Szczegóły, taby i treść tabów bez żadnej zmiany w ich JSX (tylko dodatkowy wrapper).
+  const contentAreaStyle = isMobileVariant
+    ? { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '10px 15px 16px' }
+    : undefined;
 
   // Etykiety/komunikat dialogu potwierdzenia — wyliczone raz, bez IIFE w JSX (ostatnie powodowało
   // fałszywy błąd react-hooks/refs, bo finalizeClose zamyka się nad refem historii).
@@ -384,14 +392,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </button>
         )}
 
-        {/* Nagłówek mobile (ADR-003, Mobile Field Mode faza 2): przyklejony do góry jedynego
-            scrolla (outerStyle). Ujemne marginesy kompensują padding: '15px' z innerStyle, żeby
-            pasek sięgał krawędzi ekranu. */}
+        {/* Nagłówek mobile (ADR-003, Mobile Field Mode faza 2): sztywny element kolumny flex
+            (innerStyle), nie sticky i bez ujemnych marginesów — leży nad przewijanym
+            contentAreaStyle, więc zawsze widoczny i nigdy nie zasłania ostatniego wiersza treści. */}
         {isMobileVariant && (
           <div style={{
-            position: 'sticky', top: 0, zIndex: 5, background: bg,
-            marginLeft: '-15px', marginRight: '-15px', paddingLeft: '15px', paddingRight: '15px',
-            paddingTop: '2px', paddingBottom: '8px', borderBottom: `2px solid ${border}`,
+            flexShrink: 0, background: bg,
+            padding: '10px 15px 8px', borderBottom: `2px solid ${border}`,
           }}>
             <button
               onClick={handleClose}
@@ -431,6 +438,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           </div>
         )}
+
+        {/* Jedyny przewijany obszar treści na mobile (Szczegóły + taby + treść taba) — dla innych
+            wariantów contentAreaStyle jest undefined, więc to zwykły, niestylowany div bez wpływu
+            na desktop/embedded (ADR-003, faza 2: usunięcie ujemnych marginesów). */}
+        <div style={contentAreaStyle}>
 
         {/* Sekcja Szczegóły (Koszt/mnożnik/Budżet + rodzaj projektu) — tylko mobile, zwinięta
             domyślnie, żeby długie dane finansowe nie zajmowały miejsca u góry (ADR-003). */}
@@ -1048,13 +1060,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         </div>
 
-        {/* Закреплённая внизу зона действий (ADR-003, Mobile Field Mode faza 2) — sticky do dołu
-            jedynego scrolla (outerStyle), zamiast globalnej nawigacji dolnej na tym ekranie. */}
+        </div>
+        {/* /contentAreaStyle — koniec jedynego przewijanego obszaru mobile */}
+
+        {/* Zawsze widoczna zona działań na dole (ADR-003, Mobile Field Mode faza 2) — zwykły
+            element kolumny flex (innerStyle), nie sticky, więc fizycznie nigdy nie nachodzi na
+            ostatni wiersz przewijanej treści; env(safe-area-inset-bottom) dodaje margines na
+            strefę bezpieczną telefonu (np. pasek gestów iOS) zamiast na sztywny padding. */}
         {isMobileVariant && (
           <div style={{
-            position: 'sticky', bottom: 0, marginLeft: '-15px', marginRight: '-15px',
-            paddingLeft: '15px', paddingRight: '15px', paddingTop: '10px', paddingBottom: '10px',
-            background: bgHeader, borderTop: `2px solid ${border}`,
+            flexShrink: 0, background: bgHeader, borderTop: `2px solid ${border}`,
+            padding: '10px 15px calc(10px + env(safe-area-inset-bottom))',
           }}>
             <button
               onClick={handleSaveClick}
