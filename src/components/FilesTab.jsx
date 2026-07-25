@@ -27,18 +27,25 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // ✅ FIX: ref для категории — гарантирует актуальное значение в момент загрузки файла
   const uploadCategoryRef = useRef('projekt');
 
-  async function fetchFiles() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('project_files')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('uploaded_at', { ascending: false });
-    if (data) setFiles(data);
-    setLoading(false);
-  }
-
-  useEffect(() => { fetchFiles(); }, [clientId]);
+  // Загрузка списка файлов проекта. Async-функция объявлена и вызвана прямо внутри эффекта
+  // (канонический паттерн React для fetch-в-эффекте: https://react.dev/learn/you-might-not-need-an-effect),
+  // а не как отдельная функция компонента — тело эффекта не делает ни одного синхронного
+  // setState до первого await. Флаг cancelled защищает от записи в state после unmount/смены clientId.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFiles() {
+      const { data } = await supabase
+        .from('project_files')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('uploaded_at', { ascending: false });
+      if (cancelled) return;
+      if (data) setFiles(data);
+      setLoading(false);
+    }
+    loadFiles();
+    return () => { cancelled = true; };
+  }, [clientId]);
 
   async function handleUpload(e) {
     const selected = Array.from(e.target.files);

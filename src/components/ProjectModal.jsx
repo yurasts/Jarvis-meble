@@ -55,12 +55,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const borderSrv = c('#c6f6d5', '#1a4a2e');
   const borderExp = c('#fed7d7', '#7b2020');
 
+  // Вызывающий код всегда передаёт key вида `${client.id}-${initialTab}` (App.jsx), поэтому
+  // при смене проекта/initialTab весь ProjectModal перемонтируется — ленивая инициализация
+  // ниже достаточна, отдельный эффект синхронизации не нужен (был react-hooks/set-state-in-effect).
   const [activeTab, setActiveTab] = useState(initialTab);
-
-  // ✅ При каждом открытии нового проекта или смене initialTab — переключаем вкладку
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [client.id, initialTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -76,12 +74,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [priceDraft, setPriceDraft] = useState('');
   const [qtyDraft, setQtyDraft] = useState({});
 
-  // ✅ FIX: используем useEffect для синхронизации coefficient с client.budget_coefficient
-  // чтобы при повторном открытии того же проекта значение восстанавливалось из БД
+  // Ленивая инициализация из client.budget_coefficient — при смене проекта весь ProjectModal
+  // перемонтируется (key зависит от client.id, см. выше), поэтому значение всегда актуально
+  // при открытии без отдельного эффекта синхронизации (был react-hooks/set-state-in-effect).
   const [coefficient, setCoefficient] = useState(Number(client.budget_coefficient) || 2.0);
-  useEffect(() => {
-    setCoefficient(Number(client.budget_coefficient) || 2.0);
-  }, [client.id]); // перечитываем при смене проекта
 
   const evalQty = (expr) => {
     if (expr === '' || expr === null || expr === undefined) return null;
@@ -241,12 +237,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
   };
 
-  // Автопересчёт бюджета
+  // Автопересчёт бюджета. setClient — стабильный setter из useState в App.jsx (setActiveClient),
+  // его identity не меняется между рендерами, поэтому добавление в deps безопасно и не создаёт цикл.
   useEffect(() => {
     const coef = parseFloat(coefficient) || 1;
     const newBudget = parseFloat((totalProjectCost * coef).toFixed(2));
     setClient(prev => ({ ...prev, budget: newBudget, budget_coefficient: coef }));
-  }, [totalProjectCost, coefficient]);
+  }, [totalProjectCost, coefficient, setClient]);
 
   const uniqueCategories = [...new Set((materials || []).map(m => m.category).filter(Boolean))];
   const uniqueSuppliers  = [...new Set((materials || []).map(m => m.supplier).filter(Boolean))];

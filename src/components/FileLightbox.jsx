@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import s from './FileLightbox.module.css';
 
@@ -11,8 +11,8 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(null);
 
-  const next = () => setIndex(i => (i + 1) % files.length);
-  const prev = () => setIndex(i => (i - 1 + files.length) % files.length);
+  const next = useCallback(() => setIndex(i => (i + 1) % files.length), [files]);
+  const prev = useCallback(() => setIndex(i => (i - 1 + files.length) % files.length), [files]);
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -23,7 +23,7 @@ export default function FileLightbox({ files, categoryLabel, onClose }) {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [files?.length, mode]);
+  }, [mode, next, prev, onClose]);
 
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e) => {

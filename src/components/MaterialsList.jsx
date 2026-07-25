@@ -68,12 +68,19 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
   const [supForm, setSupForm] = useState({ name: '', category: 'Płyty i Blaty', phone: '', hours: '', address: '', notes: '' });
   const [confirmDeleteSupId, setConfirmDeleteSupId] = useState(null);
 
-  async function fetchSuppliers() {
-    const { data } = await supabase.from('suppliers').select('*').order('name');
-    if (data) setSuppliers(data);
-  }
-
-  useEffect(() => { fetchSuppliers(); }, []);
+  // Канонический паттерн React для fetch-в-эффекте (https://react.dev/learn/you-might-not-need-an-effect):
+  // async-функция объявлена и вызвана прямо внутри эффекта, флаг cancelled защищает от
+  // записи в state после unmount.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSuppliers() {
+      const { data } = await supabase.from('suppliers').select('*').order('name');
+      if (cancelled) return;
+      if (data) setSuppliers(data);
+    }
+    loadSuppliers();
+    return () => { cancelled = true; };
+  }, []);
 
   const openAddModal = () => {
     setEditingSupplierId(null);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import FileLightbox from './FileLightbox';
+import { nextTaskId } from './dashboardHelpers';
 import s from './Dashboard.module.css';
 
 const initials = (name) => (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -50,29 +51,36 @@ const Dashboard = ({
   const [addTaskModal, setAddTaskModal] = useState(null); // project | null
   const [clientInfoModal, setClientInfoModal] = useState(null); // { clientName, address, phone } | null
   const [expandedProjects, setExpandedProjects] = useState(new Set()); // id проектов, развёрнутых в аккордеоне
-  const [highlightedTaskId, setHighlightedTaskId] = useState(null);
 
-  // Переход к задаче из глобального поиска: разворачиваем клиента и проект, подсвечиваем задачу
+  // Переход к задаче из глобального поиска. Пока focusTarget активен, раскрытие
+  // клиента/проекта и подсветка задачи вычисляются прямо при рендере (ниже, по месту
+  // использования) — никакого синхронного setState в эффекте для самого "открытия".
+  // Эффект отвечает только за то, что не может быть чистым рендер-выводом:
+  // - через 150ms — внешний DOM-эффект (scrollIntoView);
+  // - через 2500ms — фиксация раскрытого состояния в collapsedClients/expandedProjects
+  //   (чтобы после снятия focusTarget интерфейс не "схлопнулся" обратно) и сброс
+  //   focusTarget через onFocusHandled. setState в колбэке таймера — это завершение
+  //   переходного состояния по времени, а не искусственная задержка ради линтера.
   useEffect(() => {
     if (!focusTarget) return;
     const { clientName, projectId, taskId } = focusTarget;
 
-    setCollapsedClients(prev => {
-      const next = new Set(prev);
-      next.delete(clientName);
-      return next;
-    });
-    setExpandedProjects(prev => new Set(prev).add(projectId));
-    setHighlightedTaskId(taskId);
-
     const scrollTimer = setTimeout(() => {
       document.getElementById(`task-${taskId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 150);
-    const clearTimer = setTimeout(() => setHighlightedTaskId(null), 2500);
 
-    onFocusHandled?.();
-    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
-  }, [focusTarget]);
+    const settleTimer = setTimeout(() => {
+      setCollapsedClients(prev => {
+        const next = new Set(prev);
+        next.delete(clientName);
+        return next;
+      });
+      setExpandedProjects(prev => new Set(prev).add(projectId));
+      onFocusHandled?.();
+    }, 2500);
+
+    return () => { clearTimeout(scrollTimer); clearTimeout(settleTimer); };
+  }, [focusTarget, onFocusHandled]);
 
   useEffect(() => {
     const loadFileCounts = async () => {
@@ -132,7 +140,7 @@ const Dashboard = ({
     if (!params?.text) return;
     const project = activeProjects.find(c => c.id === clientId);
     const newTask = {
-      id: Date.now(), text: params.text, date: params.date || '', isDone: false,
+      id: nextTaskId(project.tasks), text: params.text, date: params.date || '', isDone: false,
       createdById: currentProfile?.id || null, createdByName: currentProfile?.full_name || null,
       createdByColor: currentProfile?.color || '#718096', createdAt: new Date().toISOString(),
     };
@@ -193,7 +201,9 @@ const Dashboard = ({
           <div className={s.empty}>Brak aktywnych projektów.</div>
         ) : (
           groups.map(([clientName, projects]) => {
-            const isCollapsed = collapsedClients.has(clientName);
+            // Пока идёт переход к задаче из поиска (focusTarget) — клиент считается
+            // раскрытым независимо от collapsedClients, без ожидания эффекта.
+            const isCollapsed = focusTarget?.clientName === clientName ? false : collapsedClients.has(clientName);
             const groupAddress = projects.find(p => p.address)?.address;
             const groupPhone   = projects.find(p => p.phone)?.phone;
             return (
@@ -229,7 +239,9 @@ const Dashboard = ({
 
                 {/* Проекты клиента */}
                 {!isCollapsed && projects.map(project => {
-                  const isProjectExpanded = expandedProjects.has(project.id);
+                  // Аналогично isCollapsed выше — проект из focusTarget считается развёрнутым
+                  // сразу, не дожидаясь эффекта, который позже зафиксирует это в expandedProjects.
+                  const isProjectExpanded = focusTarget?.projectId === project.id ? true : expandedProjects.has(project.id);
                   const allTasksCount = (project.tasks || []).length;
                   const availableCats = FILE_CATEGORIES.filter(cat => (fileCounts[project.id]?.[cat.key] || 0) > 0);
                   return (
@@ -314,7 +326,7 @@ const Dashboard = ({
                                     <div
                                       key={task.id}
                                       id={`task-${task.id}`}
-                                      className={`${taskItemClass} ${highlightedTaskId === task.id ? s.taskHighlighted : ''}`}
+                                      className={`${taskItemClass} ${focusTarget?.taskId === task.id ? s.taskHighlighted : ''}`}
                                     >
                                       <div className={s.taskRow}>
                                         <input type="checkbox" checked={task.isDone}
