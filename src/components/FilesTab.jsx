@@ -9,6 +9,13 @@ const CATEGORIES = [
   { id: 'inne',    label: 'Inne',      icon: '📄' },
 ];
 
+// Подписи только для кнопок-фильтров категорий файлов (не влияют на CATEGORIES —
+// он используется и в выпадающем списке загрузки, там подписи остаются прежними).
+const FILTER_LABEL_OVERRIDES = {
+  projekt: 'Zadanie',
+  usterki: 'Projekt',
+};
+
 const isImage = (type) => type && type.startsWith('image/');
 const isPdf   = (type) => type === 'application/pdf';
 
@@ -159,7 +166,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                 cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
               }}
             >
-              {c.icon} {c.label} {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
+              {c.icon} {FILTER_LABEL_OVERRIDES[c.id] || c.label} {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
             </button>
           );
         })}
