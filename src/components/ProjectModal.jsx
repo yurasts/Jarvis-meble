@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
 
 // Лёгкая заливка фона по статусу проекта
@@ -26,7 +26,7 @@ const STATUS_LABEL = {
   done:       'Gotowe',
 };
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, profilesById = {}, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch }) => {
   const isMobile = window.innerWidth < 640;
   // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
   // variant='mobile' — полноэкранный мобильный экран проекта до 767px (ADR-003, Mobile Field
@@ -87,10 +87,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     if (expr === '' || expr === null || expr === undefined) return null;
     const str = String(expr).replace(',', '.').replace(/[^0-9+\-*/.()\s]/g, '');
     try {
-      // eslint-disable-next-line no-new-func
       const result = Function('"use strict"; return (' + str + ')')();
       if (typeof result === 'number' && isFinite(result) && result > 0) return parseFloat(result.toFixed(4));
-    } catch {}
+    } catch {
+      return null;
+    }
     return null;
   };
 

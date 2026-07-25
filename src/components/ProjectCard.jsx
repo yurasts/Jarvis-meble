@@ -1,4 +1,3 @@
-import React from 'react';
 import s from './Dashboard.module.css';
 import TaskItem from './TaskItem';
 import { FILE_CATEGORIES } from './dashboardHelpers';

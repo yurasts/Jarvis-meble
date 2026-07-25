@@ -1,4 +1,3 @@
-import React from 'react';
 import s from './Dashboard.module.css';
 
 export default function ClientInfoModal({ info, onClose }) {

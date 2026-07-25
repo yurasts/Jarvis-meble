@@ -462,7 +462,6 @@ function App() {
             onSave={handleUpdateClient}
             onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
             currentProfile={profile}
-            profilesById={profilesById}
             isDark={isDarkish}
             theme={theme}
             initialTab={projectModalTab}
@@ -479,7 +478,6 @@ function App() {
             updateClient={updateClientFields}
             openProjectModal={requestOpenProject}
             setIsModalOpen={setIsModalOpen}
-            profilesById={profilesById}
             canCreate={canCreate}
             currentProfile={profile}
             isDark={isDarkish}
@@ -497,7 +495,6 @@ function App() {
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
             updateClient={updateClientFields}
-            profilesById={profilesById}
             isDark={isDarkish}
             scopeView={scopeView}
             setScopeView={setScopeView}
@@ -565,7 +562,6 @@ function App() {
           onSave={handleUpdateClient}
           onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
           currentProfile={profile}
-          profilesById={profilesById}
           isDark={isDarkish}
           theme={theme}
           initialTab={projectModalTab}

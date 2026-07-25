@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 
 const CATEGORIES = [
@@ -27,8 +27,6 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // ✅ FIX: ref для категории — гарантирует актуальное значение в момент загрузки файла
   const uploadCategoryRef = useRef('projekt');
 
-  useEffect(() => { fetchFiles(); }, [clientId]);
-
   async function fetchFiles() {
     setLoading(true);
     const { data } = await supabase
@@ -39,6 +37,8 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
     if (data) setFiles(data);
     setLoading(false);
   }
+
+  useEffect(() => { fetchFiles(); }, [clientId]);
 
   async function handleUpload(e) {
     const selected = Array.from(e.target.files);

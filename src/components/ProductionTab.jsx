@@ -1,4 +1,3 @@
-import React from 'react';
 import s from './ProductionTab.module.css';
 
 const STANDARD_STEPS = [

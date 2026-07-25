@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import InvoiceScanner from './InvoiceScanner';
 import { supabase } from '../supabase';
 
 // Стрелка тренда цены
-const PriceTrend = ({ mat, isDark = false }) => {
+const PriceTrend = ({ mat }) => {
   const [showHistory, setShowHistory] = useState(false);
   const history = mat.price_history || [];
   const last = history.length > 0 ? history[history.length - 1] : null;
@@ -68,12 +68,12 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
   const [supForm, setSupForm] = useState({ name: '', category: 'Płyty i Blaty', phone: '', hours: '', address: '', notes: '' });
   const [confirmDeleteSupId, setConfirmDeleteSupId] = useState(null);
 
-  useEffect(() => { fetchSuppliers(); }, []);
-
   async function fetchSuppliers() {
     const { data } = await supabase.from('suppliers').select('*').order('name');
     if (data) setSuppliers(data);
   }
+
+  useEffect(() => { fetchSuppliers(); }, []);
 
   const openAddModal = () => {
     setEditingSupplierId(null);
@@ -183,7 +183,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                   <tr key={mat.id} style={{ background: index % 2 === 0 ? stripe1 : stripe2, lineHeight: '1.2' }}>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.category}</td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>
-                      <PriceTrend mat={mat} isDark={isDark} />
+                      <PriceTrend mat={mat} />
                     </td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>{mat.name}</td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.unit}</td>

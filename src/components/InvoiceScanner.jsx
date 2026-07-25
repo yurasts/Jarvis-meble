@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '../supabase';
 
 export default function InvoiceScanner({ materials, onPricesUpdated, isDark = false }) {

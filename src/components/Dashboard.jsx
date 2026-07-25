@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import FileLightbox from './FileLightbox';
 import s from './Dashboard.module.css';
@@ -32,7 +32,7 @@ const groupByClient = (projects) => {
 
 const Dashboard = ({
   clients, updateClient, openProjectModal, setIsModalOpen,
-  profilesById = {}, canCreate = true, currentProfile = null,
+  canCreate = true, currentProfile = null,
   focusTarget = null, onFocusHandled,
   scopeView, setScopeView,
 }) => {

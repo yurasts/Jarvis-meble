@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import s from './KanbanBoard.module.css';
 
@@ -36,7 +36,6 @@ export default function KanbanBoard({
   handleDragOver,
   handleDrop,
   updateClient,
-  profilesById = {},
   scopeView,
   setScopeView,
 }) {
