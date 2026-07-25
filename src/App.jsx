@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from './supabase'
-import { useAuth } from './AuthContext'
+import { useAuth } from './useAuth'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import KanbanBoard from './components/KanbanBoard'
@@ -66,6 +66,9 @@ function App() {
   const [isModalOpen,     setIsModalOpen]     = useState(false)
   const [activeClient,    setActiveClient]    = useState(null)
   const [searchFocusTarget, setSearchFocusTarget] = useState(null) // { clientName, projectId, taskId } | null
+  // Стабильная ссылка на колбэк — иначе эффект Dashboard, зависящий от onFocusHandled,
+  // перезапускался бы на каждый ре-рендер App.jsx (onFocusHandled менял бы identity).
+  const handleSearchFocusHandled = useCallback(() => setSearchFocusTarget(null), [])
   const [originalClient,  setOriginalClient]  = useState(null)
   // Czy aktualnie zamontowany ProjectModal (embedded lub modal) zgłasza niezapisane zmiany —
   // źródło prawdy pozostaje w ProjectModal (isDirty), tu tylko odbieramy stan (ADR-002, UX-faza 2.1).
@@ -109,14 +112,6 @@ function App() {
       document.removeEventListener('mousedown', handler)
     }
   }, [menuOpen])
-
-  // Один раз подставляем вид Firma/Moje по умолчанию, когда профиль сотрудника загрузится
-  useEffect(() => {
-    const p = localProfile ?? authProfile
-    if (scopeView === null && p) {
-      setScopeView(p.default_scope || 'firma')
-    }
-  }, [localProfile, authProfile])
 
   useEffect(() => {
     if (!session) return
@@ -297,6 +292,9 @@ function App() {
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
   const displayName = profile?.full_name || session.user.email
+  // Firma/Moje: пока пользователь не переключил вручную (scopeView===null) — берём
+  // default_scope профиля сотрудника, посчитанный прямо при рендере, без эффекта синхронизации.
+  const effectiveScope = scopeView ?? profile?.default_scope ?? 'firma'
 
   // Онлайн-пользователи кроме себя
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
@@ -330,7 +328,7 @@ function App() {
         activeTab={activeTab}
         onSelectTab={goToTab}
         clients={clients}
-        scopeView={scopeView}
+        scopeView={effectiveScope}
         setScopeView={setScopeView}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
@@ -402,7 +400,7 @@ function App() {
             <div style={{ maxHeight: '50vh', overflowY: 'auto', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
               <ProjectListPanel
                 clients={clients}
-                scopeView={scopeView}
+                scopeView={effectiveScope}
                 setScopeView={setScopeView}
                 canCreate={canCreate}
                 onNewProject={() => { setMenuOpen(false); setIsModalOpen(true); }}
@@ -462,7 +460,6 @@ function App() {
             onSave={handleUpdateClient}
             onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
             currentProfile={profile}
-            profilesById={profilesById}
             isDark={isDarkish}
             theme={theme}
             initialTab={projectModalTab}
@@ -479,13 +476,12 @@ function App() {
             updateClient={updateClientFields}
             openProjectModal={requestOpenProject}
             setIsModalOpen={setIsModalOpen}
-            profilesById={profilesById}
             canCreate={canCreate}
             currentProfile={profile}
             isDark={isDarkish}
             focusTarget={searchFocusTarget}
-            onFocusHandled={() => setSearchFocusTarget(null)}
-            scopeView={scopeView}
+            onFocusHandled={handleSearchFocusHandled}
+            scopeView={effectiveScope}
             setScopeView={setScopeView}
           />
         )}
@@ -497,9 +493,8 @@ function App() {
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
             updateClient={updateClientFields}
-            profilesById={profilesById}
             isDark={isDarkish}
-            scopeView={scopeView}
+            scopeView={effectiveScope}
             setScopeView={setScopeView}
           />
         )}
@@ -565,7 +560,6 @@ function App() {
           onSave={handleUpdateClient}
           onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
           currentProfile={profile}
-          profilesById={profilesById}
           isDark={isDarkish}
           theme={theme}
           initialTab={projectModalTab}
@@ -636,7 +630,7 @@ function App() {
       <MobileProjectsScreen
         visible={showMobileProjects}
         clients={clients}
-        scopeView={scopeView}
+        scopeView={effectiveScope}
         setScopeView={setScopeView}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}

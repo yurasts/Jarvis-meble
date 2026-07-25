@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { nextTaskId } from './dashboardHelpers';
 import s from './KanbanBoard.module.css';
 
 const STATUS_COLOR = {
@@ -36,7 +37,6 @@ export default function KanbanBoard({
   handleDragOver,
   handleDrop,
   updateClient,
-  profilesById = {},
   scopeView,
   setScopeView,
 }) {
@@ -76,7 +76,7 @@ export default function KanbanBoard({
 
   const submitAddTask = (client) => {
     if (!newTaskText.trim() || !updateClient) { setAddingTaskFor(null); return; }
-    const newTask = { id: Date.now(), text: newTaskText.trim(), isDone: false, date: '' };
+    const newTask = { id: nextTaskId(client.tasks), text: newTaskText.trim(), isDone: false, date: '' };
     updateClient(client.id, { tasks: [...(client.tasks || []), newTask] });
     setAddingTaskFor(null);
     setNewTaskText('');

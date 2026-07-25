@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from './supabase'
-
-const AuthContext = createContext(null)
+import { AuthContext } from './authContextCore'
 
 export function AuthProvider({ children }) {
   const [session,        setSession]        = useState(undefined)
@@ -11,20 +10,27 @@ export function AuthProvider({ children }) {
 
   // ✅ Presence: кто сейчас онлайн { userId: { profile, activeTab } }
   const [onlineUsers, setOnlineUsers] = useState({})
-  const [presenceChannel, setPresenceChannel] = useState(null)
+  // Канал presence живёт в ref, а не в state — сам по себе не влияет на рендер,
+  // и не требует synchronous setState внутри эффекта его создания (см. ниже).
+  const presenceChannelRef = useRef(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data?.session ?? null))
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)
+      // Очистка профиля при выходе — здесь, в асинхронном auth-колбэке, а не
+      // синхронным каскадом setState в зависимом эффекте ниже.
+      if (!newSession) {
+        setProfile(null)
+        setProfilesById({})
+        setProfilesLoaded(false)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
-    if (!session) {
-      setProfile(null); setProfilesById({}); setProfilesLoaded(false); return
-    }
+    if (!session) return
     async function loadProfiles() {
       const { data } = await supabase.from('profiles').select('*')
       if (data) {
@@ -41,17 +47,21 @@ export function AuthProvider({ children }) {
     document.documentElement.setAttribute('data-theme', profile?.theme || 'light')
   }, [profile?.theme])
 
-  // ✅ Presence: подключаемся к каналу когда профиль загружен
-  useEffect(() => {
-    if (!session || !profile) return
+  // ✅ Presence: подключаемся к каналу когда профиль загружен.
+  // Примитивы вместо объектов session/profile в зависимостях — эффект (пересоздание
+  // канала) реагирует именно на смену пользователя/сессии и на смену имени/цвета
+  // (то, что реально трекается), а не на любую смену ссылки на объект profile
+  // (например, смену theme, которая presence не касается).
+  const sessionUserId   = session?.user?.id
+  const profileId       = profile?.id
+  const profileFullName = profile?.full_name
+  const profileColor    = profile?.color || '#718096'
 
-    // Отписываемся от предыдущего канала если был
-    if (presenceChannel) {
-      supabase.removeChannel(presenceChannel)
-    }
+  useEffect(() => {
+    if (!sessionUserId || !profileId) return
 
     const channel = supabase.channel('jarvis-online', {
-      config: { presence: { key: session.user.id } }
+      config: { presence: { key: sessionUserId } }
     })
 
     channel
@@ -68,31 +78,37 @@ export function AuthProvider({ children }) {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({
-            userId:    profile.id,
-            fullName:  profile.full_name,
-            color:     profile.color || '#718096',
+            userId:    profileId,
+            fullName:  profileFullName,
+            color:     profileColor,
             activeTab: 'dashboard',
           })
         }
       })
 
-    setPresenceChannel(channel)
+    presenceChannelRef.current = channel
 
     return () => {
       supabase.removeChannel(channel)
+      // Снимаем ref, только если он всё ещё указывает на канал именно этого
+      // эффекта — StrictMode-двойной mount не оставит "чужой" канал висящим.
+      if (presenceChannelRef.current === channel) {
+        presenceChannelRef.current = null
+      }
     }
-  }, [session?.user?.id, profile?.id])
+  }, [sessionUserId, profileId, profileFullName, profileColor])
 
   // ✅ Обновляем активную вкладку в Presence
   const updatePresenceTab = useCallback(async (tab) => {
-    if (!presenceChannel || !profile) return
-    await presenceChannel.track({
+    const channel = presenceChannelRef.current
+    if (!channel || !profile) return
+    await channel.track({
       userId:    profile.id,
       fullName:  profile.full_name,
       color:     profile.color || '#718096',
       activeTab: tab,
     })
-  }, [presenceChannel, profile])
+  }, [profile])
 
   async function updateTheme(newTheme) {
     if (!profile) return
@@ -118,8 +134,4 @@ export function AuthProvider({ children }) {
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  return useContext(AuthContext)
 }

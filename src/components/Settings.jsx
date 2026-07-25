@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../supabase';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../useAuth';
 import s from './Settings.module.css';
 
 const PALETTE = [

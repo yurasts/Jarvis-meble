@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import s from './GlobalSearch.module.css';
 
@@ -22,6 +22,9 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  // Позиция дропдауна — состояние, а не чтение ref.current во время рендера (react-hooks/refs);
+  // измеряется через layout-эффект при открытии и обновляется на resize/scroll.
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 400 });
   const inputRef = useRef(null);
   const wrapRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -103,12 +106,31 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
     if (materialMatches.length) result.push({ label: 'Materiały', items: materialMatches });
 
     return result;
-  }, [query, clients, materials]);
+  }, [query, clients, materials, onNavigate]);
 
   // Плоский список для навигации стрелками
   const flatItems = useMemo(() => groups.flatMap(g => g.items), [groups]);
 
-  useEffect(() => { setActiveIndex(0); }, [query]);
+  const showDropdown = isOpen && query.trim().length > 0;
+
+  // Позиция дропдауна над input — измеряется, а не читается из ref.current во время рендера
+  // (react-hooks/refs). Пересчитывается при открытии и на resize/scroll, пока дропдаун открыт.
+  const measureDropdownPosition = useCallback(() => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDropdownPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!showDropdown) return;
+    measureDropdownPosition();
+    window.addEventListener('resize', measureDropdownPosition);
+    window.addEventListener('scroll', measureDropdownPosition, true);
+    return () => {
+      window.removeEventListener('resize', measureDropdownPosition);
+      window.removeEventListener('scroll', measureDropdownPosition, true);
+    };
+  }, [showDropdown, measureDropdownPosition]);
 
   const handleSelect = (item) => {
     item.action();
@@ -140,7 +162,7 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
         <input
           ref={inputRef}
           value={query}
-          onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
+          onChange={e => { setQuery(e.target.value); setActiveIndex(0); setIsOpen(true); }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search clients, projects, tasks or materials..."
@@ -149,15 +171,15 @@ export default function GlobalSearch({ clients = [], materials = [], onNavigate 
         <span className={s.kbd}>Ctrl+K</span>
       </div>
 
-      {isOpen && query.trim() && createPortal(
+      {showDropdown && createPortal(
         <div
           ref={dropdownRef}
           className={s.dropdown}
           style={{
             position: 'absolute',
-            top: (wrapRef.current?.getBoundingClientRect().bottom || 0) + 6,
-            left: wrapRef.current?.getBoundingClientRect().left || 0,
-            width: wrapRef.current?.getBoundingClientRect().width || 400,
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
           }}
         >
           {groups.length === 0 ? (
