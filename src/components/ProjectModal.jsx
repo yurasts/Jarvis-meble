@@ -58,15 +58,19 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Вызывающий код всегда передаёт key вида `${client.id}-${initialTab}` (App.jsx), поэтому
   // при смене проекта/initialTab весь ProjectModal перемонтируется — ленивая инициализация
   // ниже достаточна, отдельный эффект синхронизации не нужен (был react-hooks/set-state-in-effect).
-  // На desktop/embedded вкладки "Pliki" больше нет (файлы — компактная полка в шапке, см. ниже),
-  // поэтому initialTab='files' безопасно откатывается на 'materials'; сама полка вместо этого
-  // открывается развёрнутой (initialShelfExpanded на <FilesTab variant="shelf">, ниже).
+  // На desktop/embedded и на mobile отдельной вкладки "Pliki" больше нет (файлы — компактная
+  // полка: в шапке на desktop/embedded, внутри прокручиваемого контента на mobile — см. ниже),
+  // поэтому initialTab='files' безопасно откатывается на 'materials' в обоих случаях; сама полка
+  // вместо этого открывается развёрнутой (filesShelfExpanded ниже). Настоящая вкладка "Pliki"
+  // остаётся только у variant='modal' (fallback вне embedded/mobile).
   const [activeTab, setActiveTab] = useState(
-    (isEmbedded && initialTab === 'files') ? 'materials' : initialTab
+    ((isEmbedded || isMobileVariant) && initialTab === 'files') ? 'materials' : initialTab
   );
-  // Развёрнутость полки Pliki в шапке (только isEmbedded) — состояние поднято сюда (контролируемый
-  // FilesTab через expanded/onExpandedChange), потому что от него зависит CSS-раскладка всей шапки
-  // (при разворачивании полка должна занять всю ширину под компактной строкой Klient/.../Zapisz).
+  // Развёрнутость полки Pliki (isEmbedded — в шапке; isMobileVariant — в контенте) — состояние
+  // поднято сюда (контролируемый FilesTab через expanded/onExpandedChange), потому что от него
+  // зависит CSS-раскладка шапки на desktop/embedded (полка занимает всю ширину под компактной
+  // строкой Klient/.../Zapisz); один и тот же стейт переиспользуется для mobile, т.к. варианты
+  // взаимно исключают друг друга — в любой момент активен ровно один.
   const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
@@ -509,6 +513,27 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </div>
         )}
 
+        {/* Polka plików (mobile, feat/mobile-files-zoom): ten sam <FilesTab variant="shelf">
+            co w desktop/embedded header, tylko mobileLayout=true (większe touch-targety, licznik
+            wbudowany w tekst opcji selectora, etykieta "📎 Pliki" ukryta). Leży wewnątrz jedynego
+            przewijanego obszaru (contentAreaStyle) — po Szczegółach, przed tabami — jako zwykły
+            element flow, bez position:fixed/sticky, więc przewija się razem z resztą treści.
+            Jeden zamontowany FilesTab i jeden fetch — dokładnie jak na desktop/embedded. */}
+        {isMobileVariant && (
+          <div style={{ marginBottom: '14px' }}>
+            <FilesTab
+              variant="shelf"
+              mobileLayout
+              clientId={client.id}
+              currentProfile={currentProfile}
+              coverUrl={client.cover_url}
+              onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
+              expanded={filesShelfExpanded}
+              onExpandedChange={setFilesShelfExpanded}
+            />
+          </div>
+        )}
+
         {/* Шапка */}
         {!isMobileVariant && (
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
@@ -694,20 +719,23 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           </div>
         )}
-        {/* Табы — тёмная тема */}
+        {/* Табы — тёмная тема. На mobile — короткие подписи без сумм (иначе три вкладки не
+            помещаются на 320-430px и "Wydatki" обрезается справа); desktop/embedded сохраняют
+            суммы в названиях без изменений. */}
         <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
           <button onClick={() => setActiveTab('materials')} style={tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' })}>
-            📦 Materiały ({totalMaterials.toFixed(2)} zł)
+            📦 Materiały{!isMobileVariant && ` (${totalMaterials.toFixed(2)} zł)`}
           </button>
           <button onClick={() => setActiveTab('services')} style={tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' })}>
-            🛠 Usługi ({totalServices.toFixed(2)} zł)
+            🛠 Usługi{!isMobileVariant && ` (${totalServices.toFixed(2)} zł)`}
           </button>
           <button onClick={() => setActiveTab('expenses')} style={tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' })}>
-            💸 Wydatki ({totalExpenses.toFixed(2)} zł)
+            💸 Wydatki{!isMobileVariant && ` (${totalExpenses.toFixed(2)} zł)`}
           </button>
-          {/* Pliki — не отдельная вкладка на desktop/embedded, там это полка в шапке выше
-              (UX-прототип: Project Files Header Shelf). На mobile/modal-fallback — без изменений. */}
-          {!isEmbedded && (
+          {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
+              (полка в контенте, feat/mobile-files-zoom) — только у настоящего modal-fallback
+              (variant='modal', вне embedded/mobile), где полки нет вовсе. */}
+          {!isEmbedded && !isMobileVariant && (
             <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
               📎 Pliki
             </button>
@@ -748,7 +776,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                             onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
                             onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
                             onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
-                            style={{ width: '65px', padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                            style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
                           />
                           <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
                           <strong style={{ color: c('#2b6cb0','#63b3ed'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
@@ -905,7 +933,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                             onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
                             onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
                             onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
-                            style={{ width: '65px', padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                            style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
                           />
                           <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
                           <strong style={{ color: c('#276749','#68d391'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
@@ -1033,7 +1061,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           onChange={e => handleQtyChange(`exp-${index}`, e.target.value)}
                           onBlur={() => handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`)}
                           onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`); e.target.blur(); } }}
-                          style={{ width: '65px', padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                          style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
                         />
                         <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
                         <strong style={{ color: c('#c53030','#fc8181'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
@@ -1096,9 +1124,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           )}
 
-          {/* ФАЙЛЫ — только mobile/modal-fallback; на desktop/embedded FilesTab уже смонтирован
-              в шапке (variant="shelf") и activeTab никогда не равен 'files' (см. initialTab выше). */}
-          {!isEmbedded && activeTab === 'files' && (
+          {/* ФАЙЛЫ — только настоящий modal-fallback; на desktop/embedded и на mobile FilesTab
+              уже смонтирован как полка (variant="shelf") выше, и activeTab никогда не равен
+              'files' в этих двух вариантах (см. initialTab выше). */}
+          {!isEmbedded && !isMobileVariant && activeTab === 'files' && (
             <FilesTab variant="tab" clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
           )}
 

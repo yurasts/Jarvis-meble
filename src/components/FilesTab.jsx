@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../supabase';
+import FileLightbox from './FileLightbox';
 
 // Единая таблица четырёх реальных папок — общая для variant='shelf' и variant='tab' (оба
 // используют один и тот же селектор одновременно как фильтр видимых файлов и как категорию
@@ -31,11 +32,12 @@ const pluralPliki = (n) => {
   return 'plików';
 };
 
-// variant='tab' — прежний полноразмерный интерфейс вкладки Pliki (mobile Field Mode и
-// desktop/embedded modal-fallback без изменений); variant='shelf' — новая компактная полка
-// в шапке desktop/embedded (UX-прототип). Один компонент, один files-стейт, один fetch —
-// переключается только JSX-вывод, никакого второго монтирования/запроса.
-export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverChange, variant = 'tab', initialShelfExpanded = false, expanded: expandedProp, onExpandedChange }) {
+// variant='tab' — прежний полноразмерный интерфейс вкладки Pliki (только desktop/embedded
+// modal-fallback после переноса mobile на полку — см. ниже); variant='shelf' — компактная полка,
+// используемая и в шапке desktop/embedded, и (с mobileLayout=true) внутри прокручиваемого
+// контента mobile-экрана проекта (ADR-003 + feat/mobile-files-zoom). Один компонент, один
+// files-стейт, один fetch — переключается только JSX-вывод, никакого второго монтирования/запроса.
+export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverChange, variant = 'tab', initialShelfExpanded = false, expanded: expandedProp, onExpandedChange, mobileLayout = false }) {
   const isShelf = variant === 'shelf';
   const [files,          setFiles]          = useState([]);
   const [loading,        setLoading]        = useState(true);
@@ -48,13 +50,15 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   const [editingComment, setEditingComment] = useState(null);
   const [commentDraft,   setCommentDraft]   = useState('');
   const [confirmDeleteId,setConfirmDeleteId]= useState(null);
-  const [lightbox,       setLightbox]       = useState(null);
+  // id файла, открытого в общем FileLightbox (не url — id стабилен и однозначно находит позицию
+  // в текущей отфильтрованной по категории подборке images, даже если files успел измениться).
+  const [lightboxFileId, setLightboxFileId] = useState(null);
   const [settingCover,   setSettingCover]   = useState(false); // лоадер при выборе обложки
-  // Полка Pliki (только variant='shelf'): свёрнута по умолчанию, кроме случая, когда
-  // ProjectModal явно просит открыть её развёрнутой (initialTab='files' на desktop/embedded).
-  // Может управляться снаружи (expanded/onExpandedChange — ProjectModal меняет layout шапки
-  // на полную ширину при развороте) либо оставаться неконтролируемым состоянием самого
-  // компонента — оба режима используют один и тот же смонтированный экземпляр FilesTab.
+  // Полка Pliki (variant='shelf'): свёрнута по умолчанию, кроме случая, когда ProjectModal явно
+  // просит открыть её развёрнутой (initialTab='files' на desktop/embedded и на mobile). Может
+  // управляться снаружи (expanded/onExpandedChange — родитель меняет layout шапки/контента при
+  // разворачивании) либо оставаться неконтролируемым состоянием самого компонента — оба режима
+  // используют один и тот же смонтированный экземпляр FilesTab.
   const isExpandedControlled = expandedProp !== undefined;
   const [internalShelfExpanded, setInternalShelfExpanded] = useState(initialShelfExpanded);
   const shelfExpanded = isExpandedControlled ? expandedProp : internalShelfExpanded;
@@ -145,10 +149,35 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
 
   // Ни один из двух вариантов больше не предлагает "Wszystkie" в селекторе — activeCategory
   // всегда одна из 4 реальных папок, поэтому фильтрация всегда точечная по категории.
-  const visible = files.filter(f => f.category === activeCategory);
-
-  const images = visible.filter(f => isImage(f.file_type));
+  // useMemo — не просто оптимизация: images передаётся в FileLightbox как проп files, от
+  // которого зависят его next/prev (useCallback) и, соответственно, эффект подписки на keydown
+  // (Escape/стрелки); без мемоизации новый массив на КАЖДЫЙ рендер FilesTab (включая никак не
+  // связанные с файлами изменения — editingComment, confirmDeleteId и т.п.) пересоздавал бы
+  // next/prev и постоянно пересобирал слушатель, а не только при реальном изменении набора файлов.
+  const visible = useMemo(() => files.filter(f => f.category === activeCategory), [files, activeCategory]);
+  const images = useMemo(() => visible.filter(f => isImage(f.file_type)), [visible]);
   const docs   = visible.filter(f => !isImage(f.file_type));
+
+  // Общий FileLightbox (перенос из бывшей внутренней renderLightbox — теперь используется тот
+  // же компонент, что и в Dashboard.jsx). files — только изображения ТЕКУЩЕЙ отфильтрованной
+  // категории (images), а не все файлы проекта — иначе, выбрав, например, "⚠ Projekt", можно
+  // было бы перелистнуть на файл из Zadanie/Montaż/Inne. startInView — клик по миниатюре сразу
+  // открывает выбранное изображение, минуя промежуточную сетку (та по-прежнему доступна изнутри
+  // просмотра через кнопку "⊞ Wróć do siatki", если файлов несколько).
+  function renderLightbox() {
+    const lightboxIndex = lightboxFileId !== null ? images.findIndex(f => f.id === lightboxFileId) : -1;
+    if (lightboxIndex < 0) return null;
+    const cat = FOLDER_CATEGORIES.find(c => c.id === activeCategory);
+    return (
+      <FileLightbox
+        files={images}
+        categoryLabel={cat ? `${cat.icon} ${cat.label}` : ''}
+        initialIndex={lightboxIndex}
+        startInView
+        onClose={() => setLightboxFileId(null)}
+      />
+    );
+  }
 
   // Полноразмерная сетка фото + список документов — общая часть variant='tab' и
   // разворота variant='shelf' (без второго Supabase-запроса, тот же files/visible/images/docs).
@@ -173,7 +202,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                 }}>
 
                   {/* Миниатюра — клик = лайтбокс */}
-                  <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setLightbox(file.file_url)}>
+                  <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setLightboxFileId(file.id)}>
                     <img
                       src={file.file_url} alt={file.file_name}
                       style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }}
@@ -295,81 +324,91 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
     );
   }
 
-  // Лайтбокс с навигацией — общий для обеих вариантов. Навигация Prev/Next — только по
-  // изображениям ТЕКУЩЕЙ отфильтрованной категории (visible), а не по всем файлам проекта —
-  // иначе, выбрав, например, "⚠ Projekt", можно было бы перелистнуть на файл из Zadanie/Montaż/Inne.
-  function renderLightbox() {
-    if (!lightbox) return null;
-    const allImages = visible.filter(f => isImage(f.file_type));
-    const currentIdx = allImages.findIndex(f => f.file_url === lightbox);
-    const goPrev = (e) => { e.stopPropagation(); const i = (currentIdx - 1 + allImages.length) % allImages.length; setLightbox(allImages[i].file_url); };
-    const goNext = (e) => { e.stopPropagation(); const i = (currentIdx + 1) % allImages.length; setLightbox(allImages[i].file_url); };
+  // ======== variant='shelf' — компактная полка Pliki: в шапке desktop/embedded (mobileLayout
+  // не передан) либо внутри прокручиваемого контента mobile-экрана (mobileLayout=true — крупные
+  // touch-target'ы ≥40×40px, счётчик встроен в текст опции селектора, подпись "📎 Pliki" скрыта,
+  // подписи кнопок — иконки с aria-label/title, лента миниатюр крупнее). ========
+  if (isShelf) {
+    const thumbSize = mobileLayout ? '68px' : '60px';
     return (
-      <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <img src={lightbox} alt="" style={{ maxWidth: '85vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: '4px' }} onClick={e => e.stopPropagation()} />
-        {/* Закрыть */}
-        <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: '16px', right: '20px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '22px', cursor: 'pointer', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-        {/* Счётчик */}
-        <div style={{ position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '12px', background: 'rgba(0,0,0,0.5)', padding: '3px 10px', borderRadius: '10px' }}>
-          {currentIdx + 1} / {allImages.length}
-        </div>
-        {/* Навигация */}
-        {allImages.length > 1 && (<>
-          <button onClick={goPrev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-          <button onClick={goNext} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
-        </>)}
-        {/* Комментарий */}
-        {allImages[currentIdx]?.comment && (
-          <div style={{ position: 'absolute', bottom: '16px', left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: '13px', background: 'rgba(0,0,0,0.6)', padding: '5px 14px', borderRadius: '8px', maxWidth: '80vw', textAlign: 'center' }}>
-            {allImages[currentIdx].comment}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: mobileLayout ? '8px' : '6px', minWidth: 0 }}>
+        {/* Компактная строка — всегда видна */}
+        {mobileLayout ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
+            <select
+              value={activeCategory}
+              disabled={uploading}
+              onChange={e => {
+                setActiveCategory(e.target.value);
+                uploadCategoryRef.current = e.target.value; // категория загрузки = выбранная папка
+              }}
+              aria-label="Folder plików projektu"
+              style={{ flex: 1, minWidth: 0, minHeight: '40px', boxSizing: 'border-box', padding: '9px 8px', borderRadius: '8px', border: '1px solid var(--input-border)', fontSize: '13px', background: 'var(--input-bg)', color: 'var(--text-main)' }}
+            >
+              {FOLDER_CATEGORIES.map(c => {
+                const count = files.filter(f => f.category === c.id).length;
+                return <option key={c.id} value={c.id}>{c.icon} {c.label} ({count})</option>;
+              })}
+            </select>
+            <button
+              onClick={() => fileInputRef.current.click()}
+              disabled={uploading}
+              title="Dodaj plik lub zdjęcie"
+              aria-label="Dodaj plik lub zdjęcie"
+              style={{ flexShrink: 0, width: '40px', height: '40px', boxSizing: 'border-box', borderRadius: '8px', border: 'none', background: '#3182ce', color: '#fff', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              {uploading ? '⏳' : '+'}
+            </button>
+            <button
+              onClick={() => setShelfExpanded(v => !v)}
+              title={shelfExpanded ? 'Zwiń pliki' : 'Rozwiń pliki'}
+              aria-label={shelfExpanded ? 'Zwiń pliki' : 'Rozwiń pliki'}
+              style={{ flexShrink: 0, width: '40px', height: '40px', boxSizing: 'border-box', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              {shelfExpanded ? '⌃' : '⌄'}
+            </button>
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', minWidth: 0 }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-main)', whiteSpace: 'nowrap', flexShrink: 0 }}>📎 Pliki</span>
+            <select
+              value={activeCategory}
+              disabled={uploading}
+              onChange={e => {
+                setActiveCategory(e.target.value);
+                uploadCategoryRef.current = e.target.value; // категория загрузки = выбранная папка
+              }}
+              style={{ padding: '3px 5px', borderRadius: '6px', border: '1px solid var(--input-border)', fontSize: '11px', background: 'var(--input-bg)', color: 'var(--text-main)', flexShrink: 1, minWidth: 0 }}
+            >
+              {FOLDER_CATEGORIES.map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {loading ? '…' : `${visible.length} ${pluralPliki(visible.length)}`}
+            </span>
+            <button
+              onClick={() => fileInputRef.current.click()}
+              disabled={uploading}
+              style={{ padding: '3px 9px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              {uploading ? '⏳' : '+ Dodaj'}
+            </button>
+            <button
+              onClick={() => setShelfExpanded(v => !v)}
+              style={{ padding: '3px 9px', borderRadius: '6px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              {shelfExpanded ? 'Zwiń' : 'Rozwiń'}
+            </button>
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
           </div>
         )}
-      </div>
-    );
-  }
 
-  // ======== variant='shelf' — компактная полка Pliki в шапке desktop/embedded ========
-  if (isShelf) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
-        {/* Компактная строка — всегда видна */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', minWidth: 0 }}>
-          <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-main)', whiteSpace: 'nowrap', flexShrink: 0 }}>📎 Pliki</span>
-          <select
-            value={activeCategory}
-            disabled={uploading}
-            onChange={e => {
-              setActiveCategory(e.target.value);
-              uploadCategoryRef.current = e.target.value; // категория загрузки = выбранная папка
-            }}
-            style={{ padding: '3px 5px', borderRadius: '6px', border: '1px solid var(--input-border)', fontSize: '11px', background: 'var(--input-bg)', color: 'var(--text-main)', flexShrink: 1, minWidth: 0 }}
-          >
-            {FOLDER_CATEGORIES.map(c => (
-              <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
-            ))}
-          </select>
-          <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {loading ? '…' : `${visible.length} ${pluralPliki(visible.length)}`}
-          </span>
-          <button
-            onClick={() => fileInputRef.current.click()}
-            disabled={uploading}
-            style={{ padding: '3px 9px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
-          >
-            {uploading ? '⏳' : '+ Dodaj'}
-          </button>
-          <button
-            onClick={() => setShelfExpanded(v => !v)}
-            style={{ padding: '3px 9px', borderRadius: '6px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
-          >
-            {shelfExpanded ? 'Zwiń' : 'Rozwiń'}
-          </button>
-          <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
-        </div>
-
-        {/* Горизонтальная лента миниатюр — только в свёрнутом состоянии, свой overflow-x.
-            Пока идёт первичная загрузка (loading), пустая папка не утверждается — показываем
-            нейтральный индикатор вместо преждевременного "Brak plików". */}
+        {/* Горизонтальная лента миниатюр — только в свёрнутом состоянии, свой overflow-x (весь
+            остальной экран горизонтальный scroll не получает). Пока идёт первичная загрузка
+            (loading), пустая папка не утверждается — показываем нейтральный индикатор вместо
+            преждевременного "Brak plików". */}
         {!shelfExpanded && (
           loading ? (
             <div style={{ fontSize: '11px', color: '#a0aec0' }}>Ładowanie...</div>
@@ -383,9 +422,9 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                     key={file.id}
                     src={file.file_url}
                     alt={file.file_name}
-                    onClick={() => setLightbox(file.file_url)}
+                    onClick={() => setLightboxFileId(file.id)}
                     style={{
-                      height: '60px', width: '60px', objectFit: 'cover', borderRadius: '4px',
+                      height: thumbSize, width: thumbSize, objectFit: 'cover', borderRadius: '4px',
                       cursor: 'zoom-in', flexShrink: 0,
                       border: coverUrl === file.file_url ? '2px solid #f6ad55' : '1px solid var(--border)',
                     }}
@@ -398,7 +437,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                     rel="noreferrer"
                     title={file.file_name}
                     style={{
-                      height: '60px', minWidth: '56px', maxWidth: '80px', flexShrink: 0,
+                      height: thumbSize, minWidth: '56px', maxWidth: '80px', flexShrink: 0,
                       borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--input-bg)',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                       gap: '2px', textDecoration: 'none', padding: '4px', boxSizing: 'border-box',
@@ -428,13 +467,13 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
     );
   }
 
-  // ======== variant='tab' — mobile Field Mode и desktop/embedded modal-fallback. Тот же
-  // принцип единого селектора, что и в variant='shelf' (пункт финального ревью: два раздельных
-  // набора "видимая папка"/"категория загрузки" с одинаковыми на вид, но разными по сути
-  // названиями — недопустимы). Один select одновременно фильтрует видимые файлы и служит
+  // ======== variant='tab' — desktop/embedded modal-fallback (mobile теперь использует полку
+  // выше). Тот же принцип единого селектора, что и в variant='shelf' (пункт финального ревью: два
+  // раздельных набора "видимая папка"/"категория загрузки" с одинаковыми на вид, но разными по
+  // сути названиями — недопустимы). Один select одновременно фильтрует видимые файлы и служит
   // категорией загрузки; отдельной строки filter-chips и "Wszystkie" здесь больше нет. ========
-  // На узких экранах (320–390px) длинная подпись кнопки не помещается рядом с select (flex:1) —
-  // допустимое по заданию сокращение до "+ Dodaj" (без изменения самого select/категорий).
+  // На узких экранах (320–390px, всё ещё возможно для fallback-варианта) длинная подпись кнопки
+  // не помещается рядом с select (flex:1) — допустимое сокращение до "+ Dodaj".
   const narrowUpload = typeof window !== 'undefined' && window.innerWidth < 400;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
