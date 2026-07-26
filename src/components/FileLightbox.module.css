@@ -13,10 +13,11 @@
   top: 0;
   left: 0;
   right: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
   color: #fff;
   font-size: 13px;
   background: linear-gradient(rgba(0, 0, 0, 0.55), transparent);
@@ -36,8 +37,13 @@
   color: #fff;
   font-size: 20px;
   cursor: pointer;
-  padding: 4px 8px;
   line-height: 1;
+  /* Zone dotyku >=40x40px (rozmiar wizualny ikony zostaje przy font-size powyżej) */
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .navLeft,
@@ -45,6 +51,7 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 2;
   background: rgba(255, 255, 255, 0.15);
   border: none;
   color: #fff;
@@ -60,6 +67,8 @@
 .navRight { right: 12px; }
 
 .content {
+  position: relative;
+  z-index: 1;
   max-width: 90vw;
   max-height: 85vh;
   display: flex;
@@ -72,6 +81,80 @@
   max-height: 80vh;
   object-fit: contain;
   border-radius: 6px;
+}
+
+/* --- Zoom/pan image viewer (bez zewnętrznej biblioteki) --- */
+.zoomStage {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 90vw;
+  max-height: 80vh;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.zoomImg {
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.bottomBar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.zoomPill {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.zoomBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  /* Zona dotyku >=40x40px — wizualny rozmiar glifu (font-size) zostaje bez zmian */
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.zoomReset {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  min-width: 42px;
+  text-align: center;
+  padding: 4px 2px;
 }
 
 .fileLink {
