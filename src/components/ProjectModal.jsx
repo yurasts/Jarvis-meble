@@ -58,7 +58,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Вызывающий код всегда передаёт key вида `${client.id}-${initialTab}` (App.jsx), поэтому
   // при смене проекта/initialTab весь ProjectModal перемонтируется — ленивая инициализация
   // ниже достаточна, отдельный эффект синхронизации не нужен (был react-hooks/set-state-in-effect).
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // На desktop/embedded вкладки "Pliki" больше нет (файлы — компактная полка в шапке, см. ниже),
+  // поэтому initialTab='files' безопасно откатывается на 'materials'; сама полка вместо этого
+  // открывается развёрнутой (initialShelfExpanded на <FilesTab variant="shelf">, ниже).
+  const [activeTab, setActiveTab] = useState(
+    (isEmbedded && initialTab === 'files') ? 'materials' : initialTab
+  );
+  // Развёрнутость полки Pliki в шапке (только isEmbedded) — состояние поднято сюда (контролируемый
+  // FilesTab через expanded/onExpandedChange), потому что от него зависит CSS-раскладка всей шапки
+  // (при разворачивании полка должна занять всю ширину под компактной строкой Klient/.../Zapisz).
+  const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -502,90 +511,122 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         {/* Шапка */}
         {!isMobileVariant && (
-        <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px', position: 'relative' }}>
+        <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
 
-          {/* 💾 Zapisz + переключатель Firma/Moje — всегда в правом верхнем углу */}
-          <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', zIndex: 1 }}>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
+            {/* ЛЕВО: Klient/Projekt/Koszty+coefficient+Budżet — как раньше */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: '2 1 260px', minWidth: '220px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
+                <input
+                  value={client.client_name || ''}
+                  onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
+                  placeholder="Imię klienta"
+                  style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '80px', flex: 1 }}
+                />
                 <button
-                  onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
-                  title="Projekt firmowy"
-                  style={{
-                    padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
-                    background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg,
-                    color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight,
-                  }}
+                  onClick={() => setClientInfoOpen(true)}
+                  title="Informacje o kliencie"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0, flexShrink: 0 }}
                 >
-                  🏢
-                </button>
-                <button
-                  onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
-                  title="Mój projekt"
-                  style={{
-                    padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
-                    background: client.project_scope === 'personal' ? '#3182ce' : bg,
-                    color: client.project_scope === 'personal' ? '#fff' : textLight,
-                  }}
-                >
-                  👤
+                  ℹ️
                 </button>
               </div>
-              <button onClick={handleSaveClick} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
+                <input
+                  value={client.project_name || ''}
+                  onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
+                  placeholder="Nazwa projektu (szafa, kuchnia...)"
+                  style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '100px', flex: 1 }}
+                />
+              </div>
+
+              {/* ✅ Koszty + коэффициент + Budżet — сразу под названием */}
+              <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
+                <span style={{ color: textLight }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
+                <span style={{ color: '#a0aec0' }}>×</span>
+                <input
+                  type="number" min="1" max="10" step="0.1"
+                  value={coefficient}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    setCoefficient(e.target.value);
+                    if (!isNaN(val) && val > 0) {
+                      setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
+                    }
+                  }}
+                  style={{ width: '55px', flexShrink: 0, minWidth: '55px', boxSizing: 'border-box', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
+                />
+                <span style={{ background: bgMatRow, border: `1px solid ${borderMat}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: theme === 'forest' ? '#eafff0' : c('#2b6cb0', '#63b3ed') }}>
+                  Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
+                </span>
+              </div>
             </div>
-            {isEmbedded && saveStatus && (
-              <div style={{ fontSize: '11px', fontWeight: 'bold', color: saveStatus === 'saved' ? '#38a169' : '#e53e3e', maxWidth: '220px', textAlign: 'right' }}>
-                {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+
+            {/* ЦЕНТР/НИЗ: компактная полка Pliki — только desktop/embedded (UX-прототип: Project
+                Files Header Shelf). Один и тот же смонтированный FilesTab и в свёрнутом, и в
+                развёрнутом состоянии (variant="shelf", один files-стейт, один fetch) — здесь
+                меняется только CSS-обёртка через order/flexBasis, а не место монтирования:
+                - свёрнуто: обычный flex-элемент между Klient-блоком и Firma/Moje/Zapisz (order:2,
+                  максимум 480px), верхняя строка остаётся из трёх колонок;
+                - развёрнуто: flexBasis:100% в flex-wrap-контейнере принудительно переносит полку
+                  на новую строку (это стандартный CSS-приём, элемент с basis:100% не может делить
+                  строку с соседями), Klient-блок и Firma/Moje/Zapisz за счёт order оказываются
+                  вместе на первой (компактной) строке без полки между ними. */}
+            {isEmbedded && (
+              <div style={filesShelfExpanded
+                ? { flexBasis: '100%', width: '100%', order: 3 }
+                : { flex: '1 1 280px', minWidth: '240px', maxWidth: '480px', order: 2 }
+              }>
+                <FilesTab
+                  variant="shelf"
+                  clientId={client.id}
+                  currentProfile={currentProfile}
+                  coverUrl={client.cover_url}
+                  onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
+                  expanded={filesShelfExpanded}
+                  onExpandedChange={setFilesShelfExpanded}
+                />
               </div>
             )}
-          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '140px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
-              <input
-                value={client.client_name || ''}
-                onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
-                placeholder="Imię klienta"
-                style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '80px', flex: 1 }}
-              />
-              <button
-                onClick={() => setClientInfoOpen(true)}
-                title="Informacje o kliencie"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0, flexShrink: 0 }}
-              >
-                ℹ️
-              </button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
-              <input
-                value={client.project_name || ''}
-                onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
-                placeholder="Nazwa projektu (szafa, kuchnia...)"
-                style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '100px', flex: 1 }}
-              />
-            </div>
-
-            {/* ✅ Koszty + коэффициент + Budżet — сразу под названием */}
-            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
-              <span style={{ color: textLight }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
-              <span style={{ color: '#a0aec0' }}>×</span>
-              <input
-                type="number" min="1" max="10" step="0.1"
-                value={coefficient}
-                onChange={e => {
-                  const val = parseFloat(e.target.value);
-                  setCoefficient(e.target.value);
-                  if (!isNaN(val) && val > 0) {
-                    setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
-                  }
-                }}
-                style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
-              />
-              <span style={{ background: bgMatRow, border: `1px solid ${borderMat}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: theme === 'forest' ? '#eafff0' : c('#2b6cb0', '#63b3ed') }}>
-                Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
-              </span>
+            {/* ПРАВО: Firma/Moje + Zapisz — обычный (не absolute) flex-элемент, не сжимается.
+                order:2 при развороте полки — вместе с Klient-блоком (order:1 по умолчанию)
+                образует компактную верхнюю строку, полка (order:3) уходит на следующую. */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, order: isEmbedded && filesShelfExpanded ? 2 : 3 }}>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                  <button
+                    onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
+                    title="Projekt firmowy"
+                    style={{
+                      padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                      background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg,
+                      color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight,
+                    }}
+                  >
+                    🏢
+                  </button>
+                  <button
+                    onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
+                    title="Mój projekt"
+                    style={{
+                      padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
+                      background: client.project_scope === 'personal' ? '#3182ce' : bg,
+                      color: client.project_scope === 'personal' ? '#fff' : textLight,
+                    }}
+                  >
+                    👤
+                  </button>
+                </div>
+                <button onClick={handleSaveClick} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
+              </div>
+              {isEmbedded && saveStatus && (
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: saveStatus === 'saved' ? '#38a169' : '#e53e3e', maxWidth: '220px', textAlign: 'right' }}>
+                  {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -664,9 +705,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           <button onClick={() => setActiveTab('expenses')} style={tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' })}>
             💸 Wydatki ({totalExpenses.toFixed(2)} zł)
           </button>
-          <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
-            📎 Pliki
-          </button>
+          {/* Pliki — не отдельная вкладка на desktop/embedded, там это полка в шапке выше
+              (UX-прототип: Project Files Header Shelf). На mobile/modal-fallback — без изменений. */}
+          {!isEmbedded && (
+            <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
+              📎 Pliki
+            </button>
+          )}
         </div>
 
         <div style={{ minHeight: '350px' }}>
@@ -1051,9 +1096,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           )}
 
-          {/* ФАЙЛЫ */}
-          {activeTab === 'files' && (
-            <FilesTab clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
+          {/* ФАЙЛЫ — только mobile/modal-fallback; на desktop/embedded FilesTab уже смонтирован
+              в шапке (variant="shelf") и activeTab никогда не равен 'files' (см. initialTab выше). */}
+          {!isEmbedded && activeTab === 'files' && (
+            <FilesTab variant="tab" clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
           )}
 
         </div>
