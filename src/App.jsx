@@ -292,9 +292,12 @@ function App() {
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
   const displayName = profile?.full_name || session.user.email
-  // Firma/Moje: пока пользователь не переключил вручную (scopeView===null) — берём
-  // default_scope профиля сотрудника, посчитанный прямо при рендере, без эффекта синхронизации.
-  const effectiveScope = scopeView ?? profile?.default_scope ?? 'firma'
+  // Firma/Moje: пока пользователь не переключил вручную (scopeView===null) — всегда 'personal'
+  // ("Moje"), гарантированно, даже если profile.default_scope сохранён как 'firma' (review-фикс
+  // compact-workspace: profile.default_scope больше НЕ участвует в вычислении стартового значения
+  // — только ручное переключение через setScopeView может увести от 'personal'). Посчитано прямо
+  // при рендере, без эффекта синхронизации.
+  const effectiveScope = scopeView ?? 'personal'
 
   // Онлайн-пользователи кроме себя
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
@@ -334,6 +337,8 @@ function App() {
         onNewProject={() => setIsModalOpen(true)}
         onOpenProject={requestOpenProject}
         activeProjectId={activeClient?.id}
+        activeClient={activeClient}
+        setActiveClient={setActiveClient}
         profile={profile}
         displayName={displayName}
         onlineUsers={allOnline}

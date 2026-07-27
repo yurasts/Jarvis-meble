@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
+import { projectTotals } from './dashboardHelpers';
 
 // Лёгкая заливка фона по статусу проекта
 const STATUS_OVERLAY = {
@@ -46,7 +47,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const bgMatRow  = theme === 'forest' ? '#4f7057' : c('#ebf8ff', '#0f2236');
   const bgSrvRow  = c('#f0fff4', '#0f2a1a');
   const bgExpRow  = c('#fff5f5', '#2d1515');
-  const bgSearch  = 'var(--bg-base)';
   const bgInput   = 'var(--input-bg)';
   const text      = 'var(--text-main)';
   const textLight = 'var(--text-muted)';
@@ -74,13 +74,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchService, setSearchService] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterSupplier, setFilterSupplier] = useState('');
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   // Sekcja "Szczegóły" (Koszt/mnożnik/Budżet) w wariancie mobile — zwinięta domyślnie (ADR-003).
   const [szczegolyOpen, setSzczegolyOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+  // Единственная раскрытая строка среди ДОБАВЛЕННЫХ позиций (desktop-таблицы Materiały/Usługi/
+  // Wydatki) — nullable-ключ вместо объекта с несколькими флагами: раскрытие новой строки
+  // автоматически схлопывает предыдущую, повторный клик по уже раскрытой закрывает её. Ключ —
+  // стабильный item.id (есть у любой добавленной позиции: и из справочника, и через
+  // handleCustomAdd) с префиксом таблицы, чтобы id из разных таблиц не пересекались.
+  const [expandedItemKey, setExpandedItemKey] = useState(null);
   const [expandedMaterialId, setExpandedMaterialId] = useState(null);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null);
@@ -126,14 +130,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const calcServices  = client.calc_services  || [];
   const calcExpenses  = client.calc_expenses  || [];
 
-  const totalMaterials    = calcMaterials.reduce((s, i) => s + Number(i.price) * Number(i.quantity), 0);
-  const totalServices     = calcServices.reduce((s, i)  => s + Number(i.price) * Number(i.quantity || 1), 0);
-  const totalExpenses     = calcExpenses.reduce((s, i)  => s + Number(i.price) * Number(i.quantity || 1), 0);
-  const totalProjectCost  = totalMaterials + totalServices + totalExpenses;
+  // Единый расчёт (dashboardHelpers.projectTotals) — та же формула, что и в финансовой панели
+  // sidebar (ProjectListPanel), не две независимые реализации.
+  const { materials: totalMaterials, services: totalServices, expenses: totalExpenses, total: totalProjectCost } = projectTotals(client);
 
   // isDirty: сравниваем только то что реально меняет пользователь.
-  // budget и budget_coefficient НЕ сравниваем — они пересчитываются
-  // автоматически в useEffect при открытии, что вызывало ложный isDirty.
+  // budget НЕ сравниваем — это чисто производное значение (totalProjectCost × budget_coefficient),
+  // пересчитывается автоматически ниже и может отличаться от сохранённого на копейки из-за
+  // округления, что вызывало бы ложный isDirty. budget_coefficient, наоборот, теперь СРАВНИВАЕМ —
+  // это единственное поле, которое реально меняет пользователь (в т.ч. из sidebar-панели
+  // ProjectListPanel через тот же setClient/activeClient — единый источник истины), и по заданию
+  // изменение коэффициента обязано включать dirty-state.
   const isDirty = originalClient
     ? JSON.stringify({
         calc_materials: client.calc_materials || [],
@@ -145,6 +152,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         phone:         client.phone         || '',
         client_name:   client.client_name   || '',
         project_name:  client.project_name  || '',
+        budget_coefficient: Number(client.budget_coefficient) || 2.0,
       }) !== JSON.stringify({
         calc_materials: originalClient.calc_materials || [],
         calc_services:  originalClient.calc_services  || [],
@@ -155,6 +163,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         phone:         originalClient.phone         || '',
         client_name:   originalClient.client_name   || '',
         project_name:  originalClient.project_name  || '',
+        budget_coefficient: Number(originalClient.budget_coefficient) || 2.0,
       })
     : false;
 
@@ -250,25 +259,32 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
   };
 
-  // Автопересчёт бюджета. setClient — стабильный setter из useState в App.jsx (setActiveClient),
-  // его identity не меняется между рендерами, поэтому добавление в deps безопасно и не создаёт цикл.
+  // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
+  // исключительно client.budget_coefficient (единый источник истины и для mobile Szczegóły
+  // input'а ниже, и для новой финансовой панели в sidebar — ProjectListPanel пишет туда через
+  // тот же setClient/activeClient). Эффект больше НЕ пишет budget_coefficient сам — раньше он
+  // на каждое изменение totalProjectCost перезаписывал budget_coefficient локальным (потенциально
+  // устаревшим) состоянием coefficient, что затирало бы правку, сделанную снаружи (из sidebar).
+  // setClient — стабильный setter из useState в App.jsx (setActiveClient), его identity не
+  // меняется между рендерами, поэтому добавление в deps безопасно и не создаёт цикл.
   useEffect(() => {
-    const coef = parseFloat(coefficient) || 1;
+    const coef = Number(client.budget_coefficient) || 2.0;
     const newBudget = parseFloat((totalProjectCost * coef).toFixed(2));
-    setClient(prev => ({ ...prev, budget: newBudget, budget_coefficient: coef }));
-  }, [totalProjectCost, coefficient, setClient]);
+    setClient(prev => ({ ...prev, budget: newBudget }));
+  }, [totalProjectCost, client.budget_coefficient, setClient]);
 
-  const uniqueCategories = [...new Set((materials || []).map(m => m.category).filter(Boolean))];
-  const uniqueSuppliers  = [...new Set((materials || []).map(m => m.supplier).filter(Boolean))];
-
-  const filteredMaterials = (materials || []).filter(m => {
-    const matchesSearch = (m.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.symbol || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCat = filterCategory ? m.category === filterCategory : true;
-    const matchesSup = filterSupplier ? m.supplier === filterSupplier : true;
-    return matchesSearch && matchesCat && matchesSup;
-  });
+  // Baza materiałów — компактный поиск (compact-project-workspace): пустой/пробельный запрос —
+  // ноль строк (каталог больше не отображается постоянно), непустой — фильтр по name/symbol,
+  // как раньше, ограничение на 12 совпадений применяется в месте рендера (.slice(0, 12)).
+  const filteredMaterials = searchTerm.trim()
+    ? (materials || []).filter(m => {
+        const q = searchTerm.trim().toLowerCase();
+        return (m.name || '').toLowerCase().includes(q) || (m.symbol || '').toLowerCase().includes(q);
+      })
+    : [];
 
   const toggleRow = (key) => setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
+  const toggleExpandedItem = (key) => setExpandedItemKey(prev => (prev === key ? null : key));
   const updateItems = (field, newItems) => setClient({ ...client, [field]: newItems });
   const authorMeta = () => ({ addedById: currentProfile?.id || null, addedByColor: currentProfile?.color || '#718096' });
 
@@ -388,20 +404,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
       <div style={innerStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
 
-        {isEmbedded && (
-          <button
-            onClick={handleClose}
-            title="Wróć do poprzedniego widoku"
-            aria-label="Wróć do poprzedniego widoku"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px',
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: textLight, fontSize: '13px', fontWeight: 'bold', padding: '4px 2px',
-            }}
-          >
-            ← Wróć
-          </button>
-        )}
+        {/* "← Wróć" usunięty z desktop/embedded (compact-project-workspace) — powrót do listy
+            projektów na desktop odbywa się przez sam sidebar (ProjectNav), nie przez osobny
+            przycisk w karcie; "← Projekty" na mobile (niżej) zostaje bez zmian. */}
 
         {/* Nagłówek mobile (ADR-003, Mobile Field Mode faza 2): sztywny element kolumny flex
             (innerStyle), nie sticky i bez ujemnych marginesów — leży nad przewijanym
@@ -534,20 +539,24 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </div>
         )}
 
-        {/* Шапка */}
+        {/* Компактная шапка (compact-project-workspace): Klient i Projekt w jednym rzędzie,
+            Koszty×coefficient/Budżet przeniesione do panelu finansowego w sidebar (desktop) —
+            tu ich już nie ma. Prawy blok (Firma/Moje + Zapisz) zawija się pod spód na wąskiej
+            szerokości (flexWrap), ale sam Klient/Projekt nigdy nie dostaje poziomego scrolla —
+            oba pola też mogą się zawinąć każde na swój wiersz (patrz flexWrap na ich kontenerze). */}
         {!isMobileVariant && (
         <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
 
-            {/* ЛЕВО: Klient/Projekt/Koszty+coefficient+Budżet — как раньше */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: '2 1 260px', minWidth: '220px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* ЛЕВО: Klient + Projekt — одна горизонтальная строка, оба поля редактируемые */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', flex: '1 1 260px', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 140px', minWidth: 0 }}>
                 <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
                 <input
                   value={client.client_name || ''}
                   onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
                   placeholder="Imię klienta"
-                  style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '80px', flex: 1 }}
+                  style={{ fontSize: isMobile ? '15px' : '16px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '60px', width: '100%', boxSizing: 'border-box' }}
                 />
                 <button
                   onClick={() => setClientInfoOpen(true)}
@@ -557,69 +566,19 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   ℹ️
                 </button>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 160px', minWidth: 0 }}>
                 <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
                 <input
                   value={client.project_name || ''}
                   onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
                   placeholder="Nazwa projektu (szafa, kuchnia...)"
-                  style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '100px', flex: 1 }}
+                  style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '60px', width: '100%', boxSizing: 'border-box' }}
                 />
-              </div>
-
-              {/* ✅ Koszty + коэффициент + Budżet — сразу под названием */}
-              <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
-                <span style={{ color: textLight }}>Koszty: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
-                <span style={{ color: '#a0aec0' }}>×</span>
-                <input
-                  type="number" min="1" max="10" step="0.1"
-                  value={coefficient}
-                  onChange={e => {
-                    const val = parseFloat(e.target.value);
-                    setCoefficient(e.target.value);
-                    if (!isNaN(val) && val > 0) {
-                      setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
-                    }
-                  }}
-                  style={{ width: '55px', flexShrink: 0, minWidth: '55px', boxSizing: 'border-box', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
-                />
-                <span style={{ background: bgMatRow, border: `1px solid ${borderMat}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: theme === 'forest' ? '#eafff0' : c('#2b6cb0', '#63b3ed') }}>
-                  Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
-                </span>
               </div>
             </div>
 
-            {/* ЦЕНТР/НИЗ: компактная полка Pliki — только desktop/embedded (UX-прототип: Project
-                Files Header Shelf). Один и тот же смонтированный FilesTab и в свёрнутом, и в
-                развёрнутом состоянии (variant="shelf", один files-стейт, один fetch) — здесь
-                меняется только CSS-обёртка через order/flexBasis, а не место монтирования:
-                - свёрнуто: обычный flex-элемент между Klient-блоком и Firma/Moje/Zapisz (order:2,
-                  максимум 480px), верхняя строка остаётся из трёх колонок;
-                - развёрнуто: flexBasis:100% в flex-wrap-контейнере принудительно переносит полку
-                  на новую строку (это стандартный CSS-приём, элемент с basis:100% не может делить
-                  строку с соседями), Klient-блок и Firma/Moje/Zapisz за счёт order оказываются
-                  вместе на первой (компактной) строке без полки между ними. */}
-            {isEmbedded && (
-              <div style={filesShelfExpanded
-                ? { flexBasis: '100%', width: '100%', order: 3 }
-                : { flex: '1 1 280px', minWidth: '240px', maxWidth: '480px', order: 2 }
-              }>
-                <FilesTab
-                  variant="shelf"
-                  clientId={client.id}
-                  currentProfile={currentProfile}
-                  coverUrl={client.cover_url}
-                  onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
-                  expanded={filesShelfExpanded}
-                  onExpandedChange={setFilesShelfExpanded}
-                />
-              </div>
-            )}
-
-            {/* ПРАВО: Firma/Moje + Zapisz — обычный (не absolute) flex-элемент, не сжимается.
-                order:2 при развороте полки — вместе с Klient-блоком (order:1 по умолчанию)
-                образует компактную верхнюю строку, полка (order:3) уходит на следующую. */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, order: isEmbedded && filesShelfExpanded ? 2 : 3 }}>
+            {/* ПРАВО: Firma/Moje + Zapisz — переносится под Klient/Projekt на узкой ширине */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
                   <button
@@ -655,6 +614,26 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           </div>
         </div>
+        )}
+
+        {/* Polka plików — zawsze osobnym rzędem BEZPOŚREDNIO pod kompaktową szapką (nie na
+            poziomie Klient/Projekt) — tylko desktop/embedded. Jeden i ten sam zamontowany
+            FilesTab i w stanie zwiniętym, i rozwiniętym (variant="shelf", jeden files-state,
+            jeden fetch) — rozwinięcie nie wywołuje ponownego fetch. Bez sztuczek order/flexBasis:
+            skoro polka nie dzieli już wiersza z Klient/Projekt/Zapisz, to zwykły blokowy element
+            na pełną szerokość. */}
+        {isEmbedded && (
+          <div style={{ marginBottom: '10px' }}>
+            <FilesTab
+              variant="shelf"
+              clientId={client.id}
+              currentProfile={currentProfile}
+              coverUrl={client.cover_url}
+              onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
+              expanded={filesShelfExpanded}
+              onExpandedChange={setFilesShelfExpanded}
+            />
+          </div>
         )}
 
         {/* Модалка редактируемой информации о клиенте */}
@@ -799,9 +778,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         </tr>
                       </thead>
                       <tbody>
-                        {calcMaterials.map((item, index) => (
+                        {calcMaterials.map((item, index) => {
+                          const itemKey = item.id ?? index;
+                          return (
                           <tr key={index} style={{ borderBottom: `1px solid ${border}`, backgroundColor: bgMatRow, borderLeft: `3px solid ${rowStripe(item)}` }}>
-                            <td onClick={() => toggleRow(`sel_${index}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`sel_${index}`] ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
+                            <td onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
                             <td style={{ padding: '4px 8px' }}>
                               {editingPrice === `mat-${index}` ? (
                                 <input autoFocus type="number" step="0.01" value={priceDraft}
@@ -832,7 +813,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                             <td style={{ padding: '4px 8px', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                             {renderDeleteBtn('calc_materials', calcMaterials, index)}
                           </tr>
-                        ))}
+                          );
+                        })}
                         {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
                       </tbody>
                     </table>
@@ -843,23 +825,21 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 </div>
               </div>
 
-              {/* Baza materiałów */}
-              <div style={{ background: bgSearch, padding: '10px', borderRadius: '6px', border: `1px solid ${border}` }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: text }}>🔍 Baza materiałów</h3>
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px' }}>
-                  <input type="text" placeholder="Szukaj..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', minWidth: '140px', flex: 1, background: bgInput, color: text }} />
-                  <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', minWidth: '110px', background: bgInput, color: text }}>
-                    <option value="">Wszystkie kat.</option>
-                    {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                  <select value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)} style={{ padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', minWidth: '110px', background: bgInput, color: text }}>
-                    <option value="">Dostawcy</option>
-                    {uniqueSuppliers.map(sup => <option key={sup} value={sup}>{sup}</option>)}
-                  </select>
-                </div>
-                <div style={{ maxHeight: '220px', overflowY: 'auto', borderTop: `1px solid ${border}`, background: bgInput, borderRadius: '4px' }}>
-                  <div>
-                    {filteredMaterials.slice(0, 50).map(m => {
+              {/* Baza materiałów — компактный поиск (compact-project-workspace): без заголовка,
+                  без фильтров категории/поставщика, без постоянно отображаемого каталога и без
+                  "Brak wyników" на пустой запрос — список появляется только во время ввода. */}
+              <div>
+                <input
+                  type="text"
+                  placeholder="🔍 Szukaj materiału…"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') setSearchTerm(''); }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
+                />
+                {searchTerm.trim() && (
+                  <div style={{ marginTop: '6px', maxHeight: '220px', overflowY: 'auto', border: `1px solid ${border}`, background: bgInput, borderRadius: '4px' }}>
+                    {filteredMaterials.slice(0, 12).map(m => {
                       const isSelected = calcMaterials.some(item => item.id === m.id);
                       const isExpanded = expandedMaterialId === m.id;
                       return (
@@ -879,7 +859,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                               <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleAddItem('calc_materials', calcMaterials, m); }}
+                              onClick={(e) => { e.stopPropagation(); handleAddItem('calc_materials', calcMaterials, m); setSearchTerm(''); }}
                               style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '3px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '62px', flexShrink: 0 }}
                             >
                               {isSelected ? '+ Kol.' : '+ Dodaj'}
@@ -895,9 +875,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         </div>
                       );
                     })}
-                    {filteredMaterials.length === 0 && <div style={{ padding: '10px', textAlign: 'center', color: '#a0aec0', fontSize: '12px' }}>Brak wyników</div>}
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -955,9 +934,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         </tr>
                       </thead>
                       <tbody>
-                        {calcServices.map((item, index) => (
+                        {calcServices.map((item, index) => {
+                          const itemKey = item.id ?? index;
+                          return (
                           <tr key={index} style={{ borderBottom: `1px solid ${border}`, background: bg, borderLeft: `3px solid ${rowStripe(item)}` }}>
-                            <td style={{ padding: '6px 8px', color: text }}>{item.name}</td>
+                            <td onClick={() => toggleExpandedItem(`srv-${itemKey}`)} style={{ padding: '6px 8px', color: text, cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `srv-${itemKey}` ? 'normal' : 'nowrap' }}>{item.name}</td>
                             <td style={{ padding: '6px 8px' }}>
                               {editingPrice === `srv-${index}` ? (
                                 <input autoFocus type="number" step="0.01" value={priceDraft}
@@ -987,7 +968,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                             <td style={{ padding: '6px 8px', fontWeight: 'bold', color: c('#276749','#68d391') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                             {renderDeleteBtn('calc_services', calcServices, index)}
                           </tr>
-                        ))}
+                          );
+                        })}
                         {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
                       </tbody>
                     </table>
@@ -1083,9 +1065,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     </tr>
                   </thead>
                   <tbody>
-                    {calcExpenses.map((item, index) => (
+                    {calcExpenses.map((item, index) => {
+                      const itemKey = item.id ?? index;
+                      return (
                       <tr key={index} style={{ borderBottom: `1px solid ${border}`, background: bg, borderLeft: `3px solid ${rowStripe(item)}` }}>
-                        <td style={{ padding: '6px 8px', color: text }}>{item.name}</td>
+                        <td onClick={() => toggleExpandedItem(`exp-${itemKey}`)} style={{ padding: '6px 8px', color: text, cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `exp-${itemKey}` ? 'normal' : 'nowrap' }}>{item.name}</td>
                         <td style={{ padding: '6px 8px' }}>
                           {editingPrice === `exp-${index}` ? (
                             <input autoFocus type="number" step="0.01" value={priceDraft}
@@ -1115,7 +1099,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         <td style={{ padding: '6px 8px', fontWeight: 'bold', color: c('#c53030','#fc8181') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
                         {renderDeleteBtn('calc_expenses', calcExpenses, index)}
                       </tr>
-                    ))}
+                      );
+                    })}
                     {calcExpenses.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodatkowych wydatków</td></tr>}
                   </tbody>
                 </table>
