@@ -55,3 +55,61 @@
 .submitBtn {
   width: 100%;
 }
+
+.emailRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding: 8px 10px;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.emailValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2d3748;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.changeEmailBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #4da6ff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 2px;
+  min-height: 32px;
+}
+
+.codeInput {
+  font-size: 22px !important;
+  font-weight: 700;
+  letter-spacing: 8px;
+  text-align: center;
+}
+
+.resendBtn {
+  width: 100%;
+  margin-top: 10px;
+  background: none;
+  border: none;
+  color: #4da6ff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px;
+  min-height: 36px;
+}
+.resendBtn:disabled {
+  color: #a0aec0;
+  cursor: not-allowed;
+}
