@@ -12,6 +12,12 @@ const RESEND_COOLDOWN_SECONDS = 60;
 // bo mapAuthError() oczekuje obiektu error z odpowiedzi API, którego tu nie ma.
 const NETWORK_ERROR_MESSAGE = 'Błąd połączenia z serwerem. Sprawdź internet i spróbuj ponownie.';
 
+// Supabase dopuszcza kod OTP o długości 6–10 cyfr (konfigurowalne po stronie projektu, domyślnie
+// 6, ale nie jest to twardy limit API) — pole NIE jest sztywno ograniczone do 6 znaków, żeby nie
+// odcinać realnych kodów dłuższych niż 6.
+const OTP_MIN_LENGTH = 6;
+const OTP_MAX_LENGTH = 10;
+
 // Supabase auth-js (AuthApiError) zwraca ustrukturyzowany error.code — używamy go jako
 // podstawowego sygnału (dokumentowane wartości, np. 'otp_expired'), z fallbackiem na
 // dopasowanie tekstu wiadomości na wypadek błędów sieciowych/innych bez pola code. Wydzielona
@@ -188,12 +194,13 @@ export default function Login() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 pattern="[0-9]*"
-                maxLength={6}
+                minLength={OTP_MIN_LENGTH}
+                maxLength={OTP_MAX_LENGTH}
                 required
                 autoFocus
                 value={code}
-                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="123456"
+                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_MAX_LENGTH))}
+                placeholder="Kod logowania"
                 className={s.codeInput}
               />
             </div>
@@ -201,7 +208,7 @@ export default function Login() {
             <button
               type="submit"
               className={`btn-primary ${s.submitBtn}`}
-              disabled={verifying || code.length !== 6}
+              disabled={verifying || code.length < OTP_MIN_LENGTH || code.length > OTP_MAX_LENGTH}
             >
               {verifying ? 'Logowanie...' : 'Zaloguj'}
             </button>
