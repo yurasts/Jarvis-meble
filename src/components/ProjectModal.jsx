@@ -80,10 +80,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [szczegolyOpen, setSzczegolyOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   // Единственная раскрытая строка среди ДОБАВЛЕННЫХ позиций (desktop-таблицы Materiały/Usługi/
-  // Wydatki) — nullable-ключ вместо объекта с несколькими флагами: раскрытие новой строки
-  // автоматически схлопывает предыдущую, повторный клик по уже раскрытой закрывает её. Ключ —
-  // стабильный item.id (есть у любой добавленной позиции: и из справочника, и через
-  // handleCustomAdd) с префиксом таблицы, чтобы id из разных таблиц не пересекались.
+  // Wydatki, а также mobile-карточки Materiały — feat/mobile-material-row-compact) — nullable-ключ
+  // вместо объекта с несколькими флагами: раскрытие новой строки автоматически схлопывает
+  // предыдущую, повторный клик по уже раскрытой закрывает её. Ключ — стабильный item.id (есть у
+  // любой добавленной позиции: и из справочника, и через handleCustomAdd) с префиксом таблицы,
+  // чтобы id из разных таблиц не пересекались.
   const [expandedItemKey, setExpandedItemKey] = useState(null);
   const [expandedMaterialId, setExpandedMaterialId] = useState(null);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
@@ -731,38 +732,107 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 {isMobile ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materiałów</div>}
-                    {calcMaterials.map((item, index) => (
-                      <div key={index} style={{ background: bgMatRow, borderRadius: '7px', border: `1px solid ${borderMat}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
-                        <div style={{ fontWeight: 'bold', color: c('#2b6cb0','#63b3ed'), fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          {editingPrice === `mat-${index}` ? (
-                            <input autoFocus type="number" step="0.01" value={priceDraft}
-                              onChange={e => setPriceDraft(e.target.value)}
-                              onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
-                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                              style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                            />
-                          ) : (
-                            <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
-                              style={{ cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
-                              {Number(item.price).toFixed(2)} zł
-                            </span>
+                    {calcMaterials.map((item, index) => {
+                      // itemKey — stabilny identyfikator pozycji (item.id, nie index) używany jako
+                      // klucz React ORAZ jako klucz expandedItemKey/matKey — usuwanie pierwszej
+                      // pozycji nie powinno "przenosić" rozwinięcia/DOM-u na sąsiedni wiersz, co przy
+                      // key={index} mogłoby się zdarzyć (React dopasowałby stary DOM po pozycji, nie
+                      // po tożsamości pozycji).
+                      const itemKey = item.id ?? index;
+                      // Ten sam klucz co w desktopowej tabeli Materiały (mat-${itemKey}) —
+                      // rozwinięcie jest współdzielone przez expandedItemKey, żaden nowy stan nie
+                      // powstaje (feat/mobile-material-row-compact).
+                      const matKey = `mat-${itemKey}`;
+                      const isExpanded = expandedItemKey === matKey;
+                      const isConfirmingDelete = confirmDeleteKey === `calc_materials-${index}`;
+                      // Podczas potwierdzania usunięcia zawsze pokazujemy pełną nazwę u góry —
+                      // użytkownik musi widzieć CO usuwa, nawet jeśli karta była zwinięta.
+                      const showFullName = isExpanded || isConfirmingDelete;
+                      // Krótka nazwa, która mieści się w całości (brak realnego przycięcia), nie
+                      // powinna bezsensownie rozwijać karty — mierzymy scrollWidth/clientWidth
+                      // dopiero w momencie kliknięcia/klawisza (event.currentTarget), nie podczas
+                      // renderu ani przez osobny ref-rejestr (react-hooks/refs nie ma tu zastosowania,
+                      // bo w ogóle nie czytamy/piszemy refs — DOM mierzony jest bezpośrednio z eventu).
+                      const handleNameToggle = (e) => {
+                        // Przycisk ma disabled={isConfirmingDelete}, więc to raczej zabezpieczenie
+                        // niż realna ścieżka — ale jawnie: dopóki trwa potwierdzanie usunięcia,
+                        // kliknięcie nazwy nie może ukryć kontekstu usuwania.
+                        if (isConfirmingDelete) return;
+                        if (isExpanded) { toggleExpandedItem(matKey); return; }
+                        const el = e.currentTarget;
+                        if (el.scrollWidth > el.clientWidth) toggleExpandedItem(matKey);
+                      };
+                      const priceNode = editingPrice === `mat-${index}` ? (
+                        <input autoFocus type="number" step="0.01" value={priceDraft}
+                          onChange={e => setPriceDraft(e.target.value)}
+                          onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
+                          onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
+                          style={{ width: '70px', flexShrink: 0, boxSizing: 'border-box', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                        />
+                      ) : (
+                        <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
+                          style={{ flexShrink: 0, whiteSpace: 'nowrap', cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
+                          {Number(item.price).toFixed(2)} zł
+                        </span>
+                      );
+                      const qtyNode = (
+                        <input type="text"
+                          value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
+                          onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
+                          onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
+                          onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
+                          onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
+                          style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
+                        />
+                      );
+                      const sumNode = (
+                        <strong style={{ flexShrink: 0, whiteSpace: 'nowrap', color: c('#2b6cb0','#63b3ed'), fontSize: '13px' }}>
+                          {(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł
+                        </strong>
+                      );
+                      return (
+                        <div key={itemKey} style={{ background: bgMatRow, borderRadius: '7px', border: `1px solid ${borderMat}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
+                          {showFullName && (
+                            <button
+                              type="button"
+                              aria-expanded={isExpanded}
+                              disabled={isConfirmingDelete}
+                              onClick={handleNameToggle}
+                              style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed'), fontSize: '13px', marginBottom: '6px', cursor: isConfirmingDelete ? 'default' : 'pointer', whiteSpace: 'normal', wordBreak: 'break-word' }}
+                            >
+                              {item.name}
+                            </button>
                           )}
-                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>× {item.unit || 'szt'}</span>
-                          <input type="text"
-                            value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
-                            onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
-                            onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
-                            onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
-                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
-                            style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                          />
-                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
-                          <strong style={{ color: c('#2b6cb0','#63b3ed'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                          {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {isConfirmingDelete ? (
+                              // Potwierdzenie usunięcia zajmuje całą dostępną szerokość wiersza
+                              // metryk (cena/ilość/suma są w tym momencie ukryte), żeby "Usunąć?
+                              // Tak/Nie" nigdy nie nachodziło na dane (feat/mobile-material-row-compact).
+                              <div style={{ flex: 1, display: 'flex' }}>
+                                {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
+                              </div>
+                            ) : (
+                              <>
+                                {!showFullName && (
+                                  <button
+                                    type="button"
+                                    aria-expanded={isExpanded}
+                                    onClick={handleNameToggle}
+                                    style={{ flex: 1, minWidth: 0, display: 'block', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed'), fontSize: '13px' }}
+                                  >
+                                    {item.name}
+                                  </button>
+                                )}
+                                {priceNode}
+                                {qtyNode}
+                                {sumNode}
+                                {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
