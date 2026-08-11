@@ -171,6 +171,16 @@ function App() {
     setMenuOpen(false)
   }
 
+  // "Więcej" (Mobile Project List v1, P1): старый мобильный topbar/dropdown теперь не рендерится
+  // вообще, пока открыт полноэкранный Projekty (см. !showMobileProjects ниже в JSX) — значит,
+  // прежде чем открыть dropdown, нужно сначала уйти с экрана Projekty, иначе topbar/dropdown
+  // просто негде показать. showMobileProjectsHome (кнопка "Projekty") при возврате, как и раньше,
+  // закрывает dropdown.
+  const showMoreMenu = () => {
+    setShowMobileHome(false)
+    setMenuOpen(o => !o)
+  }
+
   async function updateClientFields(clientId, updatedFields) {
     setClients(clients.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
     await supabase.from('clients').update(updatedFields).eq('id', clientId)
@@ -347,6 +357,11 @@ function App() {
       />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
+      {/* Mobile Project List v1 (P1): пока открыт полноэкранный Projekty (showMobileProjects),
+          старый topbar не рендерится вообще — его полностью заменяет собственный Mobile App Bar
+          внутри MobileProjectsScreen. "Więcej" (см. showMoreMenu выше) сначала уводит с экрана
+          Projekty (showMobileHome=false), и только тогда topbar/dropdown снова монтируются. */}
+      {!showMobileProjects && (
       <div className={s.topbar} ref={topbarRef}>
         {/* Левая часть — лого + текущая вкладка + стрелка */}
         <div
@@ -426,6 +441,7 @@ function App() {
           </div>
         )}
       </div>
+      )}
 
       {/* ======== КОНТЕНТ ======== */}
       <div className={s.contentWrapper}>
@@ -651,7 +667,7 @@ function App() {
         onProjekty={showMobileProjectsHome}
         onProdukcja={() => goToTab('production')}
         onMaterialy={() => goToTab('materials')}
-        onWiecej={() => setMenuOpen(o => !o)}
+        onWiecej={showMoreMenu}
       />
 
       <AiAssistant />

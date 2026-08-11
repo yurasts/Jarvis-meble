@@ -1,18 +1,30 @@
-/* Мобильный экран Projekty (ADR-003). position: fixed — сознательно, чтобы не зависеть от
-   .main-content/.contentWrapper (у них на мобильном брейкпоинте height:auto/overflow-y:visible,
-   см. index.css) и гарантировать ровно один вертикальный скролл — внутри ProjectListPanel (.list),
-   без вложенного скролла. */
+/* Мобильный экран Projekty (ADR-003, Mobile Project List v1). position: fixed + inset: 0 —
+   сознательно, чтобы не зависеть от .main-content/.contentWrapper (у них на мобильном брейкпоинте
+   height:auto/overflow-y:visible, см. index.css) и НИКОГДА не оставлять зазор, через который во
+   время elastic-scroll/resize на iOS могло бы просвечивать содержимое нижележащего раздела
+   (Dashboard/Więcej/др.) — единственный скролл на этом экране находится внутри ProjectListPanel
+   (.list/.listExtraBottom), сам .screen не скроллится (overflow: hidden).
+   height: 100dvh — устойчиво к изменению видимой высоты вьюпорта Safari (появление/скрытие адресной
+   строки), в отличие от 100vh/inset-расчёта на его основе.
+   Старый мобильный topbar (App.module.css) больше НЕ рендерится, пока этот экран открыт (см.
+   {!showMobileProjects && ...} в App.jsx) — поэтому фиксированного отступа под него больше нет:
+   padding-top равен ровно env(safe-area-inset-top) — контент (Mobile App Bar внутри
+   ProjectListPanel) сам оказывается первым, что видно под системной строкой iPhone. */
 .screen {
   position: fixed;
-  top: 48px; /* высота .topbar в App.module.css — держать значения в синхроне */
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 50; /* ниже .topbar (100)/его dropdown (300) и ProjectModal/AiAssistant (1000) */
+  inset: 0;
+  height: 100dvh;
+  box-sizing: border-box;
+  z-index: 50; /* ниже MobileBottomNav (60, MobileBottomNav.module.css) — нижняя навигация остаётся
+                  кликабельна поверх экрана; ниже ProjectModal variant="mobile" (1000) — карточка
+                  проекта по-прежнему открывается поверх этого экрана. Старый topbar/dropdown при
+                  показе этого экрана не смонтированы вовсе (см. выше), конфликтовать не с чем. */
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--bg-base);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .hidden { display: none; }
