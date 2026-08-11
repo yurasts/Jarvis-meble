@@ -1,10 +1,12 @@
 import ProjectListPanel from './ProjectListPanel';
 import s from './MobileProjectsScreen.module.css';
 
-// Мобильный экран "Projekty" (ADR-003, Mobile Field Mode — первая реализуемая фаза).
-// Тонкая обёртка над уже существующим ProjectListPanel — группировка "клиент → проекты",
-// сворачивание группы, поиск, статусы/сроки/счётчики задач и подсветка активного проекта
-// переиспользованы без изменений и без новой логики. Открытие проекта (onOpenProject) —
+// Мобильный экран "Projekty" (ADR-003, Mobile Project List v1). Тонкая обёртка над уже
+// существующим ProjectListPanel — группировка "клиент → проекты", поиск и подсветка активного
+// проекта переиспользованы без новой логики; собственно мобильную разметку (App Bar, компактные
+// строки без переноса и без пересортировки по recentIds, завершённые проекты без Zakończone)
+// включает проп mobileLayout — desktop (ProjectNav) и мобильный dropdown (App.jsx) вызывают тот
+// же ProjectListPanel без него, их разметка не затронута. Открытие проекта (onOpenProject) —
 // тот же requestOpenProject из App.jsx, что и на desktop: на узком экране он, как и раньше,
 // открывает существующую модалку ProjectModal (variant="modal") — сознательно временное
 // ограничение этой фазы (полноэкранный мобильный экран проекта — отдельная задача).
@@ -32,7 +34,7 @@ export default function MobileProjectsScreen({
         onNewProject={onNewProject}
         onOpenProject={onOpenProject}
         activeProjectId={activeProjectId}
-        extraBottomPadding
+        mobileLayout
       />
     </div>
   );

@@ -133,9 +133,186 @@
   padding: 10px 4px;
 }
 
-/* Только для мобильного экрана Projekty (ADR-003) — резервирует место под закреплённую
-   нижнюю навигацию, чтобы последняя строка списка не пряталась под ней. */
-.listExtraBottom { padding-bottom: 84px; }
+/* Только для мобильного экрана Projekty (ADR-003 / Mobile Project List v1) — резервирует место
+   под закреплённую нижнюю навигацию: её реальная высота (~61px: min-height 48px + padding 6+6px +
+   граница 1px, см. MobileBottomNav.module.css) плюс env(safe-area-inset-bottom) устройства, чтобы
+   последняя строка списка не пряталась под ней на любом iPhone. overscroll-behavior/touch-action —
+   сдерживают scroll-chaining за пределы списка (доскролл до края не должен «протаскивать» нижний
+   документ и открывать то, что находится под полноэкранным .screen). */
+.listExtraBottom {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* ================================================
+   Mobile Project List v1 (ADR-003) — явная разметка только для mobileLayout (MobileProjectsScreen).
+   Desktop (ProjectNav) и мобильный dropdown (App.jsx) используют классы выше и не затронуты.
+   ================================================ */
+
+/* Корень mobileLayout — на всю высоту .screen (MobileProjectsScreen), без общего padding s.panel:
+   App Bar ниже сам управляет своим горизонтальным отступом и растягивается на всю ширину экрана. */
+.mobileRoot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Полноширинный App Bar (Figma): свой horizontal padding 16px + border-bottom на всю ширину —
+   а не зажат внутри общего padding, как остальной контент экрана. min-height:40px + padding:3px
+   (а не 10px) — с 32px-высокими дочерними элементами (toggle/+Nowy) и border-bottom:1px итоговая
+   высота, измеренная в DOM (getBoundingClientRect на 320/390/430px), — 40px, не 52px, как было бы
+   при padding:10px, и не 41px, как было бы при padding:4px (min-height:40px там не поглощает 1px
+   border-bottom, box-sizing:border-box задаёт лишь минимум, а не сжимает контент). */
+.mobileAppBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 3px 16px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+}
+
+.mobileTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 700;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Поиск + список — отдельная область под App Bar, со своим horizontal padding 12px (Figma). */
+.mobileBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 0 12px;
+}
+
+/* Ровно 128×32px по макету на 390px и шире. Уже на самых узких экранах (~320px), где заголовку
+   "Projekty" (20px/700) иначе не хватает места и он обрезался бы многоточием, сужается до 100px —
+   через media query, а не clamp(), чтобы на 390px ширина была ровно заявленные 128px, а не 117px. */
+.mobileScopeToggle {
+  display: flex;
+  gap: 2px;
+  width: 128px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-menu-hover);
+}
+
+@media (max-width: 359px) {
+  .mobileScopeToggle { width: 100px; }
+}
+
+.mobileScopeBtn {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.mobileScopeBtn:hover { color: var(--text-main); }
+.mobileScopeBtnActive { background: var(--accent-soft); color: var(--accent); }
+
+.mobileAddBtn {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.mobileAddBtn:hover { background: #1d4ed8; }
+
+.mobileClientGroup + .mobileClientGroup { margin-top: 8px; }
+
+.mobileClientGroupHeader {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Плотная однострочная строка проекта, визуальная высота ~24px. Порядок: название → счётчик
+   задач → status dot (всегда крайний справа). Левый отступ (16px) больше, чем у заголовка клиента
+   (6px) — визуальный сдвиг строк вправо относительно имени клиента. */
+.mobileRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 6px 0 16px;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mobileRow:active { background: var(--bg-menu-hover); }
+.mobileRow:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+.mobileRowActive { background: var(--accent-soft); border-left-color: var(--accent); }
+.mobileRowActive:active { background: var(--accent-soft); }
+.mobileRowActive .mobileRowName { color: var(--accent); }
+
+.mobileRowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileRowTasks {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--text-muted);
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 15px;
+  min-width: 15px;
+  text-align: center;
+}
+
+.mobileStatusDot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
 
 .row {
   display: flex;
