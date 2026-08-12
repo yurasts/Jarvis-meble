@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../supabase';
 import FileLightbox from './FileLightbox';
+import fs from './FilesTab.module.css';
 
 // Единая таблица четырёх реальных папок — общая для variant='shelf' и variant='tab' (оба
 // используют один и тот же селектор одновременно как фильтр видимых файлов и как категорию
@@ -37,7 +38,7 @@ const pluralPliki = (n) => {
 // используемая и в шапке desktop/embedded, и (с mobileLayout=true) внутри прокручиваемого
 // контента mobile-экрана проекта (ADR-003 + feat/mobile-files-zoom). Один компонент, один
 // files-стейт, один fetch — переключается только JSX-вывод, никакого второго монтирования/запроса.
-export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverChange, variant = 'tab', initialShelfExpanded = false, expanded: expandedProp, onExpandedChange, mobileLayout = false }) {
+export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverChange, variant = 'tab', initialShelfExpanded = false, expanded: expandedProp, onExpandedChange, mobileLayout = false, mobileWorkspaceLayout = false }) {
   const isShelf = variant === 'shelf';
   const [files,          setFiles]          = useState([]);
   const [loading,        setLoading]        = useState(true);
@@ -91,6 +92,14 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
     loadFiles();
     return () => { cancelled = true; };
   }, [clientId]);
+
+  // Именованный (не создаваемый заново в .map()) обработчик выбора папки — используется рядом
+  // кнопок-папок в mobileWorkspaceLayout ниже; тот же принцип "один select одновременно фильтрует
+  // видимые файлы и служит категорией загрузки", что и у остальных вариантов.
+  function selectFolder(id) {
+    setActiveCategory(id);
+    uploadCategoryRef.current = id;
+  }
 
   async function handleUpload(e) {
     const selected = Array.from(e.target.files);
@@ -328,6 +337,79 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // не передан) либо внутри прокручиваемого контента mobile-экрана (mobileLayout=true — крупные
   // touch-target'ы ≥40×40px, счётчик встроен в текст опции селектора, подпись "📎 Pliki" скрыта,
   // подписи кнопок — иконки с aria-label/title, лента миниатюр крупнее). ========
+  if (isShelf && mobileWorkspaceLayout) {
+    // Mobile Project Workspace v1 (p.3): вместо <select> + Rozwiń/Zwiń — ряд из 4 кнопок-папок
+    // (FOLDER_CATEGORIES, те же id) + "+", и ПОСТОЯННО видимая горизонтальная карусель миниатюр
+    // 132×132px (без промежуточного свёрнутого/развёрнутого состояния — просто нет отдельного
+    // "развёрнутого" вида в этом варианте). Один и тот же activeCategory одновременно фильтрует
+    // видимые файлы и служит категорией загрузки — тот же принцип, что и в остальных вариантах,
+    // переключение папки не делает новый Supabase fetch (files/loading общие с variant='shelf').
+    return (
+      <div className={fs.root}>
+        <div className={fs.folderRow}>
+          {FOLDER_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              type="button"
+              disabled={uploading}
+              className={`${fs.folderBtn} ${activeCategory === cat.id ? fs.folderBtnActive : ''}`}
+              onClick={() => selectFolder(cat.id)}
+            >
+              {cat.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={uploading}
+            className={fs.uploadBtn}
+            onClick={() => fileInputRef.current.click()}
+            aria-label="Dodaj plik lub zdjęcie"
+            title="Dodaj plik lub zdjęcie"
+          >
+            {uploading ? '⏳' : '+'}
+          </button>
+          <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
+        </div>
+
+        {loading ? (
+          <div className={fs.emptyHint}>Ładowanie...</div>
+        ) : visible.length === 0 ? (
+          <div className={fs.emptyHint}>Brak plików w tym folderze.</div>
+        ) : (
+          <div className={fs.carousel}>
+            {visible.map(file => (
+              isImage(file.file_type) ? (
+                <img
+                  key={file.id}
+                  src={file.file_url}
+                  alt={file.file_name}
+                  draggable={false}
+                  onClick={() => setLightboxFileId(file.id)}
+                  className={fs.carouselImg}
+                  style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
+                />
+              ) : (
+                <a
+                  key={file.id}
+                  href={file.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={file.file_name}
+                  className={fs.carouselDoc}
+                >
+                  <span className={fs.carouselDocIcon}>{isPdf(file.file_type) ? '📄' : '📁'}</span>
+                  <span className={fs.carouselDocName}>{shortenFileName(file.file_name, 18)}</span>
+                </a>
+              )
+            ))}
+          </div>
+        )}
+
+        {renderLightbox()}
+      </div>
+    );
+  }
+
   if (isShelf) {
     const thumbSize = mobileLayout ? '68px' : '60px';
     return (

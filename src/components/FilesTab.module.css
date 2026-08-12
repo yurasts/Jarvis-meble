@@ -1,0 +1,123 @@
+/* Mobile Project Workspace v1 — только для FilesTab variant="shelf" mobileWorkspaceLayout.
+   Desktop shelf (без mobileWorkspaceLayout), variant="tab" и modal fallback этот файл не используют. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.folderRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+/* min-height: 40px — touch target (п.6 ревью). На ширинах ≤359px gap/font-size сужаются медиа-запросом
+   ниже, чтобы 4 подписи + "+" помещались без горизонтального scroll страницы, но сами подписи папок
+   не обрезаются (white-space:nowrap + ellipsis остаются подстраховкой, не расчётом на обрезание). */
+.folderBtn {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 8px 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.folderBtn:disabled { opacity: 0.6; cursor: default; }
+.folderBtnActive { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+.uploadBtn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.uploadBtn:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 359px) {
+  .folderRow { gap: 4px; }
+  .folderBtn { padding: 8px 1px; font-size: 10.5px; }
+}
+
+/* Постоянная карусель миниатюр 132×132px — нативный горизонтальный touch-scroll, свой overflow-x,
+   не влияет на горизонтальный scroll страницы. Скрытый скроллбар — недостижимо через inline style
+   (::-webkit-scrollbar), поэтому именно здесь нужен CSS-модуль. */
+.carousel {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.carousel::-webkit-scrollbar { display: none; }
+
+.carouselImg {
+  width: 132px;
+  height: 132px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: zoom-in;
+  border: 1px solid var(--border);
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.carouselDoc {
+  width: 132px;
+  height: 132px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  padding: 8px;
+}
+
+.carouselDocIcon { font-size: 24px; }
+
+.carouselDocName {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.emptyHint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
