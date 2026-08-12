@@ -258,6 +258,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     if (!staysOpenOnSave) { await handleSaveAndClose(); return; }
     const result = await onSave();
     if (result?.error) { setSaveStatus('error'); return; }
+    // Успешный Zapisz закрывает mobile row-редактор (hotfix) — данные уже сохранены, оставлять
+    // раскрытую строку/delete-confirm незачем. При ошибке (ветка выше) редактор остаётся открытым,
+    // пользователь не теряет введённые значения.
+    if (isMobileVariant) closeMobileRowEditor();
     setSaveStatus('saved');
     if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
     saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
@@ -300,18 +304,68 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     }
   };
 
-  // editingPrice/qtyDraft используют ключ по INDEX (mat-0, mat-1…), а не по id — у legacy-позиций
-  // без id тем же индексом становится и expandedItemKey (item.id ?? index). После удаления все
-  // позиции ПОСЛЕ удалённой сдвигаются на один индекс вниз, поэтому оставшийся draft/expanded-ключ
-  // способен "унаследоваться" соседней строкой, чужой по смыслу. Безопасный сброс — очистить весь
-  // черновой UI-стейт целиком (единственная раскрытая/редактируемая строка всё равно закрывается
-  // самим действием удаления).
-  const handleRemoveItem = (field, currentItems, indexToRemove) => {
-    setConfirmDeleteKey(null);
+  // Единое завершение mobile row-редактора (hotfix): очищает ТОЛЬКО UI-состояние (какая строка
+  // раскрыта/редактируется, черновики цены/количества, подтверждение удаления) — client, массивы
+  // расчётов calc_materials/calc_services/calc_expenses и Supabase здесь не трогаются вообще.
+  // Единая точка входа для Materiały/Usługi/Rozliczenia (общий renderMobileRow), для удаления
+  // позиции и для смены mobile-вкладки — везде, где редактор строки обязан закрыться.
+  const closeMobileRowEditor = () => {
     setExpandedItemKey(null);
     setEditingPrice(null);
     setPriceDraft('');
     setQtyDraft({});
+    setConfirmDeleteKey(null);
+  };
+
+  // Кнопка "Gotowe" / клик по названию раскрытой mobile-строки: сначала блюрит активный price/qty
+  // input этой же строки — это ЗАПУСКАЕТ существующие onBlur-обработчики (handlePriceSave/
+  // handleQtyCommit), т.е. те же commit/evalQty/dirty-механизмы, что и раньше, без дублирования
+  // их логики здесь, — и только потом закрывает редактор. document.activeElement достаточно без
+  // дополнительного скоупинга по строке: одновременно раскрыта/редактируется не более одной строки
+  // (expandedItemKey — синглтон), так что сфокусированный input, если он есть, точно принадлежит
+  // именно этой строке.
+  const finishEditing = () => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      document.activeElement.blur();
+    }
+    closeMobileRowEditor();
+  };
+
+  // Смена таба (hotfix): только для isMobileVariant и только при ФАКТИЧЕСКОЙ смене — сначала
+  // finishEditing() (не closeMobileRowEditor() напрямую!), чтобы активный price/qty input сначала
+  // прошёл существующий blur/commit, пока строка ещё смонтирована — переключение таба unmount'ит
+  // содержимое предыдущего таба, и полагаться на onBlur во время React-unmount нельзя (не гарантирован).
+  // draft/confirm-delete не должны "утекать" в другую вкладку — сценарий Materiały → раскрыть строку →
+  // Usługi → Materiały обязан вернуть все строки свёрнутыми, а незакоммиченное значение — сохранённым.
+  // Для desktop/embedded/modal — ровно та же setActiveTab(tab), без побочных эффектов, поведение не меняется.
+  const handleTabChange = (tab) => {
+    if (isMobileVariant && tab !== activeTab) {
+      finishEditing();
+    }
+    setActiveTab(tab);
+  };
+
+  // Сворачивание секции Materiały/Usługi (hotfix, п.3): если секция сейчас ОТКРЫТА (мы её
+  // закрываем) — сначала finishEditing() (коммит активного input + полный сброс редактора), и
+  // только потом toggle. При повторном раскрытии секции раскрытых строк/delete-confirm уже нет.
+  // Открытие (сейчас закрыта) не нуждается в finishEditing — закрывать нечего.
+  const handleToggleMobileMaterials = () => {
+    if (mobileMaterialsOpen) finishEditing();
+    setMobileMaterialsOpen(o => !o);
+  };
+  const handleToggleMobileServices = () => {
+    if (mobileServicesOpen) finishEditing();
+    setMobileServicesOpen(o => !o);
+  };
+
+  // editingPrice/qtyDraft используют ключ по INDEX (mat-0, mat-1…), а не по id — у legacy-позиций
+  // без id тем же индексом становится и expandedItemKey (item.id ?? index). После удаления все
+  // позиции ПОСЛЕ удалённой сдвигаются на один индекс вниз, поэтому оставшийся draft/expanded-ключ
+  // способен "унаследоваться" соседней строкой, чужой по смыслу. Безопасный сброс — очистить весь
+  // черновой UI-стейт целиком через closeMobileRowEditor (единственная раскрытая/редактируемая
+  // строка всё равно закрывается самим действием удаления).
+  const handleRemoveItem = (field, currentItems, indexToRemove) => {
+    closeMobileRowEditor();
     updateItems(field, currentItems.filter((_, idx) => idx !== indexToRemove));
   };
 
@@ -446,10 +500,22 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     const isConfirmingDelete = confirmDeleteKey === deleteKey;
     const total = (Number(item.price) * Number(item.quantity || 1)).toFixed(2);
 
-    // Раскрытие строки одновременно готовит priceDraft (цена сразу становится input — без
-    // отдельного клика по цене, в отличие от desktop) — qty аналогично сеется через onFocus
-    // (handleQtyFocus), как и везде в файле.
-    const openRow = () => { setPriceDraft(String(item.price)); toggleExpandedItem(rowKey); };
+    // Открытие строки (A → B, hotfix): порядок вызовов здесь ДЕТЕРМИНИРОВАН и важен. finishEditing()
+    // идёт ПЕРВЫМ — коммитит/закрывает ПРЕДЫДУЩУЮ раскрытую строку (если была) через её же onBlur,
+    // затем полностью сбрасывает UI-состояние редактора (в т.ч. priceDraft='' и qtyDraft={}).
+    // setPriceDraft(String(item.price)) для ЭТОЙ строки и setExpandedItemKey(rowKey) идут СТРОГО
+    // ПОСЛЕ — оба вызова синхронны и относятся к тем же state-переменным, что и внутри
+    // finishEditing()/closeMobileRowEditor(), поэтому по правилам батчинга React побеждает
+    // последнее вызванное обновление: итоговые priceDraft/expandedItemKey — гарантированно от B,
+    // а не затёртый сброс от finishEditing(). qtyDraft у B остаётся пуст (из closeMobileRowEditor) —
+    // qtyDraft строки A туда не попадает, B при необходимости сам засеет свой через handleQtyFocus.
+    // setExpandedItemKey(rowKey) — напрямую, а не toggleExpandedItem: openRow всегда означает
+    // "открыть" (вызывается только из свёрнутого состояния строки), не переключить.
+    const openRow = () => {
+      finishEditing();
+      setPriceDraft(String(item.price));
+      setExpandedItemKey(rowKey);
+    };
 
     // Подтверждение удаления показывается ПЕРВЫМ (до проверки isExpanded) — поэтому "Nie" всегда
     // возвращает ровно то состояние (свёрнуто/раскрыто), в котором строка была до нажатия ✖,
@@ -475,17 +541,21 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         <div key={itemKey} style={{ minHeight: '64px', boxSizing: 'border-box', background: accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center' }}>
           <button
             type="button"
-            onClick={() => toggleExpandedItem(rowKey)}
+            onClick={finishEditing}
             style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', fontSize: '12.5px', color: accent.text, cursor: 'pointer', whiteSpace: 'normal', wordBreak: 'break-word' }}
           >
             {item.name}
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* stopPropagation на Escape (hotfix, п.4) обязателен: ProjectModal вешает СВОЙ
+                глобальный window keydown-слушатель Escape (закрывает весь mobile Workspace, см.
+                выше по файлу) — без остановки всплытия Escape тут закрыл бы редактор строки И ТУТ
+                ЖЕ весь экран проекта одним нажатием. */}
             <input
               autoFocus type="number" step="0.01" value={priceDraft}
               onChange={e => setPriceDraft(e.target.value)}
               onBlur={() => handlePriceSave(field, items, index)}
-              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave(field, items, index); if (e.key === 'Escape') toggleExpandedItem(rowKey); }}
+              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave(field, items, index); if (e.key === 'Escape') { e.stopPropagation(); finishEditing(); } }}
               style={{ width: '64px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12.5px', background: bgInput, color: text }}
             />
             <input
@@ -494,7 +564,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               onFocus={() => handleQtyFocus(stateKey, item.quantity ?? 1)}
               onChange={e => handleQtyChange(stateKey, e.target.value)}
               onBlur={() => handleQtyCommit(field, items, index, stateKey)}
-              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit(field, items, index, stateKey); e.target.blur(); } }}
+              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit(field, items, index, stateKey); e.target.blur(); } if (e.key === 'Escape') { e.stopPropagation(); finishEditing(); } }}
               style={{ width: '46px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12.5px', background: bgInput, color: text }}
             />
             <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
@@ -504,6 +574,19 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
             >
               ✖
+            </button>
+          </div>
+          {/* Явная кнопка закрытия редактора (hotfix) — отдельной компактной строкой, не рядом
+              с (потенциально длинным) названием, чтобы не перекрывать его. Delete (✖) выше — своя,
+              отдельная кнопка, не переопределяется. */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={finishEditing}
+              aria-label="Zakończ edycję"
+              style={{ minHeight: '40px', boxSizing: 'border-box', padding: '0 16px', borderRadius: '6px', border: 'none', background: '#38a169', color: '#fff', fontSize: '12.5px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              Gotowe
             </button>
           </div>
         </div>
@@ -808,13 +891,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             меняется только подпись — "Rozliczenia" вместо "Wydatki". desktop/embedded сохраняют
             emoji и суммы в названиях без изменений. */}
         <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: isMobileVariant ? 'hidden' : 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
-          <button onClick={() => setActiveTab('materials')} style={{ ...tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+          <button onClick={() => handleTabChange('materials')} style={{ ...tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
             {isMobileVariant ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
           </button>
-          <button onClick={() => setActiveTab('services')} style={{ ...tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+          <button onClick={() => handleTabChange('services')} style={{ ...tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
             {isMobileVariant ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
           </button>
-          <button onClick={() => setActiveTab('expenses')} style={{ ...tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+          <button onClick={() => handleTabChange('expenses')} style={{ ...tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
             {isMobileVariant ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
           </button>
           {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
@@ -833,7 +916,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'materials' && (
             isMobileVariant ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {renderMobileSectionHeader(mobileMaterialsOpen, () => setMobileMaterialsOpen(o => !o), totalMaterials)}
+                {renderMobileSectionHeader(mobileMaterialsOpen, handleToggleMobileMaterials, totalMaterials)}
                 {mobileMaterialsOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {/* 1. Szukaj materiału w bazie… */}
@@ -1114,7 +1197,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'services' && (
             isMobileVariant ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {renderMobileSectionHeader(mobileServicesOpen, () => setMobileServicesOpen(o => !o), totalServices)}
+                {renderMobileSectionHeader(mobileServicesOpen, handleToggleMobileServices, totalServices)}
                 {mobileServicesOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {/* Szukaj usługi w bazie… */}
