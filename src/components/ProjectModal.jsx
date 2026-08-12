@@ -76,8 +76,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [searchService, setSearchService] = useState('');
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  // Sekcja "Szczegóły" (Koszt/mnożnik/Budżet) w wariancie mobile — zwinięta domyślnie (ADR-003).
-  const [szczegolyOpen, setSzczegolyOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   // Единственная раскрытая строка среди ДОБАВЛЕННЫХ позиций (desktop-таблицы Materiały/Usługi/
   // Wydatki, а также mobile-карточки Materiały — feat/mobile-material-row-compact) — nullable-ключ
@@ -92,10 +90,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [priceDraft, setPriceDraft] = useState('');
   const [qtyDraft, setQtyDraft] = useState({});
 
-  // Ленивая инициализация из client.budget_coefficient — при смене проекта весь ProjectModal
-  // перемонтируется (key зависит от client.id, см. выше), поэтому значение всегда актуально
-  // при открытии без отдельного эффекта синхронизации (был react-hooks/set-state-in-effect).
-  const [coefficient, setCoefficient] = useState(Number(client.budget_coefficient) || 2.0);
+  // Mobile Project Workspace v1: секции "Dodane pozycje" (Materiały) и Usługi — свёрнуты/развёрнуты
+  // по статусу проекта (ленивая инициализация, тот же паттерн, что и раньше был у coefficient —
+  // при смене проекта весь ProjectModal перемонтируется, см. key в App.jsx). Чисто локальный UI-стейт,
+  // не пишется в Supabase. status === 'new' — открыто сразу; на более поздних этапах пользователь
+  // раскрывает вручную кнопкой-toggle.
+  // (client.status || 'new') — проект без заполненного статуса ведёт себя как "Nowy" (открыто),
+  // а не как поздний этап (закрыто).
+  const [mobileMaterialsOpen, setMobileMaterialsOpen] = useState(() => (client.status || 'new') === 'new');
+  const [mobileServicesOpen, setMobileServicesOpen] = useState(() => (client.status || 'new') === 'new');
 
   const evalQty = (expr) => {
     if (expr === '' || expr === null || expr === undefined) return null;
@@ -261,11 +264,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
-  // исключительно client.budget_coefficient (единый источник истины и для mobile Szczegóły
-  // input'а ниже, и для новой финансовой панели в sidebar — ProjectListPanel пишет туда через
-  // тот же setClient/activeClient). Эффект больше НЕ пишет budget_coefficient сам — раньше он
-  // на каждое изменение totalProjectCost перезаписывал budget_coefficient локальным (потенциально
-  // устаревшим) состоянием coefficient, что затирало бы правку, сделанную снаружи (из sidebar).
+  // исключительно client.budget_coefficient (единый источник истины для финансовой панели в
+  // sidebar — ProjectListPanel пишет туда через тот же setClient/activeClient; в mobile Workspace
+  // коэффициент/Budżet не редактируются вовсе, см. Mobile Project Workspace v1 п.2 — Szczegóły
+  // убран). Эффект НЕ пишет budget_coefficient сам, только производный budget.
   // setClient — стабильный setter из useState в App.jsx (setActiveClient), его identity не
   // меняется между рендерами, поэтому добавление в deps безопасно и не создаёт цикл.
   useEffect(() => {
@@ -298,8 +300,18 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     }
   };
 
+  // editingPrice/qtyDraft используют ключ по INDEX (mat-0, mat-1…), а не по id — у legacy-позиций
+  // без id тем же индексом становится и expandedItemKey (item.id ?? index). После удаления все
+  // позиции ПОСЛЕ удалённой сдвигаются на один индекс вниз, поэтому оставшийся draft/expanded-ключ
+  // способен "унаследоваться" соседней строкой, чужой по смыслу. Безопасный сброс — очистить весь
+  // черновой UI-стейт целиком (единственная раскрытая/редактируемая строка всё равно закрывается
+  // самим действием удаления).
   const handleRemoveItem = (field, currentItems, indexToRemove) => {
     setConfirmDeleteKey(null);
+    setExpandedItemKey(null);
+    setEditingPrice(null);
+    setPriceDraft('');
+    setQtyDraft({});
     updateItems(field, currentItems.filter((_, idx) => idx !== indexToRemove));
   };
 
@@ -365,7 +377,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const outerStyle = isEmbedded
     ? { position: 'relative', width: '100%', height: '100%' }
     : isMobileVariant
-      ? { position: 'fixed', inset: 0, zIndex: 1000, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+      // height/maxHeight: 100dvh — устойчиво к динамическому viewport Safari (адресная строка);
+      // overscrollBehavior: contain — доскролл содержимого не должен "протаскивать" документ под
+      // экраном (rubber-band не открывает нижележащую страницу); background непрозрачен (var(--modal-bg))
+      // и inset:0 полностью покрывает viewport — под экраном ничего не видно и не двигается.
+      ? { position: 'fixed', inset: 0, height: '100dvh', maxHeight: '100dvh', zIndex: 1000, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden', overscrollBehavior: 'contain' }
       : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
 
   const innerStyle = {
@@ -382,9 +398,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   // Jedyny przewijany obszar ekranu mobilnego (między sztywnym nagłówkiem a paskiem Zapisz) —
-  // zawiera Szczegóły, taby i treść tabów bez żadnej zmiany w ich JSX (tylko dodatkowy wrapper).
+  // zawiera polkę plików, taby i treść tabów (Mobile Project Workspace v1).
   const contentAreaStyle = isMobileVariant
-    ? { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '10px 15px 16px' }
+    ? { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '10px 15px 16px' }
     : undefined;
 
   // Etykiety/komunikat dialogu potwierdzenia — wyliczone raz, bez IIFE w JSX (ostatnie powodowało
@@ -401,6 +417,152 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       ? 'Chcesz wrócić do listy projektów — odrzucić niezapisane zmiany?'
       : 'Czy na pewno chcesz zamknąć bez zapisania?';
 
+  // ==================== Mobile Project Workspace v1 (p.5/6/7) ====================
+  // Общий render-helper для компактных строк Materiały/Usługi/Rozliczenia(Wydatki) на mobile —
+  // НЕ объединяет модели данных (каждая секция вызывает его ясно ссо своим полем/массивом), только
+  // переиспользует одну и ту же разметку строки (сжатая 24px → раскрытая ~64px редактируемая →
+  // подтверждение удаления с полным именем) и уже существующие handlers/state этого компонента
+  // (handlePriceSave/handleQty*/handleRemoveItem/expandedItemKey/confirmDeleteKey/priceDraft/
+  // qtyDraft) — те же самые price/qty/Enter/onBlur/evalQty/dirty-механизмы, что и в desktop-таблице
+  // и в isMobile-карточках выше, без дублирования их логики.
+  const MOBILE_ROW_PREFIX = { calc_materials: 'mat', calc_services: 'srv', calc_expenses: 'exp' };
+  const MOBILE_ROW_ACCENT = {
+    calc_materials: { text: c('#2b6cb0', '#63b3ed'), bg: bgMatRow, border: borderMat },
+    calc_services:  { text: c('#276749', '#68d391'), bg: bgSrvRow, border: borderSrv },
+    calc_expenses:  { text: c('#c53030', '#fc8181'), bg: bgExpRow, border: borderExp },
+  };
+
+  const renderMobileRow = (field, items, index) => {
+    const item = items[index];
+    const itemKey = item.id ?? index;
+    const prefix = MOBILE_ROW_PREFIX[field];
+    const rowKey = `${prefix}-${itemKey}`;
+    // Тот же формат ключа (`${prefix}-${index}`), что уже используют editingPrice/qtyDraft в
+    // desktop-таблице/isMobile-карточках выше — polностью переиспользуем их состояние и handlers.
+    const stateKey = `${prefix}-${index}`;
+    const deleteKey = `${field}-${index}`;
+    const accent = MOBILE_ROW_ACCENT[field];
+    const isExpanded = expandedItemKey === rowKey;
+    const isConfirmingDelete = confirmDeleteKey === deleteKey;
+    const total = (Number(item.price) * Number(item.quantity || 1)).toFixed(2);
+
+    // Раскрытие строки одновременно готовит priceDraft (цена сразу становится input — без
+    // отдельного клика по цене, в отличие от desktop) — qty аналогично сеется через onFocus
+    // (handleQtyFocus), как и везде в файле.
+    const openRow = () => { setPriceDraft(String(item.price)); toggleExpandedItem(rowKey); };
+
+    // Подтверждение удаления показывается ПЕРВЫМ (до проверки isExpanded) — поэтому "Nie" всегда
+    // возвращает ровно то состояние (свёрнуто/раскрыто), в котором строка была до нажатия ✖,
+    // не трогая expandedItemKey.
+    if (isConfirmingDelete) {
+      // Полное имя может занимать несколько строк — фиксированная высота 24px здесь недопустима
+      // (обрезала бы длинные названия). Tak/Nie — отдельной строкой справа, не перекрывают текст.
+      return (
+        <div key={itemKey} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 8px', borderRadius: '5px', borderLeft: `3px solid ${rowStripe(item)}`, background: accent.bg }}>
+          <span style={{ fontSize: '12px', color: text, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+            Usunąć „{item.name}”?
+          </span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button type="button" onClick={() => handleRemoveItem(field, items, index)} style={{ flexShrink: 0, background: '#e53e3e', color: '#fff', border: 'none', padding: '3px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Tak</button>
+            <button type="button" onClick={() => setConfirmDeleteKey(null)} style={{ flexShrink: 0, background: bgHeader, color: text, border: `1px solid ${border}`, padding: '3px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
+          </div>
+        </div>
+      );
+    }
+
+    if (isExpanded) {
+      return (
+        <div key={itemKey} style={{ minHeight: '64px', boxSizing: 'border-box', background: accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center' }}>
+          <button
+            type="button"
+            onClick={() => toggleExpandedItem(rowKey)}
+            style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', fontSize: '12.5px', color: accent.text, cursor: 'pointer', whiteSpace: 'normal', wordBreak: 'break-word' }}
+          >
+            {item.name}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input
+              autoFocus type="number" step="0.01" value={priceDraft}
+              onChange={e => setPriceDraft(e.target.value)}
+              onBlur={() => handlePriceSave(field, items, index)}
+              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave(field, items, index); if (e.key === 'Escape') toggleExpandedItem(rowKey); }}
+              style={{ width: '64px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12.5px', background: bgInput, color: text }}
+            />
+            <input
+              type="text"
+              value={qtyDraft[stateKey] !== undefined ? qtyDraft[stateKey] : (item.quantity ?? 1)}
+              onFocus={() => handleQtyFocus(stateKey, item.quantity ?? 1)}
+              onChange={e => handleQtyChange(stateKey, e.target.value)}
+              onBlur={() => handleQtyCommit(field, items, index, stateKey)}
+              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit(field, items, index, stateKey); e.target.blur(); } }}
+              style={{ width: '46px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12.5px', background: bgInput, color: text }}
+            />
+            <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
+              style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
+            >
+              ✖
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={itemKey}
+        role="button"
+        tabIndex={0}
+        onClick={openRow}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(); } }}
+        style={{ height: '24px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', borderRadius: '5px', cursor: 'pointer', borderLeft: `3px solid ${rowStripe(item)}`, background: accent.bg, fontSize: '11px', fontWeight: 400, color: text }}
+      >
+        {/* Единая типографика колонок (п.4 ревью): размер/насыщенность заданы один раз на строке
+            (fontSize/fontWeight выше), дочерние — font:inherit; различается только color. */}
+        <span style={{ flex: 1, minWidth: 0, font: 'inherit', color: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+        <span style={{ flexShrink: 0, width: '54px', font: 'inherit', color: textLight, textAlign: 'right' }}>{Number(item.price).toFixed(2)} zł</span>
+        <span style={{ flexShrink: 0, width: '26px', font: 'inherit', color: textLight, textAlign: 'right' }}>{item.quantity ?? 1}</span>
+        <span style={{ flexShrink: 0, width: '60px', font: 'inherit', color: accent.text, textAlign: 'right' }}>{total} zł</span>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
+          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '13px', padding: 0, lineHeight: 1 }}
+        >
+          ✖
+        </button>
+      </div>
+    );
+  };
+
+  // Заголовок секции Materiały/Usługi — toggle слева + "Dodane pozycje", сумма справа,
+  // aria-expanded (p.5). Rozliczenia (p.7) свой, более простой заголовок без toggle — не переиспользует.
+  const renderMobileSectionHeader = (open, onToggle, total) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', background: bgHeader, border: `1px solid ${border}`, borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
+    >
+      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold', color: text }}>
+        {/* Зелёный checkbox/✓ — визуальный индикатор раскрытия секции (по Figma), а не отдельный
+            интерактивный элемент: клик обрабатывает вся кнопка-заголовок, aria-expanded на ней же. */}
+        <span aria-hidden="true" style={{
+          width: '16px', height: '16px', flexShrink: 0, boxSizing: 'border-box',
+          borderRadius: '4px', border: `1.5px solid ${open ? '#38a169' : border}`,
+          background: open ? '#38a169' : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontSize: '11px', fontWeight: 'bold', lineHeight: 1,
+        }}>
+          {open ? '✓' : ''}
+        </span>
+        Dodane pozycje
+      </span>
+      <strong style={{ fontSize: '13px', color: text }}>{total.toFixed(2)} zł</strong>
+    </button>
+  );
+
   return (
     <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
       <div style={innerStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
@@ -414,8 +576,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             contentAreaStyle, więc zawsze widoczny i nigdy nie zasłania ostatniego wiersza treści. */}
         {isMobileVariant && (
           <div style={{
-            flexShrink: 0, background: bg,
-            padding: '10px 15px 8px', borderBottom: `2px solid ${border}`,
+            flexShrink: 0, background: bg, boxSizing: 'border-box',
+            padding: '10px 15px 8px', paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
+            borderBottom: `2px solid ${border}`,
           }}>
             <button
               onClick={handleClose}
@@ -456,86 +619,26 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </div>
         )}
 
-        {/* Jedyny przewijany obszar treści na mobile (Szczegóły + taby + treść taba) — dla innych
+        {/* Jedyny przewijany obszar treści na mobile (polka plików + taby + treść taba) — dla innych
             wariantów contentAreaStyle jest undefined, więc to zwykły, niestylowany div bez wpływu
             na desktop/embedded (ADR-003, faza 2: usunięcie ujemnych marginesów). */}
         <div style={contentAreaStyle}>
 
-        {/* Sekcja Szczegóły (Koszt/mnożnik/Budżet + rodzaj projektu) — tylko mobile, zwinięta
-            domyślnie, żeby długie dane finansowe nie zajmowały miejsca u góry (ADR-003). */}
-        {isMobileVariant && (
-          <div style={{ marginBottom: '14px' }}>
-            <button
-              onClick={() => setSzczegolyOpen(o => !o)}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: bgHeader, border: `1px solid ${border}`, borderRadius: '8px',
-                padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              <span style={{ fontSize: '12.5px', fontWeight: 'bold', color: text }}>Szczegóły</span>
-              <span style={{ fontSize: '11px', color: textLight }}>{szczegolyOpen ? '▾' : '▸'}</span>
-            </button>
-            {szczegolyOpen && (
-              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '12px' }}>
-                  <span style={{ color: textLight }}>Koszt: <strong style={{ color: '#e53e3e' }}>{totalProjectCost.toFixed(2)} zł</strong></span>
-                  <span style={{ color: '#a0aec0' }}>×</span>
-                  <input
-                    type="number" min="1" max="10" step="0.1"
-                    value={coefficient}
-                    onChange={e => {
-                      const val = parseFloat(e.target.value);
-                      setCoefficient(e.target.value);
-                      if (!isNaN(val) && val > 0) {
-                        setClient({ ...client, budget: parseFloat((totalProjectCost * val).toFixed(2)), budget_coefficient: val });
-                      }
-                    }}
-                    style={{ width: '55px', padding: '2px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', fontWeight: 'bold', color: '#2b6cb0', textAlign: 'center', background: bgInput }}
-                  />
-                  <span style={{ background: bgMatRow, border: `1px solid ${borderMat}`, borderRadius: '6px', padding: '2px 10px', fontWeight: 'bold', color: theme === 'forest' ? '#eafff0' : c('#2b6cb0', '#63b3ed') }}>
-                    Budżet: {(totalProjectCost * (parseFloat(coefficient) || 1)).toFixed(2)} zł
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: textLight }}>Rodzaj:</span>
-                  <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
-                    <button
-                      onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
-                      style={{ padding: '5px 9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg, color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight }}
-                    >
-                      🏢 Firma
-                    </button>
-                    <button
-                      onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
-                      style={{ padding: '5px 9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', background: client.project_scope === 'personal' ? '#3182ce' : bg, color: client.project_scope === 'personal' ? '#fff' : textLight }}
-                    >
-                      👤 Moje
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Polka plików (mobile, feat/mobile-files-zoom): ten sam <FilesTab variant="shelf">
-            co w desktop/embedded header, tylko mobileLayout=true (większe touch-targety, licznik
-            wbudowany w tekst opcji selectora, etykieta "📎 Pliki" ukryta). Leży wewnątrz jedynego
-            przewijanego obszaru (contentAreaStyle) — po Szczegółach, przed tabami — jako zwykły
-            element flow, bez position:fixed/sticky, więc przewija się razem z resztą treści.
+        {/* Polka plików (Mobile Project Workspace v1): ten sam <FilesTab variant="shelf"> co
+            w desktop/embedded header, tylko mobileWorkspaceLayout=true (rząd przycisków folderów +
+            stała karuzela 132×132px zamiast select+Rozwiń/Zwiń — p.3 zadania). Leży wewnątrz
+            jedynego przewijanego obszaru (contentAreaStyle), zaraz po nagłówku, przed tabami — jako
+            zwykły element flow, bez position:fixed/sticky, więc przewija się razem z resztą treści.
             Jeden zamontowany FilesTab i jeden fetch — dokładnie jak na desktop/embedded. */}
         {isMobileVariant && (
           <div style={{ marginBottom: '14px' }}>
             <FilesTab
               variant="shelf"
-              mobileLayout
+              mobileWorkspaceLayout
               clientId={client.id}
               currentProfile={currentProfile}
               coverUrl={client.cover_url}
               onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
-              expanded={filesShelfExpanded}
-              onExpandedChange={setFilesShelfExpanded}
             />
           </div>
         )}
@@ -699,18 +802,20 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           </div>
         )}
-        {/* Табы — тёмная тема. На mobile — короткие подписи без сумм (иначе три вкладки не
-            помещаются на 320-430px и "Wydatki" обрезается справа); desktop/embedded сохраняют
-            суммы в названиях без изменений. */}
-        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
-          <button onClick={() => setActiveTab('materials')} style={tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' })}>
-            📦 Materiały{!isMobileVariant && ` (${totalMaterials.toFixed(2)} zł)`}
+        {/* Табы — тёмная тема. На mobile (Mobile Project Workspace v1, p.4) — три РАВНЫЕ по ширине
+            вкладки без emoji и без сумм в названиях (flex:1 через tabBtnMobile, поверх общего
+            tabBtn); третья вкладка сохраняет внутренний id 'expenses' (данные/схема не трогаются),
+            меняется только подпись — "Rozliczenia" вместо "Wydatki". desktop/embedded сохраняют
+            emoji и суммы в названиях без изменений. */}
+        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: isMobileVariant ? 'hidden' : 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
+          <button onClick={() => setActiveTab('materials')} style={{ ...tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+            {isMobileVariant ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
           </button>
-          <button onClick={() => setActiveTab('services')} style={tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' })}>
-            🛠 Usługi{!isMobileVariant && ` (${totalServices.toFixed(2)} zł)`}
+          <button onClick={() => setActiveTab('services')} style={{ ...tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+            {isMobileVariant ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
           </button>
-          <button onClick={() => setActiveTab('expenses')} style={tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' })}>
-            💸 Wydatki{!isMobileVariant && ` (${totalExpenses.toFixed(2)} zł)`}
+          <button onClick={() => setActiveTab('expenses')} style={{ ...tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+            {isMobileVariant ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
           </button>
           {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
               (полка в контенте, feat/mobile-files-zoom) — только у настоящего modal-fallback
@@ -726,6 +831,59 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
           {/* МАТЕРИАЛЫ */}
           {activeTab === 'materials' && (
+            isMobileVariant ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {renderMobileSectionHeader(mobileMaterialsOpen, () => setMobileMaterialsOpen(o => !o), totalMaterials)}
+                {mobileMaterialsOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* 1. Szukaj materiału w bazie… */}
+                    <input
+                      type="text"
+                      placeholder="Szukaj materiału w bazie…"
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Escape') setSearchTerm(''); }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: `1px solid ${border}`, borderRadius: '6px', fontSize: '12.5px', background: bgInput, color: text }}
+                    />
+                    {/* 2. Результаты — только при непустом запросе */}
+                    {searchTerm.trim() && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '220px', overflowY: 'auto', border: `1px solid ${border}`, borderRadius: '6px', padding: '4px', background: bgInput }}>
+                        {filteredMaterials.slice(0, 12).map(m => {
+                          const isSelected = calcMaterials.some(item => item.id === m.id);
+                          return (
+                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px' }}>
+                              <span style={{ flex: 1, minWidth: 0, fontSize: '12.5px', fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+                              <span style={{ flexShrink: 0, fontSize: '12px', color: c('#2b6cb0','#63b3ed'), fontWeight: 'bold' }}>{Number(m.price).toFixed(2)} zł</span>
+                              <button
+                                type="button"
+                                onClick={() => { handleAddItem('calc_materials', calcMaterials, m); setSearchTerm(''); }}
+                                style={{ flexShrink: 0, background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}
+                              >
+                                {isSelected ? '+ Kol.' : '+ Dodaj'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {filteredMaterials.length === 0 && (
+                          <div style={{ padding: '8px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
+                        )}
+                      </div>
+                    )}
+                    {/* 3. Добавленные материалы */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      {calcMaterials.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych materiałów</div>
+                      )}
+                      {calcMaterials.map((item, index) => renderMobileRow('calc_materials', calcMaterials, index))}
+                    </div>
+                    {/* 4. Ручное добавление */}
+                    <div style={{ textAlign: 'right' }}>
+                      <button type="button" onClick={() => handleCustomAdd('calc_materials', calcMaterials)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '7px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>+ Dodaj pozycję ręcznie</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: text }}>✅ Dodane pozycje</h3>
@@ -949,10 +1107,61 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 )}
               </div>
             </div>
+            )
           )}
 
           {/* УСЛУГИ */}
           {activeTab === 'services' && (
+            isMobileVariant ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {renderMobileSectionHeader(mobileServicesOpen, () => setMobileServicesOpen(o => !o), totalServices)}
+                {mobileServicesOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Szukaj usługi w bazie… */}
+                    <input
+                      type="text"
+                      placeholder="Szukaj usługi w bazie…"
+                      value={searchService}
+                      onChange={e => setSearchService(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Escape') setSearchService(''); }}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: `1px solid ${border}`, borderRadius: '6px', fontSize: '12.5px', background: bgInput, color: text }}
+                    />
+                    {searchService.trim() && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '220px', overflowY: 'auto', border: `1px solid ${border}`, borderRadius: '6px', padding: '4px', background: bgInput }}>
+                        {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.trim().toLowerCase())).map(s => {
+                          const isSelected = calcServices.some(item => item.id === s.id);
+                          return (
+                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px' }}>
+                              <span style={{ flex: 1, minWidth: 0, fontSize: '12.5px', fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                              <span style={{ flexShrink: 0, fontSize: '12px', color: c('#276749','#68d391'), fontWeight: 'bold' }}>{Number(s.price).toFixed(2)} zł</span>
+                              <button
+                                type="button"
+                                onClick={() => { handleAddItem('calc_services', calcServices, s); setSearchService(''); }}
+                                style={{ flexShrink: 0, background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}
+                              >
+                                {isSelected ? '+ Kol.' : '+ Dodaj'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.trim().toLowerCase())).length === 0 && (
+                          <div style={{ padding: '8px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
+                        )}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      {calcServices.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych usług</div>
+                      )}
+                      {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <button type="button" onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '7px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
                 {isMobile ? (
@@ -1078,10 +1287,32 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 </div>
               </div>
             </div>
+            )
           )}
 
-          {/* РАСХОДЫ */}
+          {/* РАСХОДЫ / mobile: Rozliczenia → Koszty dodatkowe (p.7). ВАЖНАЯ ГРАНИЦА задачи: в проекте
+              нет модели поступлений клиента и transaction ledger — здесь НЕ имитируются Wpłaty,
+              НЕ считается фиктивное Saldo, ничего не пишется мимо calc_expenses. Честно показываем
+              существующие calc_expenses под заголовком "Koszty dodatkowe" — то же add/edit/delete/
+              итог/dirty/save, что и в desktop-таблице ниже, через общий renderMobileRow. */}
           {activeTab === 'expenses' && (
+            isMobileVariant ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '9px 12px', background: bgHeader, border: `1px solid ${border}`, borderRadius: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: text }}>Koszty dodatkowe</span>
+                  <strong style={{ fontSize: '13px', color: text }}>{totalExpenses.toFixed(2)} zł</strong>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {calcExpenses.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodatkowych kosztów</div>
+                  )}
+                  {calcExpenses.map((item, index) => renderMobileRow('calc_expenses', calcExpenses, index))}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <button type="button" onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '7px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj koszt dodatkowy</button>
+                </div>
+              </div>
+            ) : (
             <div>
               <div style={{ marginBottom: '15px' }}>
                 <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
@@ -1177,6 +1408,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               </div>
               )}
             </div>
+            )
           )}
 
           {/* ФАЙЛЫ — только настоящий modal-fallback; на desktop/embedded и на mobile FilesTab
