@@ -538,16 +538,20 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
     if (isExpanded) {
       return (
-        <div key={itemKey} style={{ minHeight: '64px', boxSizing: 'border-box', background: accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center' }}>
+        <div key={itemKey} style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden', minHeight: '64px', boxSizing: 'border-box', background: accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center' }}>
           <button
             type="button"
             onClick={finishEditing}
-            style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', fontSize: '12.5px', color: accent.text, cursor: 'pointer', whiteSpace: 'normal', wordBreak: 'break-word' }}
+            style={{ display: 'block', width: '100%', maxWidth: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', fontSize: '12.5px', color: accent.text, cursor: 'pointer', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
           >
             {item.name}
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {/* stopPropagation на Escape (hotfix, п.4) обязателен: ProjectModal вешает СВОЙ
+          <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* fontSize: 16px на price/qty (hotfix) — обязательно: iOS WebKit сам масштабирует
+                (зумит) всю страницу при фокусе на input с font-size < 16px, тот же трюк, что и
+                у остальных полей приложения. maxWidth:100%/minWidth:0/boxSizing:border-box —
+                инпуты не должны раздувать строку шире родителя ни при каком контенте.
+                stopPropagation на Escape (предыдущий hotfix) обязателен: ProjectModal вешает СВОЙ
                 глобальный window keydown-слушатель Escape (закрывает весь mobile Workspace, см.
                 выше по файлу) — без остановки всплытия Escape тут закрыл бы редактор строки И ТУТ
                 ЖЕ весь экран проекта одним нажатием. */}
@@ -556,7 +560,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               onChange={e => setPriceDraft(e.target.value)}
               onBlur={() => handlePriceSave(field, items, index)}
               onKeyDown={e => { if (e.key === 'Enter') handlePriceSave(field, items, index); if (e.key === 'Escape') { e.stopPropagation(); finishEditing(); } }}
-              style={{ width: '64px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12.5px', background: bgInput, color: text }}
+              style={{ width: '64px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '16px', background: bgInput, color: text }}
             />
             <input
               type="text"
@@ -565,7 +569,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               onChange={e => handleQtyChange(stateKey, e.target.value)}
               onBlur={() => handleQtyCommit(field, items, index, stateKey)}
               onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit(field, items, index, stateKey); e.target.blur(); } if (e.key === 'Escape') { e.stopPropagation(); finishEditing(); } }}
-              style={{ width: '46px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12.5px', background: bgInput, color: text }}
+              style={{ width: '46px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '16px', background: bgInput, color: text }}
             />
             <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
             <button
@@ -576,17 +580,21 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               ✖
             </button>
           </div>
-          {/* Явная кнопка закрытия редактора (hotfix) — отдельной компактной строкой, не рядом
-              с (потенциально длинным) названием, чтобы не перекрывать его. Delete (✖) выше — своя,
-              отдельная кнопка, не переопределяется. */}
+          {/* Явная кнопка закрытия редактора — отдельной компактной строкой, не рядом с
+              (потенциально длинным) названием, чтобы не перекрывать его. Delete (✖) выше — своя,
+              отдельная кнопка, не переопределяется. Внешняя кнопка — только touch target (40px,
+              прозрачный фон, padding:0); видимая зелёная "таблетка" — внутренний <span> высотой
+              24px (hotfix — визуально вдвое компактнее при сохранении безопасной area касания). */}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="button"
               onClick={finishEditing}
               aria-label="Zakończ edycję"
-              style={{ minHeight: '40px', boxSizing: 'border-box', padding: '0 16px', borderRadius: '6px', border: 'none', background: '#38a169', color: '#fff', fontSize: '12.5px', fontWeight: 'bold', cursor: 'pointer' }}
+              style={{ minHeight: '40px', boxSizing: 'border-box', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
             >
-              Gotowe
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', padding: '0 12px', borderRadius: '5px', background: '#38a169', color: '#fff', fontSize: '12.5px', fontWeight: 'bold' }}>
+                Gotowe
+              </span>
             </button>
           </div>
         </div>
