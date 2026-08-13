@@ -14,6 +14,7 @@ import ProjectNav from './components/ProjectNav';
 import ProjectListPanel from './components/ProjectListPanel';
 import MobileProjectsScreen from './components/MobileProjectsScreen';
 import MobileBottomNav from './components/MobileBottomNav';
+import MobileClientBalanceScreen from './components/MobileClientBalanceScreen';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -62,6 +63,19 @@ function App() {
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
   const [servicesList, setServicesList] = useState([])
+  // Mobile / Client Balance / Expanded v1 — единый массив реальных денежных операций всех
+  // доступных проектов, один Supabase-запрос (см. fetchData ниже), общий для Bilans klienta
+  // (MobileClientBalanceScreen) и вкладки Rozliczenia (mobile ProjectModal) — без копирования
+  // данных между экранами и без отдельного запроса на карточку.
+  const [cashTransactions, setCashTransactions] = useState([])
+  // 'loading' | 'error' | 'ready' — источник правды для Bilans klienta/Rozliczenia о том, можно ли
+  // доверять cashTransactions. Без этого сбой запроса (нет таблицы, RLS, сеть) молча оставлял бы
+  // cashTransactions=[] и оба экрана показывали бы 0.00 zł/"Brak operacji", будто это настоящий
+  // ноль (review P1) — вместо этого экраны обязаны показать "не удалось загрузить" и не показывать
+  // никаких сумм, пока статус не 'ready'.
+  const [cashStatus, setCashStatus] = useState('loading')
+  // client_name, для которого сейчас открыт Bilans klienta — null, когда экран закрыт.
+  const [balanceClientName, setBalanceClientName] = useState(null)
 
   const [isModalOpen,     setIsModalOpen]     = useState(false)
   const [activeClient,    setActiveClient]    = useState(null)
@@ -113,6 +127,21 @@ function App() {
     }
   }, [menuOpen])
 
+  // Один запрос на ВСЕ доступные операции (не по проекту) — Bilans klienta агрегирует несколько
+  // проектов клиента разом, а Rozliczenia фильтрует тот же массив на activeClient.id, без
+  // отдельного fetch на каждую карточку. RLS на project_cash_transactions ограничивает то, что
+  // реально вернётся, тем же способом, что и видимость строк clients (см. подготовленную, но
+  // не применённую миграцию — supabase/migrations/…create_project_cash_transactions.sql).
+  // Отдельная функция (не только внутри fetchData) — переиспользуется кнопкой "Spróbuj ponownie"
+  // в Bilans klienta/Rozliczenia при cashStatus==='error' (review P1).
+  const loadCashTransactions = useCallback(async () => {
+    setCashStatus('loading')
+    const { data, error } = await supabase.from('project_cash_transactions').select('*')
+    if (error) { setCashStatus('error'); return }
+    setCashTransactions(data || [])
+    setCashStatus('ready')
+  }, [])
+
   useEffect(() => {
     if (!session) return
     async function fetchData() {
@@ -122,9 +151,10 @@ function App() {
       if (materialsData) setMaterials(materialsData)
       const { data: servicesData }  = await supabase.from('services').select('*')
       if (servicesData)  setServicesList(servicesData)
+      loadCashTransactions()
     }
     fetchData()
-  }, [session])
+  }, [session, loadCashTransactions])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
 
@@ -279,6 +309,51 @@ function App() {
     const updatedSteps = { ...(client.production_steps || {}), [stepId]: isDone }
     setClients(clients.map(c => c.id === client.id ? { ...c, production_steps: updatedSteps } : c))
     await supabase.from('clients').update({ production_steps: updatedSteps }).eq('id', client.id)
+  }
+
+  // Mobile / Client Balance / Expanded v1 — "операции сохранения" для единого cashTransactions,
+  // общие для Bilans klienta (MobileClientBalanceScreen) и Rozliczenia (mobile ProjectModal).
+  // draft.id присутствует → UPDATE существующей операции; иначе → INSERT новой. created_by/
+  // created_at/updated_at не передаются — берутся дефолтами колонок на стороне БД (см. миграцию).
+  async function saveCashTransaction(projectId, draft) {
+    if (draft.id) {
+      const { data, error } = await supabase.from('project_cash_transactions')
+        .update({
+          direction:    draft.direction,
+          amount:       draft.amount,
+          occurred_on:  draft.occurred_on,
+          description:  draft.description,
+        })
+        .eq('id', draft.id)
+        .select()
+        .single()
+      if (!error && data) {
+        setCashTransactions(prev => prev.map(t => t.id === data.id ? data : t))
+      }
+      return { error }
+    }
+    const { data, error } = await supabase.from('project_cash_transactions')
+      .insert([{
+        project_id:   projectId,
+        direction:    draft.direction,
+        amount:       draft.amount,
+        occurred_on:  draft.occurred_on,
+        description:  draft.description,
+      }])
+      .select()
+      .single()
+    if (!error && data) {
+      setCashTransactions(prev => [data, ...prev])
+    }
+    return { error }
+  }
+
+  async function deleteCashTransaction(id) {
+    const { error } = await supabase.from('project_cash_transactions').delete().eq('id', id)
+    if (!error) {
+      setCashTransactions(prev => prev.filter(t => t.id !== id))
+    }
+    return { error }
   }
 
   // --- Экраны загрузки / доступа ---
@@ -585,6 +660,11 @@ function App() {
           theme={theme}
           initialTab={projectModalTab}
           onDirtyChange={setWorkspaceDirty}
+          cashTransactions={cashTransactions}
+          onSaveCashTransaction={saveCashTransaction}
+          onDeleteCashTransaction={deleteCashTransaction}
+          cashStatus={cashStatus}
+          onRetryCash={loadCashTransactions}
         />
       )}
 
@@ -657,7 +737,25 @@ function App() {
         onNewProject={() => setIsModalOpen(true)}
         onOpenProject={requestOpenProject}
         activeProjectId={activeClient?.id}
+        onOpenBalance={setBalanceClientName}
       />
+
+      {/* Mobile / Client Balance / Expanded v1 — отдельный полноэкранный экран (кнопка "Bilans" в
+          заголовке группы клиента, ProjectListPanel). Список Projekty выше остаётся смонтированным
+          (не открытие проекта — requestOpenProject здесь не вызывается); нижняя навигация скрыта
+          покрытием z-index этого экрана (см. .module.css), без правок MobileBottomNav.jsx. */}
+      {!isDesktop && balanceClientName && (
+        <MobileClientBalanceScreen
+          clientName={balanceClientName}
+          clients={clients}
+          transactions={cashTransactions}
+          onSaveTransaction={saveCashTransaction}
+          onDeleteTransaction={deleteCashTransaction}
+          cashStatus={cashStatus}
+          onRetryCash={loadCashTransactions}
+          onClose={() => setBalanceClientName(null)}
+        />
+      )}
 
       {/* Нижняя мобильная навигация (ADR-003). Видимость — чисто через CSS-медиазапрос
           (max-width: 767px) в MobileBottomNav.module.css, компонент смонтирован всегда. */}

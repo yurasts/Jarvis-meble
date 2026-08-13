@@ -1,0 +1,322 @@
+/* Mobile / Client Balance / Expanded v1 — карточка одного проекта: используется и в
+   MobileClientBalanceScreen (несколько карточек, N проектов клиента), и во вкладке Rozliczenia
+   mobile ProjectModal (одна карточка, activeClient). */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Próba otwarcia INNEJ operacji, gdy aktualna ma niezapisany draft (review P1, uncontrolled — jedna
+   karta w Rozliczenia). Overlay ograniczony do TEJ karty (.card ma position:relative) — w trybie
+   controlled (Bilans) ten sam scenariusz obsługuje rodzic (MobileClientBalanceScreen), tam overlay
+   jest na cały ekran, bo cel może leżeć w innej karcie. */
+.switchOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 10px;
+}
+.switchBox {
+  background: var(--modal-bg);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  text-align: center;
+  max-width: 320px;
+  border: 1px solid var(--border);
+}
+.switchText { margin: 0 0 10px 0; color: var(--text-main); font-size: 13px; }
+.switchActions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.switchDiscard {
+  min-width: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: none;
+  background: #e53e3e;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.switchDiscard:disabled { opacity: 0.6; cursor: default; }
+
+.projectHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.projectHeaderName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Kompaktowe rzeczywiste sumy (+Wpłaty/−Wydatki/Saldo) — w nagłówku karty projektu (Bilans klienta,
+   showProjectHeader) albo jako samodzielny wiersz nad plannedRow (Rozliczenia, bez nagłówka
+   projektu — nie ma innego miejsca na te sumy w tym kontekście). Zastępuje dawne trzy duże kafelki
+   summaryTile (review P1 — Figma "Client Balance"). */
+.compactSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.compactSummaryStandalone {
+  display: flex;
+  justify-content: flex-end;
+}
+.compactInflow { color: #38a169; }
+.compactOutflow { color: #e53e3e; }
+.compactSaldo { color: var(--text-main); }
+
+/* Плановые значения (не денежный поток) — Materiały/Usługi/współczynnik/Wycena, четыре
+   выровненные колонки (review P1 — Figma "Client Balance"). */
+.plannedRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px 6px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: var(--bg-kanban-col);
+}
+.plannedCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.plannedLabel {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+/* Wartość NIE jest obcinana elipsą (w odróżnieniu od etykiety) — to kwota, "1000.0…" wygląda jak
+   błąd, nie jak skrót; przy 320px zawija się na dwie linie zamiast tracić cyfry. */
+.plannedValue {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-align: center;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  line-height: 1.2;
+}
+
+.loadState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.retryBtn {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+  color: var(--text-main);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.transactionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 10px 4px;
+}
+
+.row {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  background: var(--bg-menu-hover);
+}
+.row:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.rowInflow { border-left-color: #38a169; }
+.rowOutflow { border-left-color: #e53e3e; }
+
+.rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rowDescription {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowDate { font-size: 10.5px; color: var(--text-muted); }
+
+.rowAmount { flex-shrink: 0; font-size: 13px; font-weight: 700; }
+
+.rowDelete {
+  flex-shrink: 0;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #cbd5e0;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+  line-height: 1;
+}
+
+.confirmRow {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg-menu-hover);
+}
+.confirmText { font-size: 12px; color: var(--text-main); white-space: normal; word-break: break-word; }
+.deleteError { font-size: 11.5px; color: #e53e3e; }
+.confirmActions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.addBtn {
+  flex: 1;
+  min-height: 40px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+}
+.addInflow { background: #38a169; }
+.addOutflow { background: #e53e3e; }
+
+/* Компактная форма добавления/редактирования — описание/сумма/дата/отмена (п. "Редактирование").
+   font-size:16px на сумме (денежный input) и остальных полях — iOS WebKit не масштабирует страницу
+   при фокусе, тот же приём, что и в mobile-строках Materiały/Usługi (ProjectModal.jsx). */
+.editor {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+}
+
+.editorField { display: flex; flex-direction: column; gap: 2px; }
+.editorLabel { font-size: 10.5px; color: var(--text-muted); }
+.editorInput {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 16px;
+}
+.editorInput:focus { outline: none; border-color: var(--accent); }
+
+.editorError { font-size: 11.5px; color: #e53e3e; }
+
+.editorActions { display: flex; gap: 8px; margin-top: 2px; }
+.editorSave {
+  flex: 1;
+  min-height: 40px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.editorSave:disabled { opacity: 0.6; cursor: default; }
+.editorCancel {
+  min-width: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-main);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.editorCancel:disabled { opacity: 0.6; cursor: default; }

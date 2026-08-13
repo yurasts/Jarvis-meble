@@ -248,11 +248,20 @@
 
 .mobileClientGroup + .mobileClientGroup { margin-top: 8px; }
 
+/* Mobile / Client Balance / Expanded v1: заголовок группы клиента стал flex-строкой (имя +
+   кнопка Bilans справа) — раньше был просто текстом с ellipsis. min-height вместо фиксированного
+   height:20px — кнопка Bilans не сжимается искусственно ниже своего контента. */
 .mobileClientGroupHeader {
-  height: 20px;
+  min-height: 20px;
   display: flex;
   align-items: center;
+  gap: 6px;
   padding: 0 6px;
+}
+
+.mobileClientGroupName {
+  flex: 1;
+  min-width: 0;
   font-size: 10.5px;
   font-weight: 700;
   color: var(--accent);
@@ -262,6 +271,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Компактная кнопка — сам заголовок группы всего 20px высотой, полноценный 40px touch target
+   здесь визуально сломал бы список (п.6 задания требовал 40px только для формы редактирования
+   операции, не для этой навигационной кнопки). */
+.mobileBalanceBtn {
+  flex-shrink: 0;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mobileBalanceBtn:active { background: var(--accent-soft); }
 
 /* Плотная однострочная строка проекта, визуальная высота ~24px. Порядок: название → счётчик
    задач → status dot (всегда крайний справа). Левый отступ (16px) больше, чем у заголовка клиента

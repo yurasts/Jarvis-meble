@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
+import ProjectCashLedger from './ProjectCashLedger';
 import { projectTotals } from './dashboardHelpers';
 
 // Лёгкая заливка фона по статусу проекта
@@ -27,7 +28,11 @@ const STATUS_LABEL = {
   done:       'Gotowe',
 };
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch }) => {
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch,
+  // Mobile / Client Balance / Expanded v1 — только для mobile-вкладки Rozliczenia (см. ниже);
+  // desktop/embedded/modal-fallback их не используют (Wydatki там остаётся на calc_expenses).
+  cashTransactions = [], onSaveCashTransaction, onDeleteCashTransaction, cashStatus = 'ready', onRetryCash,
+}) => {
   const isMobile = window.innerWidth < 640;
   // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
   // variant='mobile' — полноэкранный мобильный экран проекта до 767px (ADR-003, Mobile Field
@@ -100,6 +105,20 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [mobileMaterialsOpen, setMobileMaterialsOpen] = useState(() => (client.status || 'new') === 'new');
   const [mobileServicesOpen, setMobileServicesOpen] = useState(() => (client.status || 'new') === 'new');
 
+  // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
+  // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
+  // через onDirtyChange). Отдельная от calc_* isDirty переменная сравнения ниже — project_cash_
+  // transactions это отдельная таблица, не поле client — но "уход назад при dirty требует
+  // подтверждения" должно работать одинаково для обоих видов несохранённых изменений, поэтому
+  // ниже примешивается в общий isDirty через ||.
+  const [cashDirty, setCashDirty] = useState(false);
+  // Смена вкладки прочь от Rozliczenia при cashDirty=true (review P1) — ждёт подтверждения вместо
+  // немедленного unmount ProjectCashLedger (который иначе тихо теряет черновик). Значение — имя
+  // таба, на который хотели переключиться, или null.
+  const [pendingTabChange, setPendingTabChange] = useState(null);
+  const [cashTabSaveError, setCashTabSaveError] = useState(false);
+  const cashLedgerRef = useRef(null);
+
   const evalQty = (expr) => {
     if (expr === '' || expr === null || expr === undefined) return null;
     const str = String(expr).replace(',', '.').replace(/[^0-9+\-*/.()\s]/g, '');
@@ -145,7 +164,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // это единственное поле, которое реально меняет пользователь (в т.ч. из sidebar-панели
   // ProjectListPanel через тот же setClient/activeClient — единый источник истины), и по заданию
   // изменение коэффициента обязано включать dirty-state.
-  const isDirty = originalClient
+  const clientFieldsDirty = originalClient
     ? JSON.stringify({
         calc_materials: client.calc_materials || [],
         calc_services:  client.calc_services  || [],
@@ -170,6 +189,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         budget_coefficient: Number(originalClient.budget_coefficient) || 2.0,
       })
     : false;
+  // Mobile / Client Balance / Expanded v1: cashDirty (открытый несохранённый редактор денежной
+  // операции в Rozliczenia) примешан в общий isDirty — "уход назад при dirty" (handleClose ниже)
+  // и все существующие потребители isDirty (onDirtyChange → App.jsx workspaceDirty, confirmClose)
+  // реагируют на него точно так же, как на несохранённые calc_*/поля клиента, без отдельного пути.
+  const isDirty = clientFieldsDirty || cashDirty;
 
   // Refy — zawsze aktualne wartości dla obsługi History API poniżej (efekt montuje się raz,
   // nie może zależeć od isDirty/onClose bez re-subskrybowania popstate co każdą zmianę pola).
@@ -244,12 +268,32 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const saveStatusTimerRef = useRef(null);
   useEffect(() => () => { if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current); }, []);
 
-  // Zapisz i zamknij — zachowanie sprzed UX-fazy 2.1, używane w zwykłym modalu oraz w dialogu
-  // potwierdzenia niezapisanych zmian (Zapisz i zamknij / Zapisz i przejdź dalej / Zapisz i wróć).
+  // Zapisz i zamknij — zachowanie sprzed UX-fazy 2.1, używane w zwykłym modalu (isMobileVariant=false,
+  // isEmbedded=false — tam Rozliczenia to zawsze desktop calc_expenses, ProjectCashLedger nigdy nie
+  // jest zamontowany, więc cashDirty tu strukturalnie zawsze false — draft pieniężny nie dotyczy).
   const handleSaveAndClose = async () => {
     const result = await onSave();
     if (result?.error) { setSaveStatus('error'); return; }
     finalizeClose();
+  };
+
+  // Wspólny zapis obu źródeł niezapisanych zmian przed "Zapisz i wróć"/"Zapisz i przejdź dalej"
+  // (dialog potwierdzenia zamknięcia/przełączenia projektu — NIE mylić z saveAndChangeTab, który
+  // obsługuje osobny przypadek zmiany taba wewnątrz otwartego projektu). Review P1: dawniej ten
+  // dialog wołał tylko onSave() (pola client) — otwarty draft operacji pieniężnej w Rozliczenia
+  // ginął bez ostrzeżenia, bo ekran i tak się zamykał/przełączał. Kolejność (najpierw cash, potem
+  // client) i early-return przy błędzie są tu istotne — ekran nie może się zamknąć, dopóki OBA
+  // źródła nie zapiszą się poprawnie.
+  const saveAllDirty = async () => {
+    if (cashDirty) {
+      const cashResult = await cashLedgerRef.current?.saveActiveDraft();
+      if (cashResult?.error) { setSaveStatus('error'); return { error: true }; }
+    }
+    if (clientFieldsDirty) {
+      const result = await onSave();
+      if (result?.error) { setSaveStatus('error'); return { error: true }; }
+    }
+    return { error: null };
   };
 
   // Główny przycisk „Zapisz” w widoku embedded/mobile: ekran zostaje otwarty, pokazuje tylko
@@ -262,9 +306,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     // раскрытую строку/delete-confirm незачем. При ошибке (ветка выше) редактор остаётся открытым,
     // пользователь не теряет введённые значения.
     if (isMobileVariant) closeMobileRowEditor();
-    setSaveStatus('saved');
-    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
-    saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
+    // Główny Zapisz zapisuje TYLKO pola client (calc_materials/services/expenses, budget…) — nie
+    // dotyka niezapisanego draftu operacji pieniężnej w Rozliczenia. Przy cashDirty=true "Zapisano"
+    // byłoby fałszywe (review P1): draft nadal czeka, osobno, na własny Zapisz w edytorze operacji.
+    if (!cashDirty) {
+      setSaveStatus('saved');
+      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+      saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
+    }
   };
 
   // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
@@ -340,8 +389,37 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Для desktop/embedded/modal — ровно та же setActiveTab(tab), без побочных эффектов, поведение не меняется.
   const handleTabChange = (tab) => {
     if (isMobileVariant && tab !== activeTab) {
+      // cashDirty=true → ProjectCashLedger ma niezapisany draft, a zmiana taba go odmontuje bez
+      // ostrzeżenia (review P1) — zamiast tego pytamy, tak jak przy zamykaniu karty projektu.
+      if (activeTab === 'expenses' && cashDirty) {
+        setPendingTabChange(tab);
+        return;
+      }
       finishEditing();
     }
+    setActiveTab(tab);
+  };
+
+  const cancelTabChange = () => { setPendingTabChange(null); setCashTabSaveError(false); };
+
+  const discardTabChange = () => {
+    const tab = pendingTabChange;
+    setPendingTabChange(null);
+    setCashDirty(false);
+    finishEditing();
+    setActiveTab(tab);
+  };
+
+  const saveAndChangeTab = async () => {
+    setCashTabSaveError(false);
+    const result = await cashLedgerRef.current?.saveActiveDraft();
+    // Błąd zapisu draftu jest też widoczny wewnątrz samego edytora (editorError), ale ten dialog
+    // leży nad nim (z-index) — bez własnego komunikatu tutaj użytkownik nic by nie zobaczył.
+    if (result?.error) { setCashTabSaveError(true); return; }
+    const tab = pendingTabChange;
+    setPendingTabChange(null);
+    setCashDirty(false);
+    finishEditing();
     setActiveTab(tab);
   };
 
@@ -459,7 +537,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   // Etykiety/komunikat dialogu potwierdzenia — wyliczone raz, bez IIFE w JSX (ostatnie powodowało
   // fałszywy błąd react-hooks/refs, bo finalizeClose zamyka się nad refem historii).
-  const closeLabels = pendingProjectLabel
+  const closeLabels = (pendingProjectLabel || pendingTabChange)
     ? { discard: 'Odrzuć zmiany', save: 'Zapisz i przejdź dalej', cancel: 'Anuluj' }
     : isMobileVariant
       ? { discard: 'Odrzuć zmiany', save: 'Zapisz i wróć', cancel: 'Anuluj' }
@@ -467,9 +545,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   const closeMessage = pendingProjectLabel
     ? `Chcesz otworzyć „${pendingProjectLabel}” — odrzucić niezapisane zmiany w tym projekcie?`
-    : isMobileVariant
-      ? 'Chcesz wrócić do listy projektów — odrzucić niezapisane zmiany?'
-      : 'Czy na pewno chcesz zamknąć bez zapisania?';
+    : pendingTabChange
+      ? 'Masz niezapisaną operację w Rozliczeniach — odrzucić ją?'
+      : isMobileVariant
+        ? 'Chcesz wrócić do listy projektów — odrzucić niezapisane zmiany?'
+        : 'Czy na pewno chcesz zamknąć bez zapisania?';
 
   // ==================== Mobile Project Workspace v1 (p.5/6/7) ====================
   // Общий render-helper для компактных строк Materiały/Usługi/Rozliczenia(Wydatki) на mobile —
@@ -1381,28 +1461,28 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             )
           )}
 
-          {/* РАСХОДЫ / mobile: Rozliczenia → Koszty dodatkowe (p.7). ВАЖНАЯ ГРАНИЦА задачи: в проекте
-              нет модели поступлений клиента и transaction ledger — здесь НЕ имитируются Wpłaty,
-              НЕ считается фиктивное Saldo, ничего не пишется мимо calc_expenses. Честно показываем
-              существующие calc_expenses под заголовком "Koszty dodatkowe" — то же add/edit/delete/
-              итог/dirty/save, что и в desktop-таблице ниже, через общий renderMobileRow. */}
+          {/* РАСХОДЫ / mobile: Rozliczenia → Mobile / Client Balance / Expanded v1. Тот же
+              ProjectCashLedger, что и в MobileClientBalanceScreen (Bilans klienta), тот же
+              cashTransactions/onSaveCashTransaction/onDeleteCashTransaction из App.jsx (единый
+              источник, без копирования) — отфильтрован здесь по activeClient.id. calc_expenses
+              (legacy/расчётные позиции) сюда не подмешиваются и не трактуются как реальные
+              расходы; Wpłaty/Saldo — настоящие, из project_cash_transactions, не имитация.
+              cashDirty (см. выше) примешивается в общий isDirty через onDirtyChange ниже —
+              неконтролируемое использование (без editingKey/onEditingKeyChange пропсов), у этой
+              единственной карточки собственный, локальный editingKey. Desktop/embedded ниже — тот
+              же calc_expenses/Wydatki, что и раньше, не тронут. */}
           {activeTab === 'expenses' && (
             isMobileVariant ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '9px 12px', background: bgHeader, border: `1px solid ${border}`, borderRadius: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 'bold', color: text }}>Koszty dodatkowe</span>
-                  <strong style={{ fontSize: '13px', color: text }}>{totalExpenses.toFixed(2)} zł</strong>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {calcExpenses.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodatkowych kosztów</div>
-                  )}
-                  {calcExpenses.map((item, index) => renderMobileRow('calc_expenses', calcExpenses, index))}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <button type="button" onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '7px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj koszt dodatkowy</button>
-                </div>
-              </div>
+              <ProjectCashLedger
+                ref={cashLedgerRef}
+                client={client}
+                transactions={cashTransactions}
+                onSaveTransaction={onSaveCashTransaction}
+                onDeleteTransaction={onDeleteCashTransaction}
+                onDirtyChange={setCashDirty}
+                status={cashStatus}
+                onRetry={onRetryCash}
+              />
             ) : (
             <div>
               <div style={{ marginBottom: '15px' }}>
@@ -1539,28 +1619,34 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         {/* Подтверждение закрытия / переключения на другой проект / возврата к списку на mobile
             (тот же диалог, ADR-002 UX-faza 2.1 + ADR-003 faza 2 — не дублируется). */}
-        {(confirmClose || pendingProjectLabel) && (
+        {(confirmClose || pendingProjectLabel || pendingTabChange) && (
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: isMobileVariant ? 0 : '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
             <div style={{ background: bg, borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '360px', border: `1px solid ${border}` }}>
               <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
               <h3 style={{ margin: '0 0 8px 0', color: text, fontSize: '16px' }}>Masz niezapisane zmiany</h3>
               <p style={{ margin: '0 0 8px 0', color: textLight, fontSize: '13px' }}>{closeMessage}</p>
-              {saveStatus === 'error' && (
+              {saveStatus === 'error' && !pendingTabChange && (
                 <p style={{ margin: '0 0 12px 0', color: '#e53e3e', fontSize: '12px', fontWeight: 'bold' }}>
                   Nie udało się zapisać zmian. Spróbuj ponownie.
                 </p>
               )}
+              {pendingTabChange && cashTabSaveError && (
+                <p style={{ margin: '0 0 12px 0', color: '#e53e3e', fontSize: '12px', fontWeight: 'bold' }}>
+                  Nie udało się zapisać operacji. Spróbuj ponownie.
+                </p>
+              )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
                 <button
-                  onClick={() => { pendingProjectLabel ? onConfirmSwitch?.() : finalizeClose(); }}
+                  onClick={() => { if (pendingTabChange) { discardTabChange(); } else if (pendingProjectLabel) { onConfirmSwitch?.(); } else { finalizeClose(); } }}
                   style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
                   {closeLabels.discard}
                 </button>
                 <button
                   onClick={async () => {
-                    const result = await onSave();
-                    if (result?.error) { setSaveStatus('error'); return; }
+                    if (pendingTabChange) { await saveAndChangeTab(); return; }
+                    const result = await saveAllDirty();
+                    if (result?.error) { return; }
                     setConfirmClose(false);
                     pendingProjectLabel ? onConfirmSwitch?.() : finalizeClose();
                   }}
@@ -1569,7 +1655,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   {closeLabels.save}
                 </button>
                 <button
-                  onClick={() => { pendingProjectLabel ? onCancelSwitch?.() : setConfirmClose(false); }}
+                  onClick={() => { if (pendingTabChange) { cancelTabChange(); } else if (pendingProjectLabel) { onCancelSwitch?.(); } else { setConfirmClose(false); } }}
                   style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
                   {closeLabels.cancel}
