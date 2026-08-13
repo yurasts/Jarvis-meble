@@ -1,0 +1,220 @@
+/* Mobile / Client Balance / Expanded v1 — отдельный полноэкранный экран (открывается кнопкой
+   Bilans из заголовка группы клиента в ProjectListPanel). Тот же принцип полноэкранного mobile
+   каркаса, что и у MobileProjectsScreen/ProjectModal variant="mobile": position:fixed;inset:0;
+   height:100dvh;safe-area;overscroll-behavior:contain;непрозрачный фон. */
+.screen {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  box-sizing: border-box;
+  z-index: 900; /* выше MobileBottomNav (60, MobileBottomNav.module.css) — нижняя навигация визуально
+                   и по кликам скрыта под этим экраном без правок самого MobileBottomNav.jsx; ниже
+                   ProjectModal variant="mobile" (1000) — карточка проекта, если когда-либо открыта
+                   поверх, всё равно окажется выше (взаимоисключающие сценарии на практике). */
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.header {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: var(--modal-bg);
+  padding: 10px 15px 8px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  border-bottom: 2px solid var(--border);
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 2px;
+  min-height: 40px;
+}
+
+.screenTitle {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clientName {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.projectCount {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.summaryRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.summaryTile {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg-kanban-col);
+  text-align: center;
+  box-sizing: border-box;
+}
+.summaryLabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.summaryValue { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.inflow { color: #38a169; }
+.outflow { color: #e53e3e; }
+
+.loadError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-kanban-col);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.retryBtn {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Fixed/sticky Zapisz — Figma "Client Balance" (review P1). Zapisuje czarnowik aktywnie otwartej
+   karty (jeśli jest), nieaktywna gdy nic nie jest edytowane. */
+.bottomBar {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 10px 15px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 2px solid var(--border);
+  background: var(--modal-bg);
+}
+.bottomSave {
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.bottomSave:disabled { opacity: 0.5; cursor: default; }
+
+.projectCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--modal-bg);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 30px 10px;
+}
+
+/* Подтверждение ухода назад при dirty (открытый редактор операции) — тот же визуальный паттерн,
+   что и confirm-диалог ProjectModal, но проще (без "Zapisz i wróć": черновик текущей операции не
+   лифтится на уровень этого экрана, только editingKey — см. ProjectCashLedger.jsx). */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.confirmBox {
+  background: var(--modal-bg);
+  border-radius: 10px;
+  padding: 24px 26px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  text-align: center;
+  max-width: 340px;
+  border: 1px solid var(--border);
+}
+.confirmTitle { margin: 0 0 8px 0; color: var(--text-main); font-size: 15px; }
+.confirmText { margin: 0 0 14px 0; color: var(--text-muted); font-size: 13px; }
+.confirmActions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.confirmDiscard {
+  background: #e53e3e; color: #fff; border: none; padding: 9px 18px; border-radius: 7px;
+  cursor: pointer; font-weight: 700; font-size: 13px; min-height: 40px;
+}
+.confirmDiscard:disabled { opacity: 0.6; cursor: default; }
+.confirmCancel {
+  background: var(--bg-kanban-col); color: var(--text-main); border: 1px solid var(--border);
+  padding: 9px 18px; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 13px; min-height: 40px;
+}
+.confirmCancel:disabled { opacity: 0.6; cursor: default; }
+/* "Zapisz" w dialogu "masz niezapisaną operację" (przełączanie między operacjami — review P1). */
+.confirmSave {
+  background: #38a169; color: #fff; border: none; padding: 9px 18px; border-radius: 7px;
+  cursor: pointer; font-weight: 700; font-size: 13px; min-height: 40px;
+}
+.confirmSave:disabled { opacity: 0.6; cursor: default; }
+.switchError { margin: 0 0 12px 0; color: #e53e3e; font-size: 12px; font-weight: 700; }

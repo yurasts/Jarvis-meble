@@ -72,10 +72,25 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
 // Группы «клиент → проекты» — временное представление поверх текущих данных clients
 // (тот же group-by, что уже используется в Dashboard.jsx через dashboardHelpers.groupByClient).
 // Никакой новой сущности «клиент» не создаётся.
-function ClientGroups({ projects, onRowClick, activeProjectId, mobileLayout }) {
+function ClientGroups({ projects, onRowClick, activeProjectId, mobileLayout, onOpenBalance }) {
   return groupByClient(projects).map(([clientName, group]) => (
     <div key={clientName} className={mobileLayout ? s.mobileClientGroup : s.clientGroup}>
-      <div className={mobileLayout ? s.mobileClientGroupHeader : s.clientGroupHeader}>{clientName}</div>
+      {mobileLayout ? (
+        <div className={s.mobileClientGroupHeader}>
+          <span className={s.mobileClientGroupName}>{clientName}</span>
+          {onOpenBalance && (
+            <button
+              type="button"
+              className={s.mobileBalanceBtn}
+              onClick={(e) => { e.stopPropagation(); onOpenBalance(clientName); }}
+            >
+              Bilans
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className={s.clientGroupHeader}>{clientName}</div>
+      )}
       {group.map((c) => (
         <ProjectRow key={c.id} client={c} onRowClick={onRowClick} isActive={c.id === activeProjectId} mobileLayout={mobileLayout} />
       ))}
@@ -150,6 +165,9 @@ export default function ProjectListPanel({
   // экрана Projekty (MobileProjectsScreen). Desktop (ProjectNav) и мобильный dropdown
   // (App.jsx) продолжают вызывать компонент без этого пропа — их разметка не затронута.
   mobileLayout = false,
+  // Mobile / Client Balance / Expanded v1 — кнопка "Bilans" в заголовке группы клиента (только
+  // mobileLayout). Не передаётся desktop (ProjectNav) и мобильным dropdown — там кнопки нет.
+  onOpenBalance,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
@@ -288,8 +306,8 @@ export default function ProjectListPanel({
 
           <div className={`${s.list} ${s.listExtraBottom}`}>
             {active.length === 0 && completed.length === 0 && <div className={s.empty}>Brak projektów.</div>}
-            <ClientGroups projects={active} onRowClick={handleRowClick} activeProjectId={activeProjectId} mobileLayout />
-            <ClientGroups projects={completed} onRowClick={handleRowClick} activeProjectId={activeProjectId} mobileLayout />
+            <ClientGroups projects={active} onRowClick={handleRowClick} activeProjectId={activeProjectId} mobileLayout onOpenBalance={onOpenBalance} />
+            <ClientGroups projects={completed} onRowClick={handleRowClick} activeProjectId={activeProjectId} mobileLayout onOpenBalance={onOpenBalance} />
           </div>
         </div>
       </div>

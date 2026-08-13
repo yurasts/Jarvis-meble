@@ -23,6 +23,10 @@ export default function MobileProjectsScreen({
   onNewProject,
   onOpenProject,
   activeProjectId,
+  // Mobile / Client Balance / Expanded v1 — кнопка "Bilans" в заголовке группы клиента
+  // (ProjectListPanel, mobileLayout) вызывает это с client_name; открывает отдельный полноэкранный
+  // MobileClientBalanceScreen (сам этот экран Projekty остаётся смонтированным под ним).
+  onOpenBalance,
 }) {
   return (
     <div className={`${s.screen} ${visible ? '' : s.hidden}`} aria-hidden={!visible}>
@@ -34,6 +38,7 @@ export default function MobileProjectsScreen({
         onNewProject={onNewProject}
         onOpenProject={onOpenProject}
         activeProjectId={activeProjectId}
+        onOpenBalance={onOpenBalance}
         mobileLayout
       />
     </div>
