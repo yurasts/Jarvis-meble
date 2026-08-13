@@ -18,6 +18,9 @@ const todayISO = () => {
 const emptyDraft = () => ({ description: '', amount: '', occurred_on: todayISO() });
 const isNewKey = (key) => typeof key === 'string' && key.startsWith('new-');
 const directionFromNewKey = (key) => (key.startsWith('new-inflow-') ? 'inflow' : 'outflow');
+// "+0.00 zł"/"−0.00 zł" wygląda jak błąd, nie jak "brak operacji tego typu" — znak dopisujemy
+// tylko przy realnej (dodatniej) sumie, zero pokazujemy bez znaku.
+const formatSigned = (value, sign) => (value > 0 ? `${sign}${value.toFixed(2)} zł` : `${value.toFixed(2)} zł`);
 
 // Карточка одного проекта — общая для MobileClientBalanceScreen (несколько карточек, N проектов
 // клиента) и вкладки Rozliczenia mobile ProjectModal (одна карточка, activeClient). Один и тот же
@@ -236,8 +239,8 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
 
   const compactSummary = (
     <div className={s.compactSummary}>
-      <span className={s.compactInflow}>+{wplaty.toFixed(2)} zł</span>
-      <span className={s.compactOutflow}>−{wydatki.toFixed(2)} zł</span>
+      <span className={s.compactInflow}>{formatSigned(wplaty, '+')}</span>
+      <span className={s.compactOutflow}>{formatSigned(wydatki, '−')}</span>
       <span className={s.compactSaldo}>Saldo {saldo.toFixed(2)} zł</span>
     </div>
   );

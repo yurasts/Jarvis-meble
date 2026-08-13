@@ -158,6 +158,10 @@
 .bottomSave:disabled { opacity: 0.5; cursor: default; }
 
 .projectCard {
+  /* .content jest flex-column i bez tego karty z wieloma operacjami ściskały się do dostępnej
+     wysokości zamiast rosnąć naturalnie — ostatnia operacja/przyciski +Wpłata/−Wydatek bywały
+     ucięte. flex: 0 0 auto — karta ma naturalną wysokość treści, przewija się WYŁĄCZNIE .content. */
+  flex: 0 0 auto;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
@@ -166,7 +170,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: hidden; /* ogranicza w poziomie i utrzymuje zaokrąglone rogi — NIE usuwać */
 }
 
 .empty {
