@@ -14,8 +14,12 @@ const FOLDER_CATEGORIES = [
   { id: 'inne',    label: 'Inne',    icon: '📄' },
 ];
 
+const DESKTOP_FOLDER_CATEGORIES = ['usterki', 'projekt', 'montaz', 'inne']
+  .map(id => FOLDER_CATEGORIES.find(category => category.id === id));
+
 const isImage = (type) => type && type.startsWith('image/');
 const isPdf   = (type) => type === 'application/pdf';
+const isStoFile = (file) => /\.sto$/i.test(file?.file_name || '');
 
 const shortenFileName = (name, max = 12) => {
   if (!name) return '';
@@ -55,6 +59,9 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // в текущей отфильтрованной по категории подборке images, даже если files успел измениться).
   const [lightboxFileId, setLightboxFileId] = useState(null);
   const [settingCover,   setSettingCover]   = useState(false); // лоадер при выборе обложки
+  const [replacingSto,   setReplacingSto]   = useState(false);
+  const [downloadingSto, setDownloadingSto] = useState(false);
+  const [stoError,       setStoError]       = useState('');
   // Полка Pliki (variant='shelf'): свёрнута по умолчанию, кроме случая, когда ProjectModal явно
   // просит открыть её развёрнутой (initialTab='files' на desktop/embedded и на mobile). Может
   // управляться снаружи (expanded/onExpandedChange — родитель меняет layout шапки/контента при
@@ -69,6 +76,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
     else setInternalShelfExpanded(next);
   };
   const fileInputRef = useRef();
+  const stoInputRef = useRef();
   // ✅ FIX: ref для категории — гарантирует актуальное значение в момент загрузки файла.
   // Зеркалит activeCategory в обеих вариантах (единственный селектор = категория загрузки).
   const uploadCategoryRef = useRef('usterki');
@@ -129,6 +137,67 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
     fileInputRef.current.value = '';
   }
 
+  async function handleStoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/\.sto$/i.test(file.name)) {
+      setStoError('Wybierz plik z rozszerzeniem .sto.');
+      e.target.value = '';
+      return;
+    }
+
+    setReplacingSto(true);
+    setStoError('');
+    const uploadedAt = new Date().toISOString();
+    const path = clientId + '/sto/' + uploadedAt.replace(/[^0-9]/g, '') + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('project-files')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('project-files')
+        .getPublicUrl(path);
+      const payload = {
+        client_id: clientId,
+        category: 'sto',
+        file_name: file.name,
+        file_path: path,
+        file_url: publicUrl,
+        file_type: file.type || 'application/octet-stream',
+        comment: '',
+        uploaded_at: uploadedAt,
+        uploaded_by: currentProfile?.id || null,
+        uploaded_by_color: currentProfile?.color || '#718096',
+      };
+
+      const oldPath = stoFile?.file_path;
+      const query = stoFile
+        ? supabase.from('project_files').update(payload).eq('id', stoFile.id)
+        : supabase.from('project_files').insert([payload]);
+      const { data: savedFile, error: saveError } = await query.select().single();
+
+      if (saveError) {
+        await supabase.storage.from('project-files').remove([path]);
+        throw saveError;
+      }
+
+      setFiles(prev => [savedFile, ...prev.filter(item => item.id !== savedFile.id)]);
+      if (oldPath && oldPath !== path) {
+        const { error: cleanupError } = await supabase.storage.from('project-files').remove([oldPath]);
+        if (cleanupError) console.error(cleanupError);
+      }
+    } catch (error) {
+      console.error(error);
+      setStoError('Nie udało się zapisać pliku .sto. Spróbuj ponownie.');
+    } finally {
+      setReplacingSto(false);
+      e.target.value = '';
+    }
+  }
+
   async function handleDeleteFile(file) {
     await supabase.storage.from('project-files').remove([file.file_path]);
     await supabase.from('project_files').delete().eq('id', file.id);
@@ -163,9 +232,36 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // (Escape/стрелки); без мемоизации новый массив на КАЖДЫЙ рендер FilesTab (включая никак не
   // связанные с файлами изменения — editingComment, confirmDeleteId и т.п.) пересоздавал бы
   // next/prev и постоянно пересобирал слушатель, а не только при реальном изменении набора файлов.
-  const visible = useMemo(() => files.filter(f => f.category === activeCategory), [files, activeCategory]);
+  const stoFile = files.find(isStoFile) || null;
+  const ordinaryFiles = useMemo(() => files.filter(file => !isStoFile(file)), [files]);
+  const visible = useMemo(() => ordinaryFiles.filter(f => f.category === activeCategory), [ordinaryFiles, activeCategory]);
   const images = useMemo(() => visible.filter(f => isImage(f.file_type)), [visible]);
   const docs   = visible.filter(f => !isImage(f.file_type));
+
+  async function handleDownloadSto() {
+    if (!stoFile || downloadingSto) return;
+    setDownloadingSto(true);
+    setStoError('');
+    try {
+      const { data: fileBlob, error: downloadError } = await supabase.storage
+        .from('project-files')
+        .download(stoFile.file_path);
+      if (downloadError) throw downloadError;
+      const blobUrl = URL.createObjectURL(fileBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = stoFile.file_name || 'projekt.sto';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error(error);
+      setStoError('Nie udało się pobrać pliku .sto.');
+    } finally {
+      setDownloadingSto(false);
+    }
+  }
 
   // Общий FileLightbox (перенос из бывшей внутренней renderLightbox — теперь используется тот
   // же компонент, что и в Dashboard.jsx). files — только изображения ТЕКУЩЕЙ отфильтрованной
@@ -337,6 +433,102 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // не передан) либо внутри прокручиваемого контента mobile-экрана (mobileLayout=true — крупные
   // touch-target'ы ≥40×40px, счётчик встроен в текст опции селектора, подпись "📎 Pliki" скрыта,
   // подписи кнопок — иконки с aria-label/title, лента миниатюр крупнее). ========
+  if (isShelf && !mobileLayout && !mobileWorkspaceLayout) {
+    return (
+      <section className={fs.desktopShelf} aria-label="Pliki projektu">
+        <div className={fs.desktopControls}>
+          <strong className={fs.desktopTitle}>Pliki projektu</strong>
+          <div className={fs.desktopFolderRow}>
+            {DESKTOP_FOLDER_CATEGORIES.map(category => (
+              <button
+                key={category.id}
+                type="button"
+                disabled={uploading}
+                className={[fs.desktopFolderBtn, activeCategory === category.id ? fs.desktopFolderBtnActive : ''].filter(Boolean).join(' ')}
+                onClick={() => selectFolder(category.id)}
+              >
+                {category.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={uploading}
+              className={fs.desktopUploadBtn}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Dodaj plik lub zdjęcie do wybranego folderu"
+              title="Dodaj plik lub zdjęcie"
+            >
+              {uploading ? '…' : '+'}
+            </button>
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" hidden onChange={handleUpload} />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className={fs.desktopEmpty}>Ładowanie...</div>
+        ) : visible.length === 0 ? (
+          <div className={fs.desktopEmpty}>Brak plików w tym folderze.</div>
+        ) : (
+          <div className={fs.desktopCarousel}>
+            {visible.map(file => (
+              isImage(file.file_type) ? (
+                <img
+                  key={file.id}
+                  src={file.file_url}
+                  alt={file.file_name}
+                  draggable={false}
+                  onClick={() => setLightboxFileId(file.id)}
+                  className={fs.desktopCarouselImg}
+                  style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
+                />
+              ) : (
+                <a
+                  key={file.id}
+                  href={file.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={file.file_name}
+                  className={fs.desktopCarouselDoc}
+                >
+                  <span className={fs.desktopCarouselDocIcon}>{isPdf(file.file_type) ? 'PDF' : 'PLIK'}</span>
+                  <span className={fs.desktopCarouselDocName}>{shortenFileName(file.file_name, 18)}</span>
+                </a>
+              )
+            ))}
+          </div>
+        )}
+
+        <div className={fs.stoRow}>
+          <span className={fs.stoLabel}>Plik PRO100 (.sto):</span>
+          {loading ? (
+            <span className={fs.stoMissing}>Ładowanie...</span>
+          ) : stoFile ? (
+            <>
+              <span className={fs.stoFilename} title={stoFile.file_name}>{stoFile.file_name}</span>
+              <button type="button" className={fs.stoDownloadBtn} disabled={downloadingSto || replacingSto} onClick={handleDownloadSto}>
+                {downloadingSto ? 'Pobieranie…' : 'Pobierz'}
+              </button>
+              <button type="button" className={fs.stoReplaceBtn} disabled={replacingSto} onClick={() => stoInputRef.current?.click()}>
+                {replacingSto ? 'Wgrywanie…' : 'Zamień'}
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={fs.stoMissing}>Brak pliku .sto</span>
+              <button type="button" className={fs.stoDownloadBtn} disabled={replacingSto} onClick={() => stoInputRef.current?.click()}>
+                {replacingSto ? 'Wgrywanie…' : 'Dodaj'}
+              </button>
+            </>
+          )}
+          <input ref={stoInputRef} type="file" accept=".sto" hidden onChange={handleStoUpload} />
+        </div>
+        {stoError && <div className={fs.stoError} role="alert">{stoError}</div>}
+
+        {renderLightbox()}
+      </section>
+    );
+  }
+
   if (isShelf && mobileWorkspaceLayout) {
     // Mobile Project Workspace v1 (p.3): вместо <select> + Rozwiń/Zwiń — ряд из 4 кнопок-папок
     // (FOLDER_CATEGORIES, те же id) + "+", и ПОСТОЯННО видимая горизонтальная карусель миниатюр
