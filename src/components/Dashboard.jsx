@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { withProjectFileSignedUrls } from '../utils/projectFileAccess';
 import FileLightbox from './FileLightbox';
 import { nextTaskId } from './dashboardHelpers';
 import s from './Dashboard.module.css';
@@ -103,7 +104,8 @@ const Dashboard = ({
       .eq('client_id', project.id)
       .eq('category', cat.key)
       .order('uploaded_at', { ascending: true });
-    setFileViewer({ files: data || [], categoryLabel: `${cat.icon} ${cat.label}` });
+    const signedFiles = await withProjectFileSignedUrls(data || []);
+    setFileViewer({ files: signedFiles, categoryLabel: `${cat.icon} ${cat.label}` });
   };
 
   const toggleShowDone = (projectId) => {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { getProjectFileDisplayUrl } from '../utils/projectFileAccess';
 import s from './FileLightbox.module.css';
 
 const isImageFile = (file) =>
@@ -288,7 +289,7 @@ export default function FileLightbox({ files, categoryLabel, onClose, initialInd
                 title={f.file_name || ''}
               >
                 {isImageFile(f) ? (
-                  <img src={f.file_url} alt={f.file_name || ''} className={s.thumbImg} />
+                  <img src={getProjectFileDisplayUrl(f)} alt={f.file_name || ''} className={s.thumbImg} />
                 ) : (
                   <div className={s.thumbFileIcon}>📄</div>
                 )}
@@ -319,7 +320,7 @@ export default function FileLightbox({ files, categoryLabel, onClose, initialInd
             </div>
           </div>
           <div className={s.modalBody}>
-            <a href={file.file_url} target="_blank" rel="noreferrer" className={s.fileLinkModal}>
+            <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" className={s.fileLinkModal}>
               📄 {file.file_name || 'Otwórz plik'}
             </a>
             {file.comment && <div className={s.commentModal}>{file.comment}</div>}
@@ -360,7 +361,7 @@ export default function FileLightbox({ files, categoryLabel, onClose, initialInd
             открытии viewer, т.к. FileLightbox целиком размонтируется родителем. */}
         <ZoomableImage
           key={file.id ?? index}
-          src={file.file_url}
+          src={getProjectFileDisplayUrl(file)}
           alt={file.file_name || ''}
           canSwipe={files.length > 1}
           onSwipeNext={next}
