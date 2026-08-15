@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../supabase';
+import { getProjectFileDisplayUrl, withProjectFileSignedUrls } from '../utils/projectFileAccess';
 import FileLightbox from './FileLightbox';
 import fs from './FilesTab.module.css';
 
@@ -93,8 +94,9 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         .select('*')
         .eq('client_id', clientId)
         .order('uploaded_at', { ascending: false });
+      const signedFiles = await withProjectFileSignedUrls(data || []);
       if (cancelled) return;
-      if (data) setFiles(data);
+      setFiles(signedFiles);
       setLoading(false);
     }
     loadFiles();
@@ -131,7 +133,10 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         uploaded_by:       currentProfile?.id    || null,
         uploaded_by_color: currentProfile?.color || '#718096',
       }]).select().single();
-      if (row) setFiles(prev => [row, ...prev]);
+      if (row) {
+        const [signedRow] = await withProjectFileSignedUrls([row]);
+        setFiles(prev => [signedRow, ...prev]);
+      }
     }
     setUploading(false);
     fileInputRef.current.value = '';
@@ -309,7 +314,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                   {/* Миниатюра — клик = лайтбокс */}
                   <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setLightboxFileId(file.id)}>
                     <img
-                      src={file.file_url} alt={file.file_name}
+                      src={getProjectFileDisplayUrl(file)} alt={file.file_name}
                       style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }}
                     />
                     {/* Иконка категории */}
@@ -386,7 +391,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
             {docs.map((file, idx) => (
               <div key={file.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderBottom: idx < docs.length - 1 ? '1px solid #e2e8f0' : 'none', background: '#fff', borderLeft: `3px solid ${file.uploaded_by_color || '#e2e8f0'}` }}>
                 <span style={{ fontSize: '18px', flexShrink: 0 }}>{isPdf(file.file_type) ? '📄' : '📁'}</span>
-                <a href={file.file_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#2b6cb0', fontWeight: 'bold', textDecoration: 'none', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.file_name}>
+                <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#2b6cb0', fontWeight: 'bold', textDecoration: 'none', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.file_name}>
                   {file.file_name}
                 </a>
                 {editingComment === file.id ? (
@@ -474,7 +479,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
               isImage(file.file_type) ? (
                 <img
                   key={file.id}
-                  src={file.file_url}
+                  src={getProjectFileDisplayUrl(file)}
                   alt={file.file_name}
                   draggable={false}
                   onClick={() => setLightboxFileId(file.id)}
@@ -484,7 +489,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
               ) : (
                 <a
                   key={file.id}
-                  href={file.file_url}
+                  href={getProjectFileDisplayUrl(file)}
                   target="_blank"
                   rel="noreferrer"
                   title={file.file_name}
@@ -573,7 +578,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
               isImage(file.file_type) ? (
                 <img
                   key={file.id}
-                  src={file.file_url}
+                  src={getProjectFileDisplayUrl(file)}
                   alt={file.file_name}
                   draggable={false}
                   onClick={() => setLightboxFileId(file.id)}
@@ -583,7 +588,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
               ) : (
                 <a
                   key={file.id}
-                  href={file.file_url}
+                  href={getProjectFileDisplayUrl(file)}
                   target="_blank"
                   rel="noreferrer"
                   title={file.file_name}
@@ -694,7 +699,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                 isImage(file.file_type) ? (
                   <img
                     key={file.id}
-                    src={file.file_url}
+                    src={getProjectFileDisplayUrl(file)}
                     alt={file.file_name}
                     onClick={() => setLightboxFileId(file.id)}
                     style={{
@@ -706,7 +711,7 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
                 ) : (
                   <a
                     key={file.id}
-                    href={file.file_url}
+                    href={getProjectFileDisplayUrl(file)}
                     target="_blank"
                     rel="noreferrer"
                     title={file.file_name}
