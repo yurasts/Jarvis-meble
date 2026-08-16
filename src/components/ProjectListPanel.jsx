@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { shortDate, groupByClient, projectTotals } from './dashboardHelpers';
-import { getRecentProjectIds, markProjectOpened } from '../utils/recentProjects';
 import s from './ProjectListPanel.module.css';
 
 // Тот же канонический набор цветов статусов, что и в Settings.jsx («Legenda statusów projektów»).
@@ -182,7 +181,6 @@ export default function ProjectListPanel({
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
-  const [recentIds, setRecentIds] = useState(() => getRecentProjectIds());
   // Раскрытость финансовой панели — id проекта, для которого её явно раскрыли повторным кликом
   // (не булев флаг). При смене активного проекта ЛЮБЫМ путём (клик по другой строке, открытие
   // через поиск/Dashboard/Kanban, закрытие карточки) панель обязана свернуться — в т.ч. если
@@ -207,8 +205,6 @@ export default function ProjectListPanel({
   const effectiveScope = scopeView || 'personal';
 
   const handleOpen = (client) => {
-    markProjectOpened(client.id);
-    setRecentIds(getRecentProjectIds());
     onOpenProject(client);
   };
 
@@ -250,21 +246,13 @@ export default function ProjectListPanel({
         })
       : scoped;
 
-    const rank = new Map(recentIds.map((id, idx) => [id, idx]));
-    // Критический запрет на пересортировку (Mobile Project List v1, п.6): на мобильном экране
-    // открытие/выделение проекта не должно двигать его вверх — recentIds там не применяется,
-    // исходный порядок остаётся стабильным. Desktop-сортировка по recentIds не меняется.
-    const byRecent = (list) => mobileLayout ? list : [...list].sort((a, b) => {
-      const ra = rank.has(a.id) ? rank.get(a.id) : Infinity;
-      const rb = rank.has(b.id) ? rank.get(b.id) : Infinity;
-      return ra - rb; // Array.prototype.sort стабилен — при равенстве порядок сохраняется
-    });
-
     return {
-      active: byRecent(matched.filter((c) => !COMPLETED_STATUSES.has(c.status))),
-      completed: byRecent(matched.filter((c) => COMPLETED_STATUSES.has(c.status))),
+      // Выбор проекта меняет только подсветку и рабочую область. Исходный порядок clients
+      // сохраняется: строка не перескакивает вверх ни на desktop, ни на mobile.
+      active: matched.filter((c) => !COMPLETED_STATUSES.has(c.status)),
+      completed: matched.filter((c) => COMPLETED_STATUSES.has(c.status)),
     };
-  }, [clients, effectiveScope, searchText, recentIds, mobileLayout]);
+  }, [clients, effectiveScope, searchText]);
 
   // Mobile Project List v1 (ADR-003) — отдельная, явная ветка разметки только для полноэкранного
   // мобильного экрана Projekty. Ниже, после этого блока, идёт ПОЛНОСТЬЮ НЕТРОНУТАЯ разметка для

@@ -56,6 +56,8 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   const [editingComment, setEditingComment] = useState(null);
   const [commentDraft,   setCommentDraft]   = useState('');
   const [confirmDeleteId,setConfirmDeleteId]= useState(null);
+  const [deletingFileId, setDeletingFileId] = useState(null);
+  const [fileActionError, setFileActionError] = useState('');
   // id файла, открытого в общем FileLightbox (не url — id стабилен и однозначно находит позицию
   // в текущей отфильтрованной по категории подборке images, даже если files успел измениться).
   const [lightboxFileId, setLightboxFileId] = useState(null);
@@ -107,6 +109,8 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // кнопок-папок в mobileWorkspaceLayout ниже; тот же принцип "один select одновременно фильтрует
   // видимые файлы и служит категорией загрузки", что и у остальных вариантов.
   function selectFolder(id) {
+    setConfirmDeleteId(null);
+    setFileActionError('');
     setActiveCategory(id);
     uploadCategoryRef.current = id;
   }
@@ -204,15 +208,34 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   }
 
   async function handleDeleteFile(file) {
-    await supabase.storage.from('project-files').remove([file.file_path]);
-    await supabase.from('project_files').delete().eq('id', file.id);
-    setFiles(prev => prev.filter(f => f.id !== file.id));
-    // если удалили обложку — сбрасываем
-    if (file.file_url === coverUrl) {
-      await supabase.from('clients').update({ cover_url: null }).eq('id', clientId);
-      onCoverChange?.(null);
+    if (deletingFileId !== null) return;
+    setDeletingFileId(file.id);
+    setFileActionError('');
+    try {
+      // Najpierw usuwamy rekord. Gdy RLS/DB odrzuci operację, plik w Storage pozostaje nietknięty.
+      const { error: deleteError } = await supabase.from('project_files').delete().eq('id', file.id);
+      if (deleteError) throw deleteError;
+
+      setFiles(prev => prev.filter(f => f.id !== file.id));
+      if (lightboxFileId === file.id) setLightboxFileId(null);
+
+      if (file.file_url === coverUrl) {
+        const { error: coverError } = await supabase.from('clients').update({ cover_url: null }).eq('id', clientId);
+        if (coverError) console.error(coverError);
+        onCoverChange?.(null);
+      }
+
+      // Błąd sprzątania Storage nie przywraca usuniętego rekordu — zostawia co najwyżej osierocony
+      // obiekt, ale nie blokuje użytkownikowi poprawnie zakończonego usunięcia z projektu.
+      const { error: storageError } = await supabase.storage.from('project-files').remove([file.file_path]);
+      if (storageError) console.error(storageError);
+    } catch (error) {
+      console.error(error);
+      setFileActionError('Nie udało się usunąć pliku. Spróbuj ponownie.');
+    } finally {
+      setDeletingFileId(null);
+      setConfirmDeleteId(null);
     }
-    setConfirmDeleteId(null);
   }
 
   async function saveComment(file) {
@@ -476,32 +499,62 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         ) : (
           <div className={fs.desktopCarousel}>
             {visible.map(file => (
-              isImage(file.file_type) ? (
-                <img
-                  key={file.id}
-                  src={getProjectFileDisplayUrl(file)}
-                  alt={file.file_name}
-                  draggable={false}
-                  onClick={() => setLightboxFileId(file.id)}
-                  className={fs.desktopCarouselImg}
-                  style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
-                />
-              ) : (
-                <a
-                  key={file.id}
-                  href={getProjectFileDisplayUrl(file)}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={file.file_name}
-                  className={fs.desktopCarouselDoc}
+              <div key={file.id} className={fs.desktopCarouselItem}>
+                {isImage(file.file_type) ? (
+                  <img
+                    src={getProjectFileDisplayUrl(file)}
+                    alt={file.file_name}
+                    draggable={false}
+                    onClick={() => setLightboxFileId(file.id)}
+                    className={fs.desktopCarouselImg}
+                    style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
+                  />
+                ) : (
+                  <a
+                    href={getProjectFileDisplayUrl(file)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={file.file_name}
+                    className={fs.desktopCarouselDoc}
+                  >
+                    <span className={fs.desktopCarouselDocIcon}>{isPdf(file.file_type) ? 'PDF' : 'PLIK'}</span>
+                    <span className={fs.desktopCarouselDocName}>{shortenFileName(file.file_name, 18)}</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className={fs.desktopDeleteBtn}
+                  disabled={deletingFileId !== null}
+                  aria-label={`Usuń plik ${file.file_name}`}
+                  title="Usuń plik"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setFileActionError('');
+                    setConfirmDeleteId(file.id);
+                  }}
                 >
-                  <span className={fs.desktopCarouselDocIcon}>{isPdf(file.file_type) ? 'PDF' : 'PLIK'}</span>
-                  <span className={fs.desktopCarouselDocName}>{shortenFileName(file.file_name, 18)}</span>
-                </a>
-              )
+                  ×
+                </button>
+                {confirmDeleteId === file.id && (
+                  <div className={fs.desktopDeleteConfirm} role="dialog" aria-label={`Usunąć plik ${file.file_name}?`}>
+                    <span>Usunąć?</span>
+                    <div className={fs.desktopDeleteActions}>
+                      <button type="button" disabled={deletingFileId === file.id} onClick={() => handleDeleteFile(file)}>
+                        {deletingFileId === file.id ? '…' : 'Tak'}
+                      </button>
+                      <button type="button" disabled={deletingFileId === file.id} onClick={() => setConfirmDeleteId(null)}>
+                        Nie
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
+
+        {fileActionError && <div className={fs.desktopFileError} role="alert">{fileActionError}</div>}
 
         <div className={fs.stoRow}>
           <span className={fs.stoLabel}>Plik PRO100 (.sto):</span>
