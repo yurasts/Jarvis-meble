@@ -21,6 +21,10 @@ const directionFromNewKey = (key) => (key.startsWith('new-inflow-') ? 'inflow' :
 // "+0.00 zł"/"−0.00 zł" wygląda jak błąd, nie jak "brak operacji tego typu" — znak dopisujemy
 // tylko przy realnej (dodatniej) sumie, zero pokazujemy bez znaku.
 const formatSigned = (value, sign) => (value > 0 ? `${sign}${value.toFixed(2)} zł` : `${value.toFixed(2)} zł`);
+const formatCompactDate = (value) => {
+  const [, month, day] = String(value || '').split('-');
+  return month && day ? `${day}.${month}` : String(value || '');
+};
 
 // Карточка одного проекта — общая для MobileClientBalanceScreen (несколько карточек, N проектов
 // клиента) и вкладки Rozliczenia mobile ProjectModal (одна карточка, activeClient). Один и тот же
@@ -51,6 +55,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   onDirtyChange,
   status = 'ready',
   onRetry,
+  desktopLayout = false,
 }, ref) {
   const isControlled = editingKeyProp !== undefined;
   const [internalEditingKey, setInternalEditingKey] = useState(null);
@@ -127,11 +132,20 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
       occurred_on: draft.occurred_on,
       description: draft.description.trim(),
     };
-    const { error } = await onSaveTransaction(projectId, payload);
-    setSaving(false);
-    if (error) { setEditorError('Nie udało się zapisać. Spróbuj ponownie.'); return { error }; }
-    closeEditor();
-    return { error: null };
+    try {
+      const result = await onSaveTransaction(projectId, payload);
+      if (result?.error) {
+        setEditorError('Nie udało się zapisać. Spróbuj ponownie.');
+        return { error: result.error };
+      }
+      closeEditor();
+      return { error: null };
+    } catch (error) {
+      setEditorError('Błąd połączenia. Sprawdź internet i spróbuj ponownie.');
+      return { error };
+    } finally {
+      setSaving(false);
+    }
   };
 
   const computeInitialDraft = useCallback((key) => {
@@ -236,6 +250,23 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
 
   const projectName = client.project_name || client.full_name || '—';
   const statusColor = COMPLETED_STATUSES.has(client.status) ? STATUS_COLOR.done : (STATUS_COLOR[client.status] || STATUS_COLOR.new);
+  const formatDesktopMoney = (value) => Number(value || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const formatDesktopSigned = (value, sign) => (
+    value > 0 ? `${sign}${formatDesktopMoney(value)} zł` : `${formatDesktopMoney(value)} zł`
+  );
+  const plannedMetrics = [
+    { label: 'Materiały', value: `${desktopLayout ? formatDesktopMoney(materials) : materials.toFixed(2)} zł` },
+    { label: 'Usługi', value: `${desktopLayout ? formatDesktopMoney(services) : services.toFixed(2)} zł` },
+    { label: 'Współczynnik', value: `×${coef}` },
+    { label: 'Wycena', value: `${desktopLayout ? formatDesktopMoney(wycena) : wycena.toFixed(2)} zł` },
+  ];
+  const desktopInflows = list.filter((transaction) => transaction.direction === 'inflow');
+  const desktopOutflows = list.filter((transaction) => transaction.direction === 'outflow');
+  const desktopPairCount = Math.max(desktopInflows.length, desktopOutflows.length);
+  const desktopPairs = Array.from({ length: desktopPairCount }, (_, index) => ({
+    inflow: desktopInflows[index] || null,
+    outflow: desktopOutflows[index] || null,
+  }));
 
   const compactSummary = (
     <div className={s.compactSummary}>
@@ -288,8 +319,95 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
     </div>
   );
 
+  const renderDesktopEditorFields = (transactionId = null) => (
+    <div className={s.desktopInlineEditor}>
+      <div className={s.desktopInlineFields}>
+        <input
+          className={`${s.desktopInlineInput} ${s.desktopDateInput}`}
+          type="date"
+          value={draft.occurred_on}
+          onChange={(e) => setDraft((current) => ({ ...current, occurred_on: e.target.value }))}
+          aria-label="Data operacji"
+        />
+        <input
+          autoFocus
+          className={`${s.desktopInlineInput} ${s.desktopDescriptionInput}`}
+          type="text"
+          value={draft.description}
+          onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
+          placeholder={currentDirection === 'inflow' ? 'Nazwa wpłaty' : 'Nazwa wydatku'}
+          aria-label="Nazwa operacji"
+        />
+        <input
+          className={`${s.desktopInlineInput} ${s.desktopAmountInput}`}
+          type="number"
+          min="0"
+          step="0.01"
+          value={draft.amount}
+          onChange={(e) => setDraft((current) => ({ ...current, amount: e.target.value }))}
+          placeholder="0.00"
+          aria-label="Kwota operacji"
+        />
+        <button type="button" className={s.desktopInlineSave} disabled={saving} onClick={handleSave} aria-label="Zapisz operację">
+          {saving ? '…' : '✓'}
+        </button>
+        <button type="button" className={s.desktopInlineCancel} disabled={saving} onClick={closeEditor} aria-label="Anuluj edycję">×</button>
+        {transactionId && (
+          <button
+            type="button"
+            className={s.desktopInlineDelete}
+            disabled={saving}
+            onClick={() => { setConfirmDeleteId(transactionId); setDeleteError(null); }}
+          >
+            Usuń
+          </button>
+        )}
+      </div>
+      {editorError && <div className={s.desktopEditorError}>{editorError}</div>}
+    </div>
+  );
+
+  const renderDesktopTransaction = (transaction) => {
+    if (!transaction) return <div className={s.desktopEmptyCell} aria-hidden="true" />;
+    if (confirmDeleteId === transaction.id) {
+      return (
+        <div className={s.desktopConfirmRow}>
+          <span>Usunąć „{transaction.description}”?</span>
+          {deleteError && <span className={s.deleteError}>{deleteError}</span>}
+          <div className={s.desktopConfirmActions}>
+            <button type="button" className={s.desktopConfirmDelete} disabled={deleting} onClick={() => handleDelete(transaction.id)}>
+              {deleting ? 'Usuwanie…' : 'Tak'}
+            </button>
+            <button type="button" className={s.desktopConfirmCancel} disabled={deleting} onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}>Nie</button>
+          </div>
+        </div>
+      );
+    }
+    if (editingKey === transaction.id) return renderDesktopEditorFields(transaction.id);
+    return (
+      <div
+        className={s.desktopTransactionRow}
+        role="button"
+        tabIndex={0}
+        onClick={() => openEdit(transaction)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openEdit(transaction);
+          }
+        }}
+      >
+        <span className={s.desktopTransactionDate}>{formatCompactDate(transaction.occurred_on)}</span>
+        <span className={s.desktopTransactionName}>{transaction.description}</span>
+        <span className={transaction.direction === 'inflow' ? s.desktopTransactionInflow : s.desktopTransactionOutflow}>
+          {transaction.direction === 'inflow' ? '+' : '−'}{formatDesktopMoney(transaction.amount)} zł
+        </span>
+      </div>
+    );
+  };
+
   return (
-    <div className={s.card} style={{ position: 'relative' }}>
+    <div className={`${s.card} ${desktopLayout ? s.desktopCard : ''}`} style={{ position: 'relative' }}>
       {pendingSwitch && (
         <div className={s.switchOverlay}>
           <div className={s.switchBox}>
@@ -305,36 +423,51 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
           </div>
         </div>
       )}
-      {showProjectHeader ? (
-        <div className={s.projectHeader}>
-          <span className={s.projectHeaderName}>
-            <span className={s.projectStatusDot} style={{ background: statusColor }} />
-            {projectName}
-          </span>
-          {status === 'ready' && compactSummary}
-        </div>
+      {desktopLayout ? (
+        <>
+          <div className={s.desktopProjectHeader}>
+            <span className={s.desktopProjectName}>
+              <span className={s.projectStatusDot} style={{ background: statusColor }} />
+              {projectName}
+            </span>
+            {plannedMetrics.map((metric) => (
+              <span key={metric.label} className={s.desktopMetric}>
+                <span className={s.desktopMetricLabel}>{metric.label}</span>
+                <span className={s.desktopMetricValue}>{metric.value}</span>
+              </span>
+            ))}
+          </div>
+          {status === 'ready' && (
+            <div className={s.desktopSummaryRow}>
+              <span className={s.compactInflow}>{formatDesktopSigned(wplaty, '+')}</span>
+              <span className={s.compactOutflow}>{formatDesktopSigned(wydatki, '−')}</span>
+            </div>
+          )}
+        </>
       ) : (
-        status === 'ready' && <div className={s.compactSummaryStandalone}>{compactSummary}</div>
-      )}
+        <>
+          {showProjectHeader ? (
+            <div className={s.projectHeader}>
+              <span className={s.projectHeaderName}>
+                <span className={s.projectStatusDot} style={{ background: statusColor }} />
+                {projectName}
+              </span>
+              {status === 'ready' && compactSummary}
+            </div>
+          ) : (
+            status === 'ready' && <div className={s.compactSummaryStandalone}>{compactSummary}</div>
+          )}
 
-      <div className={s.plannedRow}>
-        <div className={s.plannedCell}>
-          <span className={s.plannedLabel}>Materiały</span>
-          <span className={s.plannedValue}>{materials.toFixed(2)} zł</span>
-        </div>
-        <div className={s.plannedCell}>
-          <span className={s.plannedLabel}>Usługi</span>
-          <span className={s.plannedValue}>{services.toFixed(2)} zł</span>
-        </div>
-        <div className={s.plannedCell}>
-          <span className={s.plannedLabel}>Współczynnik</span>
-          <span className={s.plannedValue}>×{coef}</span>
-        </div>
-        <div className={s.plannedCell}>
-          <span className={s.plannedLabel}>Wycena</span>
-          <span className={s.plannedValue}>{wycena.toFixed(2)} zł</span>
-        </div>
-      </div>
+          <div className={s.plannedRow}>
+            {plannedMetrics.map((metric) => (
+              <div key={metric.label} className={s.plannedCell}>
+                <span className={s.plannedLabel}>{metric.label}</span>
+                <span className={s.plannedValue}>{metric.value}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {status === 'loading' && <div className={s.loadState}>Ładowanie rozliczeń…</div>}
 
@@ -347,59 +480,80 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
 
       {status === 'ready' && (
         <>
-          <div className={s.transactionsList}>
-            {list.length === 0 && <div className={s.empty}>Brak operacji.</div>}
-            {list.map((t) => {
-              if (confirmDeleteId === t.id) {
-                return (
-                  <div key={t.id} className={s.confirmRow}>
-                    <span className={s.confirmText}>Usunąć „{t.description}” ({Number(t.amount).toFixed(2)} zł)?</span>
-                    {deleteError && <span className={s.deleteError}>{deleteError}</span>}
-                    <div className={s.confirmActions}>
-                      <button type="button" className={s.editorSave} style={{ flex: '0 0 auto', background: '#e53e3e' }} disabled={deleting} onClick={() => handleDelete(t.id)}>
-                        {deleting ? 'Usuwanie…' : 'Tak'}
-                      </button>
-                      <button type="button" className={s.editorCancel} disabled={deleting} onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}>Nie</button>
+          {desktopLayout ? (
+            <div className={s.desktopTransactionsList}>
+              {desktopPairs.length === 0 && !isNewKey(editingKey) && <div className={s.desktopEmpty}>Brak operacji.</div>}
+              {desktopPairs.map((pair, index) => (
+                <div key={`${pair.inflow?.id || 'inflow'}-${pair.outflow?.id || 'outflow'}-${index}`} className={s.desktopPairRow}>
+                  <div className={s.desktopTransactionCell}>{renderDesktopTransaction(pair.inflow)}</div>
+                  <div className={s.desktopTransactionCell}>{renderDesktopTransaction(pair.outflow)}</div>
+                </div>
+              ))}
+              {isNewKey(editingKey) && (
+                <div className={s.desktopPairRow}>
+                  <div className={s.desktopTransactionCell}>
+                    {currentDirection === 'inflow' ? renderDesktopEditorFields() : <div className={s.desktopEmptyCell} aria-hidden="true" />}
+                  </div>
+                  <div className={s.desktopTransactionCell}>
+                    {currentDirection === 'outflow' ? renderDesktopEditorFields() : <div className={s.desktopEmptyCell} aria-hidden="true" />}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={s.transactionsList}>
+              {list.length === 0 && <div className={s.empty}>Brak operacji.</div>}
+              {list.map((t) => {
+                if (confirmDeleteId === t.id) {
+                  return (
+                    <div key={t.id} className={s.confirmRow}>
+                      <span className={s.confirmText}>Usunąć „{t.description}” ({Number(t.amount).toFixed(2)} zł)?</span>
+                      {deleteError && <span className={s.deleteError}>{deleteError}</span>}
+                      <div className={s.confirmActions}>
+                        <button type="button" className={s.editorSave} style={{ flex: '0 0 auto', background: '#e53e3e' }} disabled={deleting} onClick={() => handleDelete(t.id)}>
+                          {deleting ? 'Usuwanie…' : 'Tak'}
+                        </button>
+                        <button type="button" className={s.editorCancel} disabled={deleting} onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}>Nie</button>
+                      </div>
                     </div>
+                  );
+                }
+                if (editingKey === t.id) {
+                  return <div key={t.id} className={s.editorSlot}>{renderEditorFields()}</div>;
+                }
+                return (
+                  <div
+                    key={t.id}
+                    className={`${s.row} ${t.direction === 'inflow' ? s.rowInflow : s.rowOutflow}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openEdit(t)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(t); } }}
+                  >
+                    <div className={s.rowMain}>
+                      <span className={s.rowDescription}>{t.description}</span>
+                      <span className={s.rowDate}>{t.occurred_on}</span>
+                    </div>
+                    <span className={s.rowAmount} style={{ color: t.direction === 'inflow' ? '#38a169' : '#e53e3e' }}>
+                      {t.direction === 'inflow' ? '+' : '−'}{Number(t.amount).toFixed(2)} zł
+                    </span>
+                    <button
+                      type="button"
+                      className={s.rowDelete}
+                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(t.id); setDeleteError(null); }}
+                      aria-label="Usuń operację"
+                    >
+                      ✖
+                    </button>
                   </div>
                 );
-              }
-              if (editingKey === t.id) {
-                return <div key={t.id}>{renderEditorFields()}</div>;
-              }
-              return (
-                <div
-                  key={t.id}
-                  className={`${s.row} ${t.direction === 'inflow' ? s.rowInflow : s.rowOutflow}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openEdit(t)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(t); } }}
-                >
-                  <div className={s.rowMain}>
-                    <span className={s.rowDescription}>{t.description}</span>
-                    <span className={s.rowDate}>{t.occurred_on}</span>
-                  </div>
-                  <span className={s.rowAmount} style={{ color: t.direction === 'inflow' ? '#38a169' : '#e53e3e' }}>
-                    {t.direction === 'inflow' ? '+' : '−'}{Number(t.amount).toFixed(2)} zł
-                  </span>
-                  <button
-                    type="button"
-                    className={s.rowDelete}
-                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(t.id); setDeleteError(null); }}
-                    aria-label="Usuń operację"
-                  >
-                    ✖
-                  </button>
-                </div>
-              );
-            })}
-            {isNewKey(editingKey) && renderEditorFields()}
-          </div>
-
+              })}
+              {isNewKey(editingKey) && <div className={s.editorSlot}>{renderEditorFields()}</div>}
+            </div>
+          )}
           <div className={s.actions}>
-            <button type="button" className={`${s.addBtn} ${s.addInflow}`} onClick={() => openNew('inflow')}>+ Wpłata</button>
-            <button type="button" className={`${s.addBtn} ${s.addOutflow}`} onClick={() => openNew('outflow')}>− Wydatek</button>
+            <button type="button" className={`${s.addBtn} ${s.addInflow}`} disabled={desktopLayout && editingKey !== null} onClick={() => openNew('inflow')}>+ Wpłata</button>
+            <button type="button" className={`${s.addBtn} ${s.addOutflow}`} disabled={desktopLayout && editingKey !== null} onClick={() => openNew('outflow')}>− Wydatek</button>
           </div>
         </>
       )}

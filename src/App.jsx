@@ -563,6 +563,11 @@ function App() {
             pendingProjectLabel={pendingClient ? (pendingClient.client.project_name || pendingClient.client.client_name || pendingClient.client.full_name || '—') : null}
             onConfirmSwitch={confirmPendingSwitch}
             onCancelSwitch={cancelPendingSwitch}
+            cashTransactions={cashTransactions}
+            onSaveCashTransaction={saveCashTransaction}
+            onDeleteCashTransaction={deleteCashTransaction}
+            cashStatus={cashStatus}
+            onRetryCash={loadCashTransactions}
           />
         ) : (
         <>

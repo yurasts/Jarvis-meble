@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
 import { projectTotals } from './dashboardHelpers';
+import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 
 // Лёгкая заливка фона по статусу проекта
 const STATUS_OVERLAY = {
@@ -29,8 +30,8 @@ const STATUS_LABEL = {
 };
 
 const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch,
-  // Mobile / Client Balance / Expanded v1 — только для mobile-вкладки Rozliczenia (см. ниже);
-  // desktop/embedded/modal-fallback их не используют (Wydatki там остаётся на calc_expenses).
+  // Единый project_cash_transactions используется в Rozliczenia на mobile и embedded desktop;
+  // modal-fallback сохраняет прежний calc_expenses для обратной совместимости.
   cashTransactions = [], onSaveCashTransaction, onDeleteCashTransaction, cashStatus = 'ready', onRetryCash,
 }) => {
   const isMobile = window.innerWidth < 640;
@@ -118,6 +119,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [pendingTabChange, setPendingTabChange] = useState(null);
   const [cashTabSaveError, setCashTabSaveError] = useState(false);
   const cashLedgerRef = useRef(null);
+  const projectCashSaldo = summarizeCash(transactionsForProject(cashTransactions, client.id)).saldo;
+  const formatDesktopCashMoney = (value) => Number(value || 0)
+    .toFixed(2)
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   const evalQty = (expr) => {
     if (expr === '' || expr === null || expr === undefined) return null;
@@ -296,24 +301,23 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     return { error: null };
   };
 
-  // Główny przycisk „Zapisz” w widoku embedded/mobile: ekran zostaje otwarty, pokazuje tylko
-  // krótkie potwierdzenie „Zapisano” lub czytelny błąd — bez zamykania (ADR-002, UX-faza 2.1/ADR-003).
+  // Główny „Zapisz” w embedded/mobile zapisuje oba źródła zmian: aktywny draft operacji
+  // pieniężnej oraz pola projektu. Sprawdzamy aktywny editor przez ref, a nie wyłącznie cashDirty:
+  // onDirtyChange jest raportowany efektem i przy bardzo szybkim wpisaniu + kliknięciu mógłby jeszcze
+  // nie zdążyć dotrzeć do rodzica. Kolejność cash → client pozostaje deterministyczna; błąd nie
+  // zamyka edytora ani nie gubi wpisanych danych.
   const handleSaveClick = async () => {
     if (!staysOpenOnSave) { await handleSaveAndClose(); return; }
+    if (cashLedgerRef.current?.hasActiveDraft()) {
+      const cashResult = await cashLedgerRef.current.saveActiveDraft();
+      if (cashResult?.error) { setSaveStatus('error'); return; }
+    }
     const result = await onSave();
     if (result?.error) { setSaveStatus('error'); return; }
-    // Успешный Zapisz закрывает mobile row-редактор (hotfix) — данные уже сохранены, оставлять
-    // раскрытую строку/delete-confirm незачем. При ошибке (ветка выше) редактор остаётся открытым,
-    // пользователь не теряет введённые значения.
     if (isMobileVariant) closeMobileRowEditor();
-    // Główny Zapisz zapisuje TYLKO pola client (calc_materials/services/expenses, budget…) — nie
-    // dotyka niezapisanego draftu operacji pieniężnej w Rozliczenia. Przy cashDirty=true "Zapisano"
-    // byłoby fałszywe (review P1): draft nadal czeka, osobno, na własny Zapisz w edytorze operacji.
-    if (!cashDirty) {
-      setSaveStatus('saved');
-      if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
-      saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
-    }
+    setSaveStatus('saved');
+    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
+    saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
   };
 
   // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
@@ -380,15 +384,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     closeMobileRowEditor();
   };
 
-  // Смена таба (hotfix): только для isMobileVariant и только при ФАКТИЧЕСКОЙ смене — сначала
+  // Смена таба на mobile/embedded: только при ФАКТИЧЕСКОЙ смене — сначала
   // finishEditing() (не closeMobileRowEditor() напрямую!), чтобы активный price/qty input сначала
   // прошёл существующий blur/commit, пока строка ещё смонтирована — переключение таба unmount'ит
   // содержимое предыдущего таба, и полагаться на onBlur во время React-unmount нельзя (не гарантирован).
   // draft/confirm-delete не должны "утекать" в другую вкладку — сценарий Materiały → раскрыть строку →
   // Usługi → Materiały обязан вернуть все строки свёрнутыми, а незакоммиченное значение — сохранённым.
-  // Для desktop/embedded/modal — ровно та же setActiveTab(tab), без побочных эффектов, поведение не меняется.
+  // В embedded эта же защита нужна для desktop ProjectCashLedger; modal-fallback остаётся без неё.
   const handleTabChange = (tab) => {
-    if (isMobileVariant && tab !== activeTab) {
+    if ((isMobileVariant || isEmbedded) && tab !== activeTab) {
       // cashDirty=true → ProjectCashLedger ma niezapisany draft, a zmiana taba go odmontuje bez
       // ostrzeżenia (review P1) — zamiast tego pytamy, tak jak przy zamykaniu karty projektu.
       if (activeTab === 'expenses' && cashDirty) {
@@ -980,13 +984,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             emoji и суммы в названиях без изменений. */}
         <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: isMobileVariant ? 'hidden' : 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
           <button onClick={() => handleTabChange('materials')} style={{ ...tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
-            {isMobileVariant ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
+            {(isMobileVariant || isEmbedded) ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
           </button>
           <button onClick={() => handleTabChange('services')} style={{ ...tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
-            {isMobileVariant ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
+            {(isMobileVariant || isEmbedded) ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
           </button>
           <button onClick={() => handleTabChange('expenses')} style={{ ...tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
-            {isMobileVariant ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
+            {(isMobileVariant || isEmbedded) ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
           </button>
           {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
               (полка в контенте, feat/mobile-files-zoom) — только у настоящего modal-fallback
@@ -1461,7 +1465,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             )
           )}
 
-          {/* РАСХОДЫ / mobile: Rozliczenia → Mobile / Client Balance / Expanded v1. Тот же
+          {/* Rozliczenia mobile/embedded: тот же
               ProjectCashLedger, что и в MobileClientBalanceScreen (Bilans klienta), тот же
               cashTransactions/onSaveCashTransaction/onDeleteCashTransaction из App.jsx (единый
               источник, без копирования) — отфильтрован здесь по activeClient.id. calc_expenses
@@ -1469,20 +1473,36 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               расходы; Wpłaty/Saldo — настоящие, из project_cash_transactions, не имитация.
               cashDirty (см. выше) примешивается в общий isDirty через onDirtyChange ниже —
               неконтролируемое использование (без editingKey/onEditingKeyChange пропсов), у этой
-              единственной карточки собственный, локальный editingKey. Desktop/embedded ниже — тот
-              же calc_expenses/Wydatki, что и раньше, не тронут. */}
+              единственной карточки собственный, локальный editingKey. Embedded включает отдельный
+              desktopLayout по Figma; обычный modal-fallback ниже сохраняет calc_expenses. */}
           {activeTab === 'expenses' && (
-            isMobileVariant ? (
-              <ProjectCashLedger
-                ref={cashLedgerRef}
-                client={client}
-                transactions={cashTransactions}
-                onSaveTransaction={onSaveCashTransaction}
-                onDeleteTransaction={onDeleteCashTransaction}
-                onDirtyChange={setCashDirty}
-                status={cashStatus}
-                onRetry={onRetryCash}
-              />
+            (isMobileVariant || isEmbedded) ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: isEmbedded ? '8px' : 0 }}>
+                {isEmbedded && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', minHeight: '24px' }}>
+                    <h3 style={{ margin: 0, color: text, fontSize: '16px', lineHeight: '24px', fontWeight: 700 }}>
+                      Faktyczne przepływy pieniężne
+                    </h3>
+                    {cashStatus === 'ready' && (
+                      <strong style={{ color: 'var(--accent)', fontSize: '14px', lineHeight: '20px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        Saldo {formatDesktopCashMoney(projectCashSaldo)} zł
+                      </strong>
+                    )}
+                  </div>
+                )}
+                <ProjectCashLedger
+                  ref={cashLedgerRef}
+                  client={client}
+                  transactions={cashTransactions}
+                  onSaveTransaction={onSaveCashTransaction}
+                  onDeleteTransaction={onDeleteCashTransaction}
+                  showProjectHeader={isEmbedded}
+                  desktopLayout={isEmbedded}
+                  onDirtyChange={setCashDirty}
+                  status={cashStatus}
+                  onRetry={onRetryCash}
+                />
+              </div>
             ) : (
             <div>
               <div style={{ marginBottom: '15px' }}>

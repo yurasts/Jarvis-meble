@@ -320,3 +320,314 @@
   cursor: pointer;
 }
 .editorCancel:disabled { opacity: 0.6; cursor: default; }
+
+/* Desktop / Project Workspace / Rozliczenia v1 — Figma node 3104:1432. */
+.desktopCard {
+  gap: 0;
+  border: 1px solid var(--text-main);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.desktopProjectHeader {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) repeat(4, minmax(75px, 1fr));
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  background: #aeaeb2;
+  color: #fff;
+}
+
+.desktopProjectName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+}
+
+.desktopMetric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  height: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.desktopMetricLabel {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.desktopMetricValue {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.desktopSummaryRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+  min-height: 17px;
+  height: 17px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  background: var(--bg-card);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.desktopSummaryRow > span { padding-right: 8px; }
+
+.desktopTransactionsList {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 10px 0;
+  background: var(--bg-card);
+}
+
+.desktopPairRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 23px;
+  align-items: center;
+}
+
+.desktopTransactionCell { min-width: 0; }
+.desktopEmptyCell { min-height: 23px; }
+
+.desktopTransactionRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 23px;
+  padding-right: 8px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: var(--bg-card);
+  cursor: pointer;
+}
+
+.desktopTransactionRow:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.desktopTransactionDate {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.desktopTransactionName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.desktopTransactionInflow,
+.desktopTransactionOutflow {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.desktopTransactionInflow { color: #22c55e; }
+.desktopTransactionOutflow { color: #ef4444; }
+
+.desktopEmpty {
+  padding: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.desktopInlineEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.desktopInlineFields {
+  display: grid;
+  grid-template-columns: 96px minmax(80px, 1fr) 92px 28px 28px auto;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.desktopInlineInput {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+
+.desktopInlineInput:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.desktopDateInput { font-size: 11px; }
+.desktopDescriptionInput { font-size: 12px; font-weight: 600; }
+.desktopAmountInput { font-size: 13px; font-weight: 600; text-align: right; }
+
+.desktopInlineSave,
+.desktopInlineCancel,
+.desktopInlineDelete {
+  height: 28px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.desktopInlineSave { border: 1px solid #22c55e; background: #22c55e; color: #fff; }
+.desktopInlineCancel { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+.desktopInlineDelete { padding: 0 8px; border: 1px solid #ef4444; background: var(--bg-card); color: #ef4444; }
+.desktopInlineSave:disabled,
+.desktopInlineCancel:disabled,
+.desktopInlineDelete:disabled { opacity: 0.6; cursor: default; }
+.desktopEditorError { color: #ef4444; font-size: 11px; }
+
+.desktopConfirmRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: var(--text-main);
+  font-size: 11px;
+}
+
+.desktopConfirmRow > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktopConfirmActions { display: flex; gap: 4px; }
+.desktopConfirmDelete,
+.desktopConfirmCancel {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.desktopConfirmDelete { border: 1px solid #ef4444; background: #ef4444; color: #fff; }
+.desktopConfirmCancel { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+
+.desktopCard .transactionsList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 10px;
+  padding: 0 10px;
+  background: var(--bg-card);
+}
+
+.desktopCard .row {
+  min-height: 44px;
+  padding: 4px 8px 4px 0;
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+
+.desktopCard .rowInflow { grid-column: 1; }
+.desktopCard .rowOutflow { grid-column: 2; }
+.desktopCard .empty,
+.desktopCard .confirmRow,
+.desktopCard .editorSlot { grid-column: 1 / -1; }
+
+.desktopCard .rowDescription {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.desktopCard .rowDate {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.desktopCard .rowAmount {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.desktopCard .actions {
+  gap: 10px;
+  min-height: 34px;
+  padding: 2px 10px;
+  background: var(--bg-card);
+}
+
+.desktopCard .addBtn {
+  min-height: 30px;
+  height: 30px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.desktopCard .addBtn:disabled { opacity: 0.55; cursor: default; }
+
+.desktopCard .addInflow {
+  border: 1px solid #22c55e;
+  background: #22c55e;
+}
+
+.desktopCard .addOutflow {
+  border: 1px solid #ef4444;
+  background: var(--bg-card);
+  color: #ef4444;
+}
+
+@media (max-width: 960px) {
+  .desktopProjectHeader {
+    grid-template-columns: minmax(105px, 130px) repeat(4, minmax(64px, 1fr));
+    padding: 0 10px;
+  }
+
+  .desktopMetric { gap: 4px; }
+  .desktopMetricLabel { font-size: 10px; }
+  .desktopMetricValue { font-size: 12px; }
+}
