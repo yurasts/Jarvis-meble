@@ -76,47 +76,6 @@
 .scopeBtn:hover { color: var(--text-main); }
 .scopeBtnActive { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 
-/* Kompaktowy zwijalny panel finansowy aktywnego projektu (compact-project-workspace) —
-   pod przełącznikami grup, tylko desktop sidebar (showFinancePanel). */
-.financePanel {
-  flex-shrink: 0;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-menu-hover);
-  font-size: 12px;
-}
-
-.financeRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-main);
-  flex-wrap: wrap;
-}
-
-.financeTimes { color: var(--text-muted); }
-
-.financeCoefInput {
-  width: 48px;
-  padding: 2px 4px;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-.financeCoefInput:focus { outline: none; }
-
-.financeBudget {
-  margin-top: 4px;
-  font-weight: 700;
-  color: var(--accent);
-}
-
 .list {
   flex: 1;
   min-height: 60px;

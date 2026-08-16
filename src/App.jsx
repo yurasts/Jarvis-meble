@@ -39,6 +39,10 @@ const TABS = [
 const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
+// Убран с экрана по просьбе (пока, не окончательно) — компонент/код оставлены нетронутыми,
+// включить обратно — просто вернуть true.
+const AI_ASSISTANT_ENABLED = false
+
 function App() {
   const { session, profile: authProfile, profilesById, isDark, theme, loadingSession, awaitingAccess, signOut, updatePresenceTab, onlineUsers } = useAuth()
   // Forest — тоже тёмная по духу тема: компонентам, красящим себя через
@@ -434,8 +438,6 @@ function App() {
         onOpenProject={requestOpenProject}
         onOpenBalance={openClientBalance}
         activeProjectId={activeClient?.id}
-        activeClient={activeClient}
-        setActiveClient={setActiveClient}
         profile={profile}
         displayName={displayName}
         onlineUsers={allOnline}
@@ -797,7 +799,7 @@ function App() {
         onWiecej={showMoreMenu}
       />
 
-      <AiAssistant />
+      {AI_ASSISTANT_ENABLED && <AiAssistant />}
     </div>
   )
 }
