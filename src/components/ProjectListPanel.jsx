@@ -89,7 +89,18 @@ function ClientGroups({ projects, onRowClick, activeProjectId, mobileLayout, onO
           )}
         </div>
       ) : (
-        <div className={s.clientGroupHeader}>{clientName}</div>
+        <div className={s.clientGroupHeaderRow}>
+          <div className={s.clientGroupHeader}>{clientName}</div>
+          {onOpenBalance && (
+            <button
+              type="button"
+              className={s.desktopBalanceBtn}
+              onClick={(e) => { e.stopPropagation(); onOpenBalance(clientName); }}
+            >
+              Bilans
+            </button>
+          )}
+        </div>
       )}
       {group.map((c) => (
         <ProjectRow key={c.id} client={c} onRowClick={onRowClick} isActive={c.id === activeProjectId} mobileLayout={mobileLayout} />
@@ -370,7 +381,7 @@ export default function ProjectListPanel({
 
       <div className={`${s.list} ${extraBottomPadding ? s.listExtraBottom : ''}`}>
         {active.length === 0 && <div className={s.empty}>Brak projektów.</div>}
-        <ClientGroups projects={active} onRowClick={handleRowClick} activeProjectId={activeProjectId} />
+        <ClientGroups projects={active} onRowClick={handleRowClick} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
       </div>
 
       {completed.length > 0 && (
@@ -385,7 +396,7 @@ export default function ProjectListPanel({
           </button>
           {completedOpen && (
             <div className={s.completedList}>
-              <ClientGroups projects={completed} onRowClick={handleRowClick} activeProjectId={activeProjectId} />
+              <ClientGroups projects={completed} onRowClick={handleRowClick} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
             </div>
           )}
         </div>

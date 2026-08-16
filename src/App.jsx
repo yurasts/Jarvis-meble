@@ -159,6 +159,7 @@ function App() {
   const [projectModalTab, setProjectModalTab] = useState('materials')
 
   const openProjectModal = (client, initialTab = 'materials') => {
+    setBalanceClientName(null)
     setActiveClient(client)
     setOriginalClient(JSON.parse(JSON.stringify(client)))
     setProjectModalTab(initialTab)
@@ -186,6 +187,7 @@ function App() {
   const cancelPendingSwitch = () => setPendingClient(null)
 
   const goToTab = (id) => {
+    setBalanceClientName(null)
     setActiveTab(id)
     setViewMode('tab') // уходя в глобальный раздел, скрываем рабочую область проекта (сам выбранный проект не сбрасываем)
     setPendingClient(null) // не оставляем «зависший» диалог переключения, если он был открыт
@@ -391,6 +393,15 @@ function App() {
   // Рабочая область проекта справа — только desktop (ADR-002, UX-фаза 2). На узком экране
   // всегда используется прежняя модалка (ниже, отдельным условием с !isDesktop).
   const showWorkspace = isDesktop && viewMode === 'project' && !!activeClient
+  const showDesktopBalance = isDesktop && viewMode === 'balance' && !!balanceClientName
+
+  const openClientBalance = (clientName) => {
+    setBalanceClientName(clientName)
+    if (isDesktop) {
+      setViewMode('balance')
+      setPendingClient(null)
+    }
+  }
 
   // Мобильный экран Projekty (ADR-003) — !isDesktop, т.е. до 767px включительно (единая граница,
   // см. useIsDesktop.js). showWorkspace требует isDesktop=true, поэтому они взаимоисключающие.
@@ -421,6 +432,7 @@ function App() {
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
         onOpenProject={requestOpenProject}
+        onOpenBalance={openClientBalance}
         activeProjectId={activeClient?.id}
         activeClient={activeClient}
         setActiveClient={setActiveClient}
@@ -542,8 +554,20 @@ function App() {
             }}
           />
         </div>
-        <div className="main-content" style={showWorkspace ? { display: 'flex', flexDirection: 'column' } : undefined}>
-        {showWorkspace ? (
+        <div className="main-content" style={(showWorkspace || showDesktopBalance) ? { display: 'flex', flexDirection: 'column' } : undefined}>
+        {showDesktopBalance ? (
+          <MobileClientBalanceScreen
+            desktopLayout
+            clientName={balanceClientName}
+            clients={clients}
+            transactions={cashTransactions}
+            onSaveTransaction={saveCashTransaction}
+            onDeleteTransaction={deleteCashTransaction}
+            cashStatus={cashStatus}
+            onRetryCash={loadCashTransactions}
+            onClose={() => { setBalanceClientName(null); setViewMode('tab') }}
+          />
+        ) : showWorkspace ? (
           <ProjectModal
             key={`workspace-${activeClient?.id}-${projectModalTab}`}
             variant="embedded"
@@ -742,7 +766,7 @@ function App() {
         onNewProject={() => setIsModalOpen(true)}
         onOpenProject={requestOpenProject}
         activeProjectId={activeClient?.id}
-        onOpenBalance={setBalanceClientName}
+        onOpenBalance={openClientBalance}
       />
 
       {/* Mobile / Client Balance / Expanded v1 — отдельный полноэкранный экран (кнопка "Bilans" в

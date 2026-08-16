@@ -330,11 +330,31 @@
   background: var(--bg-card);
 }
 
+.desktopSaldoRow {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 18px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.desktopSaldoRow strong {
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 600;
+}
 .desktopProjectHeader {
   display: grid;
   grid-template-columns: minmax(120px, 160px) repeat(4, minmax(75px, 1fr));
   align-items: center;
-  min-height: 32px;
+  min-height: 28px;
   padding: 0 14px;
   box-sizing: border-box;
   background: #aeaeb2;
@@ -357,10 +377,10 @@
 .desktopMetric {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 8px;
   min-width: 0;
-  height: 32px;
+  height: 28px;
   white-space: nowrap;
   overflow: hidden;
 }

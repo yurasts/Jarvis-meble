@@ -3,6 +3,8 @@ import ProjectCashLedger from './ProjectCashLedger';
 import { transactionsForProjects, summarizeCash } from '../utils/cashLedger';
 import s from './MobileClientBalanceScreen.module.css';
 
+const formatDesktopMoney = (value) => Number(value || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
 // Mobile / Client Balance / Expanded v1 — отдельный полноэкранный экран (Bilans klienta),
 // открывается кнопкой "Bilans" в заголовке группы клиента (ProjectListPanel, только mobileLayout).
 // Список проектов (MobileProjectsScreen) остаётся смонтированным под этим экраном — сюда не
@@ -14,7 +16,7 @@ import s from './MobileClientBalanceScreen.module.css';
 // завершённые проекты тоже входят).
 export default function MobileClientBalanceScreen({
   clientName, clients, transactions, cashStatus = 'ready', onRetryCash,
-  onSaveTransaction, onDeleteTransaction, onClose,
+  onSaveTransaction, onDeleteTransaction, onClose, desktopLayout = false,
 }) {
   // editingKey лифтится сюда (не в ProjectCashLedger) — глобально на весь экран должен быть открыт
   // не более одного редактора операции, даже если у клиента несколько карточек-проектов.
@@ -128,41 +130,86 @@ export default function MobileClientBalanceScreen({
   };
 
   return (
-    <div className={s.screen}>
-      <div className={s.header}>
-        <button type="button" className={s.backBtn} onClick={requestBack}>← Projekty</button>
-        <h2 className={s.screenTitle}>Bilans klienta</h2>
-        <div className={s.titleRow}>
-          <span className={s.clientName}>{clientName}</span>
-          <span className={s.projectCount}>{projects.length} {projects.length === 1 ? 'projekt' : 'projekty'}</span>
+    <div className={`${s.screen} ${desktopLayout ? s.desktopScreen : ''}`}>
+      {desktopLayout ? (
+        <div className={`${s.header} ${s.desktopHeader}`}>
+          <div className={s.desktopHeaderRow}>
+            <div className={s.desktopIdentity}>
+              <h2 className={s.desktopScreenTitle}>Bilans klienta</h2>
+              <span className={s.desktopClientName}>{clientName}</span>
+            </div>
+            <div className={s.desktopHeaderActions}>
+              <span className={s.desktopProjectCount}>
+                {projects.length} {projects.length === 1 ? 'projekt' : 'projekty'}
+              </span>
+              <button
+                type="button"
+                className={s.desktopTopSave}
+                disabled={activeProjectId === null || savingBottom}
+                onClick={handleBottomSave}
+              >
+                {savingBottom ? 'Zapisywanie…' : 'Zapisz'}
+              </button>
+            </div>
+          </div>
+          {cashStatus === 'error' ? (
+            <div className={s.loadError}>
+              <span>Nie udało się załadować rozliczeń.</span>
+              <button type="button" className={s.retryBtn} onClick={onRetryCash}>Spróbuj ponownie</button>
+            </div>
+          ) : cashStatus === 'ready' && (
+            <div className={s.desktopSummaryRow}>
+              <div className={`${s.desktopSummaryMetric} ${s.desktopSummaryInflow}`}>
+                <span>WPŁATY</span>
+                <strong className={s.inflow}>{formatDesktopMoney(wplaty)} zł</strong>
+              </div>
+              <div className={`${s.desktopSummaryMetric} ${s.desktopSummaryOutflow}`}>
+                <span>WYDATKI</span>
+                <strong className={s.outflow}>{formatDesktopMoney(wydatki)} zł</strong>
+              </div>
+              <div className={`${s.desktopSummaryMetric} ${s.desktopSummarySaldo}`}>
+                <span>SALDO</span>
+                <strong>{formatDesktopMoney(saldo)} zł</strong>
+              </div>
+            </div>
+          )}
         </div>
-        {cashStatus === 'error' ? (
-          <div className={s.loadError}>
-            <span>Nie udało się załadować rozliczeń.</span>
-            <button type="button" className={s.retryBtn} onClick={onRetryCash}>Spróbuj ponownie</button>
+      ) : (
+        <div className={s.header}>
+          <button type="button" className={s.backBtn} onClick={requestBack}>← Projekty</button>
+          <h2 className={s.screenTitle}>Bilans klienta</h2>
+          <div className={s.titleRow}>
+            <span className={s.clientName}>{clientName}</span>
+            <span className={s.projectCount}>{projects.length} {projects.length === 1 ? 'projekt' : 'projekty'}</span>
           </div>
-        ) : cashStatus === 'ready' && (
-          <div className={s.summaryRow}>
-            <div className={s.summaryTile}>
-              <div className={s.summaryLabel}>Wpłaty</div>
-              <div className={`${s.summaryValue} ${s.inflow}`}>{wplaty.toFixed(2)} zł</div>
+          {cashStatus === 'error' ? (
+            <div className={s.loadError}>
+              <span>Nie udało się załadować rozliczeń.</span>
+              <button type="button" className={s.retryBtn} onClick={onRetryCash}>Spróbuj ponownie</button>
             </div>
-            <div className={s.summaryTile}>
-              <div className={s.summaryLabel}>Wydatki</div>
-              <div className={`${s.summaryValue} ${s.outflow}`}>{wydatki.toFixed(2)} zł</div>
+          ) : cashStatus === 'ready' && (
+            <div className={s.summaryRow}>
+              <div className={s.summaryTile}>
+                <div className={s.summaryLabel}>Wpłaty</div>
+                <div className={`${s.summaryValue} ${s.inflow}`}>{wplaty.toFixed(2)} zł</div>
+              </div>
+              <div className={s.summaryTile}>
+                <div className={s.summaryLabel}>Wydatki</div>
+                <div className={`${s.summaryValue} ${s.outflow}`}>{wydatki.toFixed(2)} zł</div>
+              </div>
+              <div className={s.summaryTile}>
+                <div className={s.summaryLabel}>Saldo</div>
+                <div className={s.summaryValue}>{saldo.toFixed(2)} zł</div>
+              </div>
             </div>
-            <div className={s.summaryTile}>
-              <div className={s.summaryLabel}>Saldo</div>
-              <div className={s.summaryValue}>{saldo.toFixed(2)} zł</div>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      <div className={s.content}>
+      <div className={`${s.content} ${desktopLayout ? s.desktopContent : ''}`}>
         {projects.length === 0 && <div className={s.empty}>Brak projektów tego klienta.</div>}
         {projects.map((project) => (
-          <div key={project.id} className={s.projectCard}>
+          <div key={project.id} className={`${s.projectCard} ${desktopLayout ? s.desktopProjectCard : ''}`}>
             <ProjectCashLedger
               ref={(el) => { cardRefs.current[String(project.id)] = el; }}
               client={project}
@@ -170,6 +217,8 @@ export default function MobileClientBalanceScreen({
               onSaveTransaction={onSaveTransaction}
               onDeleteTransaction={onDeleteTransaction}
               showProjectHeader
+              desktopLayout={desktopLayout}
+              showDesktopSaldo={desktopLayout}
               editingKey={editingKeyForProject(project.id)}
               onEditingKeyChange={requestEditingKeyChange}
               onDirtyChange={setCashDirty}
@@ -180,6 +229,7 @@ export default function MobileClientBalanceScreen({
         ))}
       </div>
 
+      {!desktopLayout && (
       <div className={s.bottomBar}>
         <button
           type="button"
@@ -190,6 +240,7 @@ export default function MobileClientBalanceScreen({
           {savingBottom ? 'Zapisywanie…' : 'Zapisz'}
         </button>
       </div>
+      )}
 
       {confirmBack && (
         <div className={s.confirmOverlay}>
