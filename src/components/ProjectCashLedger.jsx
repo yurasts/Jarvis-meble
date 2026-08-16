@@ -56,6 +56,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   status = 'ready',
   onRetry,
   desktopLayout = false,
+  showDesktopSaldo = false,
 }, ref) {
   const isControlled = editingKeyProp !== undefined;
   const [internalEditingKey, setInternalEditingKey] = useState(null);
@@ -425,6 +426,9 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
       )}
       {desktopLayout ? (
         <>
+          {showDesktopSaldo && status === 'ready' && (
+            <div className={s.desktopSaldoRow}>Saldo <strong>{formatDesktopMoney(saldo)} zł</strong></div>
+          )}
           <div className={s.desktopProjectHeader}>
             <span className={s.desktopProjectName}>
               <span className={s.projectStatusDot} style={{ background: statusColor }} />

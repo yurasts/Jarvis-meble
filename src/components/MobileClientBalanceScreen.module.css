@@ -222,3 +222,153 @@
 }
 .confirmSave:disabled { opacity: 0.6; cursor: default; }
 .switchError { margin: 0 0 12px 0; color: #e53e3e; font-size: 12px; font-weight: 700; }
+
+
+/* Desktop / Client Balance / Expanded v1 — Figma node 3101:28. */
+.desktopScreen {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-card);
+}
+
+.desktopHeader {
+  padding: 0 0 4px;
+  border-bottom: 0;
+  background: var(--bg-card);
+}
+
+.desktopHeaderRow {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.desktopIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.desktopScreenTitle {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.desktopClientName {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktopHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.desktopProjectCount {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.desktopTopSave {
+  width: 96px;
+  height: 22px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.desktopTopSave:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.desktopSummaryRow {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  width: 100%;
+  height: 22px;
+  color: var(--text-muted);
+}
+
+.desktopSummaryMetric {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  height: 20px;
+  padding-left: 12px;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.desktopSummaryMetric strong {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 700;
+}
+
+.desktopSummaryInflow {
+  grid-column: 1;
+  padding-right: 8px;
+}
+
+.desktopSummaryOutflow {
+  grid-column: 2;
+}
+
+.desktopSummarySaldo {
+  position: absolute;
+  right: 0;
+  top: -24px;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.desktopSummarySaldo strong {
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.desktopContent {
+  padding: 0 0 16px;
+  gap: 8px;
+}
+
+.desktopProjectCard {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}

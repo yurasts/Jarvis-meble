@@ -16,6 +16,7 @@ export default function ProjectNav({
   canCreate,
   onNewProject,
   onOpenProject,
+  onOpenBalance,
   activeProjectId,
   activeClient,
   setActiveClient,
@@ -53,6 +54,7 @@ export default function ProjectNav({
         canCreate={canCreate}
         onNewProject={onNewProject}
         onOpenProject={onOpenProject}
+        onOpenBalance={onOpenBalance}
         activeProjectId={activeProjectId}
         activeClient={activeClient}
         setActiveClient={setActiveClient}
