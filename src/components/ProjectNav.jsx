@@ -18,8 +18,6 @@ export default function ProjectNav({
   onOpenProject,
   onOpenBalance,
   activeProjectId,
-  activeClient,
-  setActiveClient,
   profile,
   displayName,
   onlineUsers = [],
@@ -56,9 +54,6 @@ export default function ProjectNav({
         onOpenProject={onOpenProject}
         onOpenBalance={onOpenBalance}
         activeProjectId={activeProjectId}
-        activeClient={activeClient}
-        setActiveClient={setActiveClient}
-        showFinancePanel
       />
 
       {onlineUsers.length > 0 && (
