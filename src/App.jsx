@@ -258,7 +258,7 @@ function App() {
     e.preventDefault()
     const { data, error } = await supabase.from('clients').insert([{
       full_name: name, client_name: name, project_name: projectName, phone, budget: Number(budget) || 0,
-      deadline: deadline || null, address, status: 'new'
+      deadline: deadline || null, address, status: 'new', project_scope: effectiveScope
     }]).select()
     if (!error && data) {
       setClients([...clients, data[0]])
@@ -655,7 +655,8 @@ function App() {
         )}
         {activeTab === 'settings' && (
           <Settings
-                profilesById={profilesById}
+            profile={profile}
+            profilesById={profilesById}
             onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))}
             scopeView={effectiveScope}
             setScopeView={setScopeView}
