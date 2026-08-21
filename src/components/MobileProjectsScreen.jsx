@@ -18,7 +18,6 @@ export default function MobileProjectsScreen({
   visible,
   clients,
   scopeView,
-  setScopeView,
   canCreate,
   onNewProject,
   onOpenProject,
@@ -33,7 +32,6 @@ export default function MobileProjectsScreen({
       <ProjectListPanel
         clients={clients}
         scopeView={scopeView}
-        setScopeView={setScopeView}
         canCreate={canCreate}
         onNewProject={onNewProject}
         onOpenProject={onOpenProject}

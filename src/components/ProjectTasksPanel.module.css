@@ -1,0 +1,295 @@
+.panel {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--modal-bg);
+  color: var(--text-main);
+}
+
+.header {
+  min-height: 42px;
+  padding: 7px 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+}
+
+.heading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.heading h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.heading span {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.doneToggle {
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.addForm {
+  padding: 8px 12px;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 142px 92px;
+  gap: 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+.textInput,
+.dateInput {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 5px 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 12px;
+}
+
+.textInput:focus,
+.dateInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.addButton {
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.addButton:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.list,
+.doneList {
+  display: flex;
+  flex-direction: column;
+}
+
+.doneList {
+  border-top: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+}
+
+.taskRow {
+  min-height: 36px;
+  padding: 3px 8px 3px 12px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+.taskRow:last-child {
+  border-bottom: 0;
+}
+
+.taskDone {
+  opacity: 0.68;
+}
+
+.taskDone .taskText {
+  text-decoration: line-through;
+}
+
+.checkbox {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #38a169;
+  cursor: pointer;
+}
+
+.taskText {
+  min-width: 0;
+  padding: 5px 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dateBadge {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.editFields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 142px;
+  gap: 7px;
+}
+
+.rowActions,
+.confirmActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deleteButton,
+.saveEdit,
+.cancelEdit,
+.confirmYes,
+.confirmNo {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.deleteButton,
+.cancelEdit,
+.confirmNo {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.saveEdit,
+.confirmYes {
+  border: 1px solid #38a169;
+  background: #38a169;
+  color: #fff;
+}
+
+.empty {
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .panel {
+    margin-top: 14px;
+  }
+
+  .header {
+    min-height: 40px;
+    padding: 5px 9px;
+  }
+
+  .heading {
+    gap: 6px;
+  }
+
+  .heading h3 {
+    font-size: 13px;
+  }
+
+  .addForm {
+    padding: 8px;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 6px;
+  }
+
+  .addForm .textInput {
+    grid-column: 1 / -1;
+  }
+
+  .textInput,
+  .dateInput {
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .addButton {
+    width: 44px;
+    height: 40px;
+    padding: 0;
+    font-size: 17px;
+  }
+
+  .addLabel {
+    display: none;
+  }
+
+  .taskRow {
+    min-height: 40px;
+    padding: 3px 5px 3px 8px;
+    grid-template-columns: 22px minmax(0, 1fr) auto auto;
+    gap: 5px;
+  }
+
+  .taskText {
+    font-size: 12px;
+  }
+
+  .editFields {
+    grid-column: 2 / 4;
+    grid-template-columns: 1fr;
+    gap: 5px;
+    padding: 4px 0;
+  }
+
+  .rowActions {
+    grid-column: 4;
+  }
+
+  .deleteButton,
+  .saveEdit,
+  .cancelEdit {
+    min-width: 36px;
+    height: 36px;
+  }
+}

@@ -38,7 +38,6 @@ export default function KanbanBoard({
   handleDrop,
   updateClient,
   scopeView,
-  setScopeView,
 }) {
   const [fileCounts, setFileCounts] = useState({}); // { [clientId]: totalCount }
   const [addingTaskFor, setAddingTaskFor] = useState(null); // client.id | null
@@ -85,21 +84,6 @@ export default function KanbanBoard({
   return (
     <>
       <h1 className={s.pageTitle}>Projekty</h1>
-
-      <div className={s.scopeToggle}>
-        <button
-          className={`${s.scopeBtn} ${effectiveScope === 'firma' ? s.scopeBtnActive : ''}`}
-          onClick={() => setScopeView('firma')}
-        >
-          🏢 Firma
-        </button>
-        <button
-          className={`${s.scopeBtn} ${effectiveScope === 'personal' ? s.scopeBtnActive : ''}`}
-          onClick={() => setScopeView('personal')}
-        >
-          👤 Moje
-        </button>
-      </div>
 
       <div className="kanban-board">
         {STATUSES.map((status, index) => (

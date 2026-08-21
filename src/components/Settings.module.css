@@ -291,3 +291,74 @@
   height: 20px;
   border-radius: 4px;
 }
+
+/* Единственное место ручного переключения Moje/GGS — самый низ Ustawienia. */
+.scopeSection { margin-bottom: 32px; }
+.scopeToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: min(320px, 100%);
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--bg-menu-hover);
+}
+.scopeBtn {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+.scopeBtnActive {
+  border-color: #3182ce;
+  background: #3182ce;
+  color: #fff;
+}
+.accountCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-base);
+}
+.accountAvatar, .onlineSettingsAvatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+}
+.accountAvatar { width: 36px; height: 36px; font-size: 13px; }
+.accountText { min-width: 0; }
+.accountName { color: var(--text-main); font-size: 14px; font-weight: 700; }
+.accountRole { margin-top: 2px; color: var(--text-muted); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
+.settingsLogoutBtn {
+  min-height: 34px;
+  margin-left: auto;
+  padding: 5px 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.onlineSettingsBlock { margin-top: 12px; }
+.onlineSettingsTitle { margin-bottom: 6px; color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.onlineSettingsRow { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 3px 2px; }
+.onlineDot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: #38a169; }
+.onlineSettingsAvatar { width: 24px; height: 24px; font-size: 9px; }
+.onlineSettingsText { display: flex; min-width: 0; flex-direction: column; }
+.onlineSettingsText strong { overflow: hidden; color: var(--text-main); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.onlineSettingsText span { color: var(--text-muted); font-size: 10px; }
+@media (max-width: 480px) {
+  .accountCard { align-items: flex-start; flex-wrap: wrap; }
+  .settingsLogoutBtn { width: 100%; margin-left: 0; }
+}

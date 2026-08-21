@@ -39,6 +39,29 @@ const TABS = [
 const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 
+const PERSONAL_SCOPE_IDENTITIES = new Set(['yury', 'yurysts', 'yuryshab', 'alex'])
+
+const normalizeIdentity = (value) =>
+  String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+
+const defaultProjectScope = (profile, session) => {
+  const emailName = session?.user?.email?.split('@')[0] || ''
+  const candidates = [
+    profile?.full_name,
+    session?.user?.user_metadata?.full_name,
+    emailName,
+  ].flatMap((value) => {
+    const normalized = normalizeIdentity(value)
+    const firstName = normalizeIdentity(String(value || '').split(/\s+/)[0])
+    return [normalized, firstName]
+  })
+
+  return candidates.some((value) =>
+    PERSONAL_SCOPE_IDENTITIES.has(value) || /^yuryshab\\d+$/.test(value) || /^alex\\d+$/.test(value))
+    ? 'personal'
+    : 'firma'
+}
+
 // Убран с экрана по просьбе (пока, не окончательно) — компонент/код оставлены нетронутыми,
 // включить обратно — просто вернуть true.
 const AI_ASSISTANT_ENABLED = false
@@ -62,7 +85,16 @@ function App() {
   // Показывать ли мобильный экран Projekty вместо обычного контента активной вкладки.
   // true по умолчанию — на мобильном свежая загрузка сразу открывает список проектов.
   const [showMobileHome, setShowMobileHome] = useState(true)
-  const [scopeView, setScopeView] = useState(null) // 'firma' | 'personal' | null — общий фильтр для Dashboard и Kanban
+  // Ручной выбор группы живёт только до выхода. Guard во время рендера синхронно сбрасывает
+  // его при смене auth-пользователя (включая logout → повторный login того же аккаунта), без
+  // setState в effect и без сброса при штатном обновлении access token.
+  const authUserId = session?.user?.id || null
+  const [scopeSelection, setScopeSelection] = useState(null) // { userId, scope } | null
+  const [scopeSelectionUserId, setScopeSelectionUserId] = useState(authUserId)
+  if (scopeSelectionUserId !== authUserId) {
+    setScopeSelectionUserId(authUserId)
+    setScopeSelection(null)
+  }
   const [menuOpen,  setMenuOpen]    = useState(false)
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
@@ -249,6 +281,7 @@ function App() {
         calc_materials:     activeClient.calc_materials    || [],
         calc_services:      activeClient.calc_services     || [],
         calc_expenses:      activeClient.calc_expenses     || [],
+        tasks:              activeClient.tasks             || [],
         budget:             activeClient.budget            || 0,
         budget_coefficient: activeClient.budget_coefficient || 2.0,
       })
@@ -382,14 +415,19 @@ function App() {
   const profile   = localProfile ?? authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
-  const displayName = profile?.full_name || session.user.email
-  // Firma/Moje: пока пользователь не переключил вручную (scopeView===null) — всегда 'personal'
-  // ("Moje"), гарантированно, даже если profile.default_scope сохранён как 'firma' (review-фикс
-  // compact-workspace: profile.default_scope больше НЕ участвует в вычислении стартового значения
-  // — только ручное переключение через setScopeView может увести от 'personal'). Посчитано прямо
-  // при рендере, без эффекта синхронизации.
-  const effectiveScope = scopeView ?? 'personal'
-
+  // При каждом новом входе стартовая группа вычисляется заново: Yury/Yuryshab/Alex → Moje,
+  // остальные → GGS. Ручной выбор из Ustawienia действует только в текущей auth-сессии.
+  const defaultScope = defaultProjectScope(authProfile, session)
+  const effectiveScope = scopeSelection?.userId === authUserId
+    ? scopeSelection.scope
+    : defaultScope
+  const setScopeView = (scope) => {
+    const nextScope = typeof scope === 'function' ? scope(effectiveScope) : scope
+    setScopeSelection({
+      userId: authUserId,
+      scope: nextScope === 'personal' ? 'personal' : 'firma',
+    })
+  }
   // Онлайн-пользователи кроме себя
   const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
   const allOnline    = Object.values(onlineUsers || {})
@@ -432,17 +470,11 @@ function App() {
         onSelectTab={goToTab}
         clients={clients}
         scopeView={effectiveScope}
-        setScopeView={setScopeView}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
         onOpenProject={requestOpenProject}
         onOpenBalance={openClientBalance}
         activeProjectId={activeClient?.id}
-        profile={profile}
-        displayName={displayName}
-        onlineUsers={allOnline}
-        tabLabels={TAB_LABELS}
-        onSignOut={signOut}
       />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
@@ -465,11 +497,7 @@ function App() {
 
         {/* Правая часть — кнопка нового проекта + аватар */}
         <div className={s.topbarRight}>
-          {canCreate && activeTab === 'dashboard' && (
-            <button className={s.btnNewProjectTop} onClick={() => setIsModalOpen(true)}>
-              + Nowy
-            </button>
-          )}
+
           {/* Онлайн-пользователи — мобайл */}
           {othersOnline.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
@@ -510,7 +538,6 @@ function App() {
               <ProjectListPanel
                 clients={clients}
                 scopeView={effectiveScope}
-                setScopeView={setScopeView}
                 canCreate={canCreate}
                 onNewProject={() => { setMenuOpen(false); setIsModalOpen(true); }}
                 onOpenProject={(client) => { setMenuOpen(false); requestOpenProject(client); }}
@@ -518,15 +545,6 @@ function App() {
               />
             </div>
 
-            <div className={s.dropdownFooter}>
-              <div className={s.dropdownUserInfo}>
-                <div className={s.sidebarAvatar} style={{ background: profile?.color || '#718096', width:24, height:24, fontSize:10 }}>
-                  {initials(profile?.full_name)}
-                </div>
-                {profile?.full_name}
-              </div>
-              <button className={s.dropdownLogout} onClick={signOut}>Wyloguj</button>
-            </div>
           </div>
         )}
       </div>
@@ -609,7 +627,6 @@ function App() {
             focusTarget={searchFocusTarget}
             onFocusHandled={handleSearchFocusHandled}
             scopeView={effectiveScope}
-            setScopeView={setScopeView}
           />
         )}
         {activeTab === 'board' && (
@@ -622,7 +639,6 @@ function App() {
             updateClient={updateClientFields}
             isDark={isDarkish}
             scopeView={effectiveScope}
-            setScopeView={setScopeView}
           />
         )}
         {activeTab === 'production' && (
@@ -639,9 +655,13 @@ function App() {
         )}
         {activeTab === 'settings' && (
           <Settings
-            profile={profile}
-            profilesById={profilesById}
+                profilesById={profilesById}
             onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))}
+            scopeView={effectiveScope}
+            setScopeView={setScopeView}
+            onlineUsers={allOnline}
+            tabLabels={TAB_LABELS}
+            onSignOut={signOut}
           />
         )}
         </>
@@ -763,7 +783,6 @@ function App() {
         visible={showMobileProjects}
         clients={clients}
         scopeView={effectiveScope}
-        setScopeView={setScopeView}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
         onOpenProject={requestOpenProject}
