@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { shortDate, groupByClient } from './dashboardHelpers';
+import { groupByClient } from './dashboardHelpers';
 import s from './ProjectListPanel.module.css';
 
 // Тот же канонический набор цветов статусов, что и в Settings.jsx («Legenda statusów projektów»).
@@ -61,7 +61,6 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
         <div className={s.rowProject}>{projectName}</div>
       </div>
       <div className={s.rowMeta}>
-        {client.deadline && <span className={s.rowDeadline}>{shortDate(client.deadline)}</span>}
         {openTasks > 0 && <span className={s.rowTasks}>{openTasks}</span>}
       </div>
     </div>
@@ -111,7 +110,6 @@ function ClientGroups({ projects, onRowClick, activeProjectId, mobileLayout, onO
 export default function ProjectListPanel({
   clients = [],
   scopeView,
-  setScopeView,
   canCreate,
   onNewProject,
   onOpenProject,
@@ -131,9 +129,8 @@ export default function ProjectListPanel({
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
 
-  // Внутренний fallback самого ProjectListPanel (на случай передачи falsy scopeView напрямую,
-  // без App.jsx-обёртки) — 'personal' ("Moje"), синхронно с гарантированным стартом в App.jsx.
-  const effectiveScope = scopeView || 'personal';
+  // Защитный fallback: если обёртка не передала вычисленную группу, показываем GGS.
+  const effectiveScope = scopeView || 'firma';
 
   const handleOpen = (client) => {
     onOpenProject(client);
@@ -170,26 +167,6 @@ export default function ProjectListPanel({
       <div className={s.mobileRoot}>
         <div className={s.mobileAppBar}>
           <span className={s.mobileTitle}>Projekty</span>
-          <div className={s.mobileScopeToggle} role="tablist" aria-label="Zakres projektów">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={effectiveScope === 'personal'}
-              className={`${s.mobileScopeBtn} ${effectiveScope === 'personal' ? s.mobileScopeBtnActive : ''}`}
-              onClick={() => setScopeView('personal')}
-            >
-              Moje
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={effectiveScope === 'firma'}
-              className={`${s.mobileScopeBtn} ${effectiveScope === 'firma' ? s.mobileScopeBtnActive : ''}`}
-              onClick={() => setScopeView('firma')}
-            >
-              GGS
-            </button>
-          </div>
           {canCreate && (
             <button type="button" className={s.mobileAddBtn} onClick={onNewProject}>
               + Nowy
@@ -242,30 +219,6 @@ export default function ProjectListPanel({
         onChange={(e) => setSearchText(e.target.value)}
         aria-label="Szukaj projektu"
       />
-
-      {/* Etykieta "GGS" (dawniej "Wszystkie") — wartości wewnętrzne project_scope ('firma'/
-          'personal') i dane NIE są przemianowywane, zmienia się tylko widoczny tekst przycisku
-          i kolejność (Moje pierwsze, domyślnie aktywne — zob. App.jsx effectiveScope). */}
-      <div className={s.scopeToggle} role="tablist" aria-label="Zakres projektów">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveScope === 'personal'}
-          className={`${s.scopeBtn} ${effectiveScope === 'personal' ? s.scopeBtnActive : ''}`}
-          onClick={() => setScopeView('personal')}
-        >
-          Moje
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={effectiveScope === 'firma'}
-          className={`${s.scopeBtn} ${effectiveScope === 'firma' ? s.scopeBtnActive : ''}`}
-          onClick={() => setScopeView('firma')}
-        >
-          GGS
-        </button>
-      </div>
 
       <div className={`${s.list} ${extraBottomPadding ? s.listExtraBottom : ''}`}>
         {active.length === 0 && <div className={s.empty}>Brak projektów.</div>}

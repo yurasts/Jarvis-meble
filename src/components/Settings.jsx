@@ -19,7 +19,10 @@ const PALETTE = [
 const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-const Settings = ({ profile, profilesById, onColorUpdate }) => {
+const Settings = ({
+  profile, profilesById, onColorUpdate, scopeView, setScopeView,
+  onlineUsers = [], tabLabels = {}, onSignOut,
+}) => {
   const { isDark, theme, updateTheme } = useAuth();
   const [saving, setSaving] = useState(false);
   const [saved,  setSaved]  = useState(false);
@@ -324,6 +327,68 @@ const Settings = ({ profile, profilesById, onColorUpdate }) => {
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', background: 'var(--bg-kanban-col)', padding: '2px 6px', borderRadius: '4px' }}>{status}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Служебный блок убран из боковой панели и собран в одном месте. */}
+      <div className={s.section}>
+        <h3 className={s.sectionTitle}>Konto i obecność</h3>
+
+        <div className={s.accountCard}>
+          <div className={s.accountAvatar} style={{ background: profile.color || '#718096' }}>
+            {initials(profile.full_name)}
+          </div>
+          <div className={s.accountText}>
+            <div className={s.accountName}>{profile.full_name}</div>
+            <div className={s.accountRole}>{profile.role}</div>
+          </div>
+          <button type="button" className={s.settingsLogoutBtn} onClick={onSignOut}>Wyloguj</button>
+        </div>
+
+        <div className={s.onlineSettingsBlock}>
+          <div className={s.onlineSettingsTitle}>Online ({onlineUsers.length})</div>
+          {onlineUsers.length === 0 ? (
+            <div className={s.sectionDesc}>Brak użytkowników online.</div>
+          ) : onlineUsers.map((user) => (
+            <div key={user.userId} className={s.onlineSettingsRow}>
+              <span className={s.onlineDot} />
+              <div className={s.onlineSettingsAvatar} style={{ background: user.color || '#718096' }}>
+                {initials(user.fullName)}
+              </div>
+              <div className={s.onlineSettingsText}>
+                <strong>{user.userId === profile.id ? 'Ja' : user.fullName}</strong>
+                <span>{tabLabels[user.activeTab] || user.activeTab}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Выбор рабочей группы намеренно расположен последним: это настройка, а не ежедневная навигация. */}
+      <div className={`${s.section} ${s.scopeSection}`}>
+        <h3 className={s.sectionTitle}>Grupa projektów</h3>
+        <p className={s.sectionDesc}>
+          Wybierz grupę widoczną w Projektach, Panelu i Tablicy projektów. Po następnym logowaniu
+          aplikacja ponownie ustawi grupę domyślną przypisaną do użytkownika.
+        </p>
+        <div className={s.scopeToggle} role="tablist" aria-label="Grupa projektów">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scopeView === 'personal'}
+            className={`${s.scopeBtn} ${scopeView === 'personal' ? s.scopeBtnActive : ''}`}
+            onClick={() => setScopeView?.('personal')}
+          >
+            Moje
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scopeView === 'firma'}
+            className={`${s.scopeBtn} ${scopeView === 'firma' ? s.scopeBtnActive : ''}`}
+            onClick={() => setScopeView?.('firma')}
+          >
+            GGS
+          </button>
         </div>
       </div>
     </div>

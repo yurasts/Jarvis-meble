@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
+import ProjectTasksPanel from './ProjectTasksPanel';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 
@@ -174,6 +175,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         calc_materials: client.calc_materials || [],
         calc_services:  client.calc_services  || [],
         calc_expenses:  client.calc_expenses  || [],
+        tasks:          client.tasks          || [],
         notes:         client.notes         || '',
         deadline:      client.deadline      || '',
         address:       client.address       || '',
@@ -185,6 +187,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         calc_materials: originalClient.calc_materials || [],
         calc_services:  originalClient.calc_services  || [],
         calc_expenses:  originalClient.calc_expenses  || [],
+        tasks:          originalClient.tasks          || [],
         notes:         originalClient.notes         || '',
         deadline:      originalClient.deadline      || '',
         address:       originalClient.address       || '',
@@ -1609,6 +1612,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             <FilesTab variant="tab" clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
           )}
 
+          {(isEmbedded || isMobileVariant) && (
+            <ProjectTasksPanel
+              tasks={client.tasks || []}
+              currentProfile={currentProfile}
+              onChange={(tasks) => setClient(prev => ({ ...prev, tasks }))}
+            />
+          )}
         </div>
 
         </div>
