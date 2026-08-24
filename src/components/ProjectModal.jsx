@@ -106,6 +106,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // а не как поздний этап (закрыто).
   const [mobileMaterialsOpen, setMobileMaterialsOpen] = useState(() => (client.status || 'new') === 'new');
   const [mobileServicesOpen, setMobileServicesOpen] = useState(() => (client.status || 'new') === 'new');
+  const [desktopMaterialsOpen, setDesktopMaterialsOpen] = useState(true);
+  const [desktopServicesOpen, setDesktopServicesOpen] = useState(true);
+  const [desktopCashOpen, setDesktopCashOpen] = useState(true);
 
   // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
   // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
@@ -442,6 +445,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     if (mobileServicesOpen) finishEditing();
     setMobileServicesOpen(o => !o);
   };
+  const handleToggleDesktopMaterials = () => {
+    if (desktopMaterialsOpen) finishEditing();
+    setDesktopMaterialsOpen(open => !open);
+  };
+  const handleToggleDesktopServices = () => {
+    if (desktopServicesOpen) finishEditing();
+    setDesktopServicesOpen(open => !open);
+  };
 
   // editingPrice/qtyDraft используют ключ по INDEX (mat-0, mat-1…), а не по id — у legacy-позиций
   // без id тем же индексом становится и expandedItemKey (item.id ?? index). После удаления все
@@ -716,7 +727,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   // Заголовок секции Materiały/Usługi — toggle слева + "Dodane pozycje", сумма справа,
   // aria-expanded (p.5). Rozliczenia (p.7) свой, более простой заголовок без toggle — не переиспользует.
-  const renderMobileSectionHeader = (open, onToggle, total) => (
+  const renderSectionHeader = (open, onToggle, total, label = 'Dodane pozycje', totalPrefix = '') => (
     <button
       type="button"
       onClick={onToggle}
@@ -735,9 +746,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         }}>
           {open ? '✓' : ''}
         </span>
-        Dodane pozycje
+        {label}
       </span>
-      <strong style={{ fontSize: '13px', color: text }}>{total.toFixed(2)} zł</strong>
+      <strong style={{ fontSize: '13px', color: text }}>{totalPrefix}{totalPrefix ? formatDesktopCashMoney(total) : total.toFixed(2)} zł</strong>
     </button>
   );
 
@@ -1005,13 +1016,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           )}
         </div>
 
-        <div style={{ minHeight: '350px' }}>
+        <div style={{ minHeight: isMobileVariant ? '350px' : 0 }}>
 
           {/* МАТЕРИАЛЫ */}
           {activeTab === 'materials' && (
             isMobileVariant ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {renderMobileSectionHeader(mobileMaterialsOpen, handleToggleMobileMaterials, totalMaterials)}
+                {renderSectionHeader(mobileMaterialsOpen, handleToggleMobileMaterials, totalMaterials)}
                 {mobileMaterialsOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {/* 1. Szukaj materiału w bazie… */}
@@ -1063,8 +1074,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               </div>
             ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: text }}>✅ Dodane pozycje</h3>
+              {renderSectionHeader(desktopMaterialsOpen, handleToggleDesktopMaterials, totalMaterials)}
+              <div style={{ display: desktopMaterialsOpen ? 'block' : 'none' }}>
                 {isMobile ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materiałów</div>}
@@ -1188,7 +1199,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           const itemKey = item.id ?? index;
                           return (
                           <tr key={index} style={{ borderBottom: `1px solid ${border}`, backgroundColor: bgMatRow, borderLeft: `3px solid ${rowStripe(item)}` }}>
-                            <td onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ padding: '4px 8px', fontWeight: 'bold', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
+                            <td onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ padding: '2px 8px', fontWeight: 400, fontSize: '14px', lineHeight: '18px', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
                             <td style={{ padding: '4px 8px' }}>
                               {editingPrice === `mat-${index}` ? (
                                 <input autoFocus type="number" step="0.01" value={priceDraft}
@@ -1234,7 +1245,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               {/* Baza materiałów — компактный поиск (compact-project-workspace): без заголовка,
                   без фильтров категории/поставщика, без постоянно отображаемого каталога и без
                   "Brak wyników" на пустой запрос — список появляется только во время ввода. */}
-              <div>
+              <div style={{ display: desktopMaterialsOpen ? 'block' : 'none' }}>
                 <input
                   type="text"
                   placeholder="🔍 Szukaj materiału…"
@@ -1292,7 +1303,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'services' && (
             isMobileVariant ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {renderMobileSectionHeader(mobileServicesOpen, handleToggleMobileServices, totalServices)}
+                {renderSectionHeader(mobileServicesOpen, handleToggleMobileServices, totalServices)}
                 {mobileServicesOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {/* Szukaj usługi w bazie… */}
@@ -1341,7 +1352,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               </div>
             ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
+              {renderSectionHeader(desktopServicesOpen, handleToggleDesktopServices, totalServices)}
+              <div style={{ display: desktopServicesOpen ? 'block' : 'none' }}>
                 {isMobile ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych usług</div>}
@@ -1438,7 +1450,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               </div>
 
               {/* Baza usług */}
-              <div style={{ background: bgSrvRow, padding: '10px', borderRadius: '6px', border: `1px solid ${borderSrv}` }}>
+              <div style={{ display: desktopServicesOpen ? 'block' : 'none', background: bgSrvRow, padding: '10px', borderRadius: '6px', border: `1px solid ${borderSrv}` }}>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: c('#276749','#68d391') }}>🔍 Baza usług</h3>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                   <input type="text" placeholder="Szukaj usługi..." value={searchService} onChange={e => setSearchService(e.target.value)}
@@ -1481,18 +1493,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           {activeTab === 'expenses' && (
             (isMobileVariant || isEmbedded) ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: isEmbedded ? '8px' : 0 }}>
-                {isEmbedded && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', minHeight: '24px' }}>
-                    <h3 style={{ margin: 0, color: text, fontSize: '16px', lineHeight: '24px', fontWeight: 700 }}>
-                      Faktyczne przepływy pieniężne
-                    </h3>
-                    {cashStatus === 'ready' && (
-                      <strong style={{ color: 'var(--accent)', fontSize: '14px', lineHeight: '20px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        Saldo {formatDesktopCashMoney(projectCashSaldo)} zł
-                      </strong>
-                    )}
-                  </div>
-                )}
+                {isEmbedded && renderSectionHeader(desktopCashOpen, () => setDesktopCashOpen(open => !open), projectCashSaldo, 'Faktyczne przepływy pieniężne', 'Saldo ')}
+                <div style={{ display: !isEmbedded || desktopCashOpen ? 'block' : 'none' }}>
                 <ProjectCashLedger
                   ref={cashLedgerRef}
                   client={client}
@@ -1505,6 +1507,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   status={cashStatus}
                   onRetry={onRetryCash}
                 />
+                </div>
               </div>
             ) : (
             <div>
