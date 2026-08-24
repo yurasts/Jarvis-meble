@@ -8,28 +8,28 @@
 
 /* --- 1. CSS-ПЕРЕМЕННЫЕ (светлая тема по умолчанию) --- */
 :root {
-  --bg-base:       #F8FAFC;
-  --bg-sidebar:    #FFFFFF;
+  --bg-base:       #EAF0F6;
+  --bg-sidebar:    #FBFCFE;
   --bg-card:       #FFFFFF;
   --bg-menu-item:  transparent;
-  --bg-menu-hover: #F1F5F9;
-  --bg-kanban-col: #F1F5F9;
-  --accent-soft:   rgba(37, 99, 235, 0.08);
+  --bg-menu-hover: #D8E1EB;
+  --bg-kanban-col: #DFE7F0;
+  --accent-soft:   rgba(37, 99, 235, 0.12);
 
   --text-main:     #0F172A;
-  --text-muted:    #64748B;
+  --text-muted:    #475569;
   --text-sidebar:  #0F172A;
 
-  --border:        #E2E8F0;
+  --border:        #B4C0CE;
   --accent:        #2563EB;
   --success:       #22C55E;
   --danger:        #EF4444;
 
   --modal-bg:      #FFFFFF;
   --input-bg:      #FFFFFF;
-  --input-border:  #E2E8F0;
+  --input-border:  #9EADBE;
 
-  --btn-sec-bg:    #FFFFFF;
+  --btn-sec-bg:    #F8FAFC;
   --btn-sec-text:  #0F172A;
 }
 
