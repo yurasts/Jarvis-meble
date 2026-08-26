@@ -125,6 +125,8 @@ export default function ProjectListPanel({
   // Mobile / Client Balance / Expanded v1 — кнопка "Bilans" в заголовке группы клиента (только
   // mobileLayout). Не передаётся desktop (ProjectNav) и мобильным dropdown — там кнопки нет.
   onOpenBalance,
+  onOpenLibrary,
+  libraryActive = false,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
@@ -240,6 +242,19 @@ export default function ProjectListPanel({
               <ClientGroups projects={completed} onRowClick={handleOpen} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
             </div>
           )}
+        </div>
+      )}
+
+      {onOpenLibrary && (
+        <div className={s.librarySection}>
+          <button
+            type="button"
+            className={`${s.libraryButton} ${libraryActive ? s.libraryButtonActive : ''}`}
+            onClick={onOpenLibrary}
+            aria-current={libraryActive ? 'page' : undefined}
+          >
+            Biblioteka
+          </button>
         </div>
       )}
     </div>

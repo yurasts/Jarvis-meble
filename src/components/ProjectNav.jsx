@@ -13,6 +13,8 @@ export default function ProjectNav({
   onNewProject,
   onOpenProject,
   onOpenBalance,
+  onOpenLibrary,
+  libraryActive,
   activeProjectId,
 }) {
   return (
@@ -25,10 +27,10 @@ export default function ProjectNav({
             key={id}
             type="button"
             role="tab"
-            aria-selected={activeTab === id}
+            aria-selected={!libraryActive && activeTab === id}
             aria-label={label}
             title={label}
-            className={`${s.iconBtn} ${activeTab === id ? s.iconBtnActive : ''}`}
+            className={`${s.iconBtn} ${!libraryActive && activeTab === id ? s.iconBtnActive : ''}`}
             onClick={() => onSelectTab(id)}
           >
             <Icon size={18} strokeWidth={2} />
@@ -43,6 +45,8 @@ export default function ProjectNav({
         onNewProject={onNewProject}
         onOpenProject={onOpenProject}
         onOpenBalance={onOpenBalance}
+        onOpenLibrary={onOpenLibrary}
+        libraryActive={libraryActive}
         activeProjectId={activeProjectId}
       />
 
