@@ -5,7 +5,7 @@ import s from './Pro100Library.module.css';
 
 const BUCKET = 'pro100-library';
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
-const emptyForm = { title: '', categoryId: '', description: '', tags: '' };
+const emptyForm = { title: '', clientName: '', categoryId: '', description: '', tags: '' };
 
 const pluralFiles = (count) => {
   if (count === 1) return 'plik';
@@ -37,6 +37,10 @@ const storagePathFor = (file) => {
 };
 
 const parseTags = (value) => String(value || '').split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 12);
+const normalizeSearchValue = (value) => String(value || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pl-PL');
+
 const fetchLibraryData = async () => {
   const [categoryResult, fileResult] = await Promise.all([
     supabase.from('pro100_library_categories').select('*').eq('is_active', true).order('sort_order'),
@@ -45,7 +49,7 @@ const fetchLibraryData = async () => {
   return { categoryResult, fileResult };
 };
 
-export default function Pro100Library({ profilesById = {} }) {
+export default function Pro100Library() {
   const [categories, setCategories] = useState([]);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,20 +106,30 @@ export default function Pro100Library({ profilesById = {} }) {
   );
 
   const visibleFiles = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const searchTerms = normalizeSearchValue(search).trim().split(/\s+/).filter(Boolean);
     const filtered = files.filter((file) => {
-      if (activeCategory !== 'all' && file.category_id !== activeCategory) return false;
-      if (!query) return true;
-      return [file.title, file.original_filename, file.description, ...(file.tags || [])]
-        .join(' ').toLowerCase().includes(query);
+      const searchableTags = Array.isArray(file.tags)
+        ? file.tags
+        : String(file.tags || '').replace(/[{}"]/g, ' ').split(',');
+      if (searchTerms.length === 0 && activeCategory !== 'all' && file.category_id !== activeCategory) return false;
+      if (searchTerms.length === 0) return true;
+      const searchableText = normalizeSearchValue([
+        file.title,
+        file.original_filename,
+        file.client_name,
+        categoryById[file.category_id]?.name,
+        file.description,
+        ...searchableTags,
+      ].join(' '));
+      return searchTerms.every((term) => searchableText.includes(term));
     });
     return [...filtered].sort((a, b) => {
       if (sortOrder === 'oldest') return new Date(a.updated_at) - new Date(b.updated_at);
       if (sortOrder === 'title') return String(a.title).localeCompare(String(b.title), 'pl');
       return new Date(b.updated_at) - new Date(a.updated_at);
     });
-  }, [activeCategory, files, search, sortOrder]);
 
+  }, [activeCategory, categoryById, files, search, sortOrder]);
   const openCreate = () => {
     setEditingFile(null);
     setSelectedFile(null);
@@ -127,7 +141,7 @@ export default function Pro100Library({ profilesById = {} }) {
   const openEdit = (file) => {
     setEditingFile(file);
     setSelectedFile(null);
-    setForm({ title: file.title || '', categoryId: file.category_id || '', description: file.description || '', tags: (file.tags || []).join(', ') });
+    setForm({ title: file.title || '', clientName: file.client_name || '', categoryId: file.category_id || '', description: file.description || '', tags: (file.tags || []).join(', ') });
     setActionError('');
     setDialogMode('edit');
   };
@@ -164,7 +178,7 @@ export default function Pro100Library({ profilesById = {} }) {
       });
       if (uploadResult.error) { setActionError('Nie udało się wysłać pliku. Spróbuj ponownie.'); setActionBusy(false); return; }
       const insertResult = await supabase.from('pro100_library_files').insert({
-        category_id: form.categoryId, title, description: form.description.trim() || null,
+        category_id: form.categoryId, title, client_name: form.clientName.trim() || null, description: form.description.trim() || null,
         tags: parseTags(form.tags), storage_path: storagePath, original_filename: selectedFile.name,
         file_size: selectedFile.size, content_type: selectedFile.type || 'application/octet-stream',
       }).select('*').single();
@@ -176,7 +190,7 @@ export default function Pro100Library({ profilesById = {} }) {
       setNotice('Plik został dodany do biblioteki.');
     } else {
       const updateResult = await supabase.from('pro100_library_files').update({
-        category_id: form.categoryId, title, description: form.description.trim() || null, tags: parseTags(form.tags),
+        category_id: form.categoryId, title, client_name: form.clientName.trim() || null, description: form.description.trim() || null, tags: parseTags(form.tags),
       }).eq('id', editingFile.id).select('*').single();
       if (updateResult.error) { setActionError('Nie udało się zapisać zmian.'); setActionBusy(false); return; }
       setFiles((current) => current.map((file) => file.id === updateResult.data.id ? updateResult.data : file));
@@ -261,28 +275,27 @@ export default function Pro100Library({ profilesById = {} }) {
       {(notice || actionError) && <div className={actionError ? s.errorBanner : s.noticeBanner} role="status">{actionError || notice}</div>}
 
       <div className={s.tableShell}><div className={s.tableScroller}>
-        <div className={s.tableHeader} aria-hidden="true"><span>Plik</span><span>Kategoria</span><span>Zmieniono</span><span>Rozmiar</span><span>Akcje</span></div>
+        <div className={s.tableHeader} aria-hidden="true"><span>Plik</span><span>Kategoria</span><span>Zmieniono</span><span>Rozmiar</span><span>Klient</span><span>Akcje</span></div>
         {loading && <div className={s.stateBox}>Ładowanie biblioteki…</div>}
         {!loading && loadError && <div className={s.stateBox}><FileBox size={30} /><strong>{loadError}</strong><button type="button" className={s.secondaryButton} onClick={loadData}>Spróbuj ponownie</button></div>}
         {!loading && !loadError && visibleFiles.length === 0 && <div className={s.stateBox}><FileBox size={30} /><strong>Brak plików w tej kategorii.</strong><span>Zmień filtr albo dodaj pierwszy plik PRO100.</span></div>}
 
         {!loading && !loadError && visibleFiles.map((file) => {
           const expanded = expandedId === file.id;
-          const author = profilesById?.[file.updated_by]?.full_name || profilesById?.[file.created_by]?.full_name || 'Pracownik';
           return <article key={file.id} className={`${s.fileItem} ${expanded ? s.fileItemExpanded : ''}`}>
             <div className={s.fileRow}>
               <button type="button" className={s.fileNameButton} onClick={() => setExpandedId(expanded ? null : file.id)} aria-expanded={expanded}>
                 {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}<span className={s.fileIcon}>STO</span>
-                <span className={s.fileIdentity}><strong>{file.title}</strong><small>{file.original_filename}</small></span>
+                <span className={s.fileIdentity}><strong>{file.title || file.original_filename}</strong></span>
               </button>
               <span>{categoryById[file.category_id]?.name || '—'}</span><span>{formatDate(file.updated_at)}</span><span>{formatSize(file.file_size)}</span>
+              <span>{file.client_name || '\u2014'}</span>
               <button type="button" className={s.downloadButton} onClick={() => downloadFile(file)}><Download size={15} /> Pobierz</button>
             </div>
             {expanded && <div className={s.expandedPanel}>
               <div className={s.descriptionBlock}><span>Opis</span><p>{file.description || 'Brak opisu. Możesz go dodać, aby łatwiej odnaleźć i wykorzystać projekt.'}</p>
                 {(file.tags || []).length > 0 && <div className={s.tags}>{file.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
               </div>
-              <dl className={s.metadata}><div><dt>Wersja</dt><dd>v{file.version || 1}</dd></div><div><dt>Ostatnia zmiana</dt><dd>{formatDate(file.updated_at)}</dd></div><div><dt>Pracownik</dt><dd>{author}</dd></div></dl>
               <div className={s.expandedActions}>
                 <button type="button" onClick={() => startReplace(file)} disabled={actionBusy}><Upload size={15} /> Zastąp plik</button>
                 <button type="button" onClick={() => openEdit(file)} disabled={actionBusy}><Pencil size={15} /> Edytuj opis</button>
@@ -301,6 +314,7 @@ export default function Pro100Library({ profilesById = {} }) {
           {dialogMode === 'create' && <label className={s.filePicker}><Upload size={22} /><span>{selectedFile ? selectedFile.name : 'Wybierz plik .sto'}</span><small>Maksymalny rozmiar: 100 MB</small><input type="file" accept=".sto" onChange={(e) => { const file = e.target.files?.[0] || null; setSelectedFile(file); if (file && !form.title) setForm((current) => ({ ...current, title: file.name.replace(/\.sto$/i, '') })); }} /></label>}
           <div className={s.formGrid}>
             <label><span>Nazwa</span><input maxLength={140} value={form.title} onChange={(e) => setForm((current) => ({ ...current, title: e.target.value }))} /></label>
+            <label><span>Klient</span><input maxLength={140} value={form.clientName} onChange={(e) => setForm((current) => ({ ...current, clientName: e.target.value }))} placeholder="np. Nina Chernyak" /></label>
             <label><span>Kategoria</span><select value={form.categoryId} onChange={(e) => setForm((current) => ({ ...current, categoryId: e.target.value }))}><option value="">Wybierz kategorię</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           </div>
           <label className={s.fieldLabel}><span>Opis <small>(opcjonalnie)</small></span><textarea maxLength={1500} rows={5} value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} /></label>

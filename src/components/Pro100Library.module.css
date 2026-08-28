@@ -19,30 +19,24 @@
 .noticeBanner { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
 .errorBanner { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .tableShell { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); }
-.tableScroller { min-width: 850px; }
-.tableHeader, .fileRow { display: grid; grid-template-columns: minmax(320px, 2.2fr) minmax(120px, .75fr) minmax(120px, .8fr) 90px 112px; align-items: center; column-gap: 10px; }
+.tableScroller { min-width: 980px; }
+.tableHeader, .fileRow { display: grid; grid-template-columns: minmax(280px, 1.8fr) minmax(110px, .7fr) minmax(110px, .75fr) 80px minmax(140px, 1fr) 112px; align-items: center; column-gap: 10px; }
 .tableHeader { min-height: 37px; padding: 0 15px; border-bottom: 1px solid var(--border); background: #727272; color: #fff; font-size: 11px; font-weight: 600; }
 .fileItem + .fileItem { border-top: 1px solid var(--border); }
 .fileItemExpanded { background: color-mix(in srgb, var(--accent) 3%, var(--bg-card)); }
-.fileRow { min-height: 58px; padding: 5px 15px; font-size: 12px; }
+.fileRow { min-height: 30px; padding: 0 15px; font-size: 12px; }
 .fileRow > span { color: var(--text-muted); }
-.fileNameButton { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 0; border: 0; background: transparent; color: var(--text-main); text-align: left; cursor: pointer; }
-.fileIcon { width: 39px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 9px; font-weight: 800; }
-.fileIdentity { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.fileIdentity strong, .fileIdentity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fileIdentity strong { font-size: 13px; }
-.fileIdentity small { color: var(--text-muted); font-size: 10.5px; font-weight: 400; }
-.downloadButton { min-height: 31px; padding: 0 10px; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+.fileNameButton { min-width: 0; height: 30px; display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; color: var(--text-main); text-align: left; cursor: pointer; }
+.fileIcon { width: 30px; height: 20px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-size: 9px; font-weight: 800; }
+.fileIdentity { min-width: 0; }
+.fileIdentity strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.downloadButton { min-height: 26px; padding: 0 9px; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
 .expandedPanel { align-items: stretch; gap: 24px; padding: 14px 54px 16px; border-top: 1px solid var(--border); }
 .descriptionBlock { flex: 1; min-width: 220px; }
 .descriptionBlock > span { color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .descriptionBlock p { max-width: 680px; margin: 5px 0 0; color: var(--text-main); font-size: 12px; line-height: 1.55; }
 .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .tags span { padding: 3px 7px; border-radius: 999px; background: var(--bg-menu-hover); color: var(--text-muted); font-size: 10px; }
-.metadata { min-width: 190px; margin: 0; display: grid; gap: 5px; }
-.metadata div { display: flex; justify-content: space-between; gap: 12px; font-size: 10.5px; }
-.metadata dt { color: var(--text-muted); }
-.metadata dd { margin: 0; color: var(--text-main); font-weight: 650; }
 .expandedActions { width: 138px; display: flex; flex-direction: column; gap: 6px; }
 .expandedActions button { min-height: 31px; padding: 0 9px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
 .expandedActions .dangerButton { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); color: var(--danger); }
@@ -59,7 +53,7 @@
 .filePicker { min-height: 100px; margin: 18px 0 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px dashed var(--accent); border-radius: 9px; background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 .filePicker small { color: var(--text-muted); }
 .filePicker input { display: none; }
-.formGrid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; }
+.formGrid { display: grid; grid-template-columns: 1.35fr 1fr .8fr; gap: 12px; }
 .formGrid label, .fieldLabel { display: flex; flex-direction: column; gap: 6px; color: var(--text-main); font-size: 11px; font-weight: 700; }
 .formGrid input, .fieldLabel input, .fieldLabel textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--input-border); border-radius: 7px; background: var(--input-bg); color: var(--text-main); font: inherit; font-size: 13px; font-weight: 400; }
 .formGrid input, .fieldLabel input { height: 39px; padding: 0 10px; }
