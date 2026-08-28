@@ -15,6 +15,7 @@ import ProjectListPanel from './components/ProjectListPanel';
 import MobileProjectsScreen from './components/MobileProjectsScreen';
 import MobileBottomNav from './components/MobileBottomNav';
 import MobileClientBalanceScreen from './components/MobileClientBalanceScreen';
+import Pro100Library from './components/Pro100Library';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -26,6 +27,7 @@ const TAB_LABELS = {
   production: 'Produkcja',
   materials:  'Materiały',
   settings:   'Ustawienia',
+  library:    'Biblioteka PRO100',
 }
 
 const TABS = [
@@ -230,6 +232,15 @@ function App() {
     setShowMobileHome(false) // уходя на конкретную вкладку — скрываем мобильный экран Projekty (ADR-003)
     setMenuOpen(false) // закрываем dropdown топбара, если был открыт (в т.ч. если попали сюда через "Więcej")
     updatePresenceTab?.(id)
+  }
+
+  const openPro100Library = () => {
+    setBalanceClientName(null)
+    setPendingClient(null)
+    setViewMode('library')
+    setShowMobileHome(false)
+    setMenuOpen(false)
+    updatePresenceTab?.('library')
   }
 
   // Мобильная нижняя навигация (ADR-003): "Projekty" возвращает к мобильному экрану списка
@@ -437,6 +448,7 @@ function App() {
   const showWorkspace = isDesktop && viewMode === 'project' && !!activeClient
   const showDesktopBalance = isDesktop && viewMode === 'balance' && !!balanceClientName
 
+  const showDesktopLibrary = isDesktop && viewMode === 'library'
   const openClientBalance = (clientName) => {
     setBalanceClientName(clientName)
     if (isDesktop) {
@@ -475,6 +487,8 @@ function App() {
         onOpenProject={requestOpenProject}
         onOpenBalance={openClientBalance}
         activeProjectId={activeClient?.id}
+        onOpenLibrary={openPro100Library}
+        libraryActive={showDesktopLibrary}
       />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
@@ -574,8 +588,10 @@ function App() {
             }}
           />
         </div>
-        <div className="main-content" style={(showWorkspace || showDesktopBalance) ? { display: 'flex', flexDirection: 'column' } : undefined}>
-        {showDesktopBalance ? (
+        <div className="main-content" style={(showWorkspace || showDesktopBalance || showDesktopLibrary) ? { display: 'flex', flexDirection: 'column' } : undefined}>
+        {showDesktopLibrary ? (
+          <Pro100Library profilesById={profilesById} />
+        ) : showDesktopBalance ? (
           <MobileClientBalanceScreen
             desktopLayout
             clientName={balanceClientName}

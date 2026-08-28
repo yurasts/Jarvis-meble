@@ -1,0 +1,65 @@
+.screen { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 26px 30px 44px; color: var(--text-main); background: var(--bg-base); }
+.pageHeader, .toolbar, .categoryBar, .expandedPanel, .modalHeader, .modalActions { display: flex; align-items: center; }
+.pageHeader { justify-content: space-between; gap: 20px; }
+.pageHeader h1 { margin: 0; font-size: 25px; line-height: 1.2; }
+.pageHeader p { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
+.primaryButton, .secondaryButton, .downloadButton, .expandedActions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; border-radius: 7px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.primaryButton { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+.secondaryButton { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+.primaryButton:disabled, .secondaryButton:disabled, .downloadButton:disabled, .expandedActions button:disabled { opacity: .55; cursor: default; }
+.toolbar { gap: 10px; margin-top: 24px; }
+.searchBox { flex: 1; max-width: 680px; height: 39px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--input-border); border-radius: 7px; background: var(--input-bg); color: var(--text-muted); }
+.searchBox input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-main); font: inherit; font-size: 13px; }
+.toolbar > select, .formGrid select { height: 39px; border: 1px solid var(--input-border); border-radius: 7px; padding: 0 34px 0 11px; background: var(--input-bg); color: var(--text-main); font: inherit; font-size: 12px; }
+.categoryBar { flex-wrap: wrap; gap: 7px; margin: 16px 0; }
+.categoryBar button { min-height: 32px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-muted); font-size: 12px; font-weight: 650; cursor: pointer; }
+.categoryBar button span { margin-left: 5px; opacity: .72; }
+.categoryBar .categoryActive { border-color: var(--accent); background: var(--accent); color: #fff; }
+.noticeBanner, .errorBanner { margin: 10px 0; padding: 9px 12px; border-radius: 7px; font-size: 12px; }
+.noticeBanner { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.errorBanner { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.tableShell { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); }
+.tableScroller { min-width: 980px; }
+.tableHeader, .fileRow { display: grid; grid-template-columns: minmax(280px, 1.8fr) minmax(110px, .7fr) minmax(110px, .75fr) 80px minmax(140px, 1fr) 112px; align-items: center; column-gap: 10px; }
+.tableHeader { min-height: 37px; padding: 0 15px; border-bottom: 1px solid var(--border); background: #727272; color: #fff; font-size: 11px; font-weight: 600; }
+.fileItem + .fileItem { border-top: 1px solid var(--border); }
+.fileItemExpanded { background: color-mix(in srgb, var(--accent) 3%, var(--bg-card)); }
+.fileRow { min-height: 30px; padding: 0 15px; font-size: 12px; }
+.fileRow > span { color: var(--text-muted); }
+.fileNameButton { min-width: 0; height: 30px; display: flex; align-items: center; gap: 7px; padding: 0; border: 0; background: transparent; color: var(--text-main); text-align: left; cursor: pointer; }
+.fileIcon { width: 30px; height: 20px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-size: 9px; font-weight: 800; }
+.fileIdentity { min-width: 0; }
+.fileIdentity strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.downloadButton { min-height: 26px; padding: 0 9px; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+.expandedPanel { align-items: stretch; gap: 24px; padding: 14px 54px 16px; border-top: 1px solid var(--border); }
+.descriptionBlock { flex: 1; min-width: 220px; }
+.descriptionBlock > span { color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.descriptionBlock p { max-width: 680px; margin: 5px 0 0; color: var(--text-main); font-size: 12px; line-height: 1.55; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.tags span { padding: 3px 7px; border-radius: 999px; background: var(--bg-menu-hover); color: var(--text-muted); font-size: 10px; }
+.expandedActions { width: 138px; display: flex; flex-direction: column; gap: 6px; }
+.expandedActions button { min-height: 31px; padding: 0 9px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
+.expandedActions .dangerButton { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); color: var(--danger); }
+.deleteConfirm { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; color: var(--danger); font-size: 10px; text-align: center; }
+.deleteConfirm span { grid-column: 1 / -1; }
+.stateBox { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; color: var(--text-muted); font-size: 12px; text-align: center; }
+.stateBox strong { color: var(--text-main); }
+.modalBackdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .55); }
+.modal { width: min(620px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); box-shadow: 0 22px 60px rgba(0,0,0,.28); }
+.modalHeader { justify-content: space-between; gap: 16px; }
+.modalHeader h2 { margin: 0; font-size: 19px; }
+.modalHeader p { margin: 4px 0 0; color: var(--text-muted); font-size: 11px; }
+.closeButton { width: 36px; height: 36px; border: 0; border-radius: 7px; background: var(--bg-menu-hover); color: var(--text-main); font-size: 22px; cursor: pointer; }
+.filePicker { min-height: 100px; margin: 18px 0 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px dashed var(--accent); border-radius: 9px; background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+.filePicker small { color: var(--text-muted); }
+.filePicker input { display: none; }
+.formGrid { display: grid; grid-template-columns: 1.35fr 1fr .8fr; gap: 12px; }
+.formGrid label, .fieldLabel { display: flex; flex-direction: column; gap: 6px; color: var(--text-main); font-size: 11px; font-weight: 700; }
+.formGrid input, .fieldLabel input, .fieldLabel textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--input-border); border-radius: 7px; background: var(--input-bg); color: var(--text-main); font: inherit; font-size: 13px; font-weight: 400; }
+.formGrid input, .fieldLabel input { height: 39px; padding: 0 10px; }
+.fieldLabel { margin-top: 13px; }
+.fieldLabel textarea { padding: 9px 10px; resize: vertical; }
+.fieldLabel small { color: var(--text-muted); font-weight: 400; }
+.modalError { margin-top: 12px; color: var(--danger); font-size: 12px; }
+.modalActions { justify-content: flex-end; gap: 8px; margin-top: 18px; }
+@media (max-width: 1050px) { .screen { padding: 22px 20px 36px; } .tableShell { overflow-x: auto; } .expandedPanel { padding-left: 34px; padding-right: 24px; } }
