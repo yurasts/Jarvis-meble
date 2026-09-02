@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import InvoiceScanner from './InvoiceScanner';
 import { supabase } from '../supabase';
+import { useIsDesktop } from '../utils/useIsDesktop';
+import MobileMaterialsCatalog from './MobileMaterialsCatalog';
 
 // Стрелка тренда цены
 const PriceTrend = ({ mat }) => {
@@ -48,6 +50,7 @@ const PriceTrend = ({ mat }) => {
 };
 
 const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated, isDark = false }) => {
+  const isDesktop = useIsDesktop();
   const c = (light, dark) => isDark ? dark : light;
   const bg       = 'var(--bg-card)';
   const bgCard   = 'var(--bg-kanban-col)';
@@ -116,6 +119,17 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
 
   // Стиль поля формы в модале поставщика
   const inputStyle = { width: '100%', padding: '8px', borderRadius: '6px', border: `1px solid ${border}`, boxSizing: 'border-box', background: bgInput, color: text };
+
+  if (!isDesktop) {
+    return (
+      <MobileMaterialsCatalog
+        materials={materials}
+        onPricesUpdated={onPricesUpdated}
+        onAddMaterial={() => setIsMaterialModalOpen(true)}
+        isDark={isDark}
+      />
+    );
+  }
 
   return (
     <div style={{ padding: '20px', minHeight: '100%', background: bg }}>
