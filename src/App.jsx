@@ -496,7 +496,7 @@ function App() {
           старый topbar не рендерится вообще — его полностью заменяет собственный Mobile App Bar
           внутри MobileProjectsScreen. "Więcej" (см. showMoreMenu выше) сначала уводит с экрана
           Projekty (showMobileHome=false), и только тогда topbar/dropdown снова монтируются. */}
-      {!showMobileProjects && (
+      {!showMobileProjects && activeTab !== 'materials' && (
       <div className={s.topbar} ref={topbarRef}>
         {/* Левая часть — лого + текущая вкладка + стрелка */}
         <div

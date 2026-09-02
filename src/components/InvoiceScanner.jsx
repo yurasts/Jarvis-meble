@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '../supabase';
 
-export default function InvoiceScanner({ materials, onPricesUpdated, isDark = false }) {
+export default function InvoiceScanner({ materials, onPricesUpdated, isDark = false, compact = false }) {
   const c = (light, dark) => isDark ? dark : light;
   const [isOpen, setIsOpen] = useState(false);
   const [image, setImage] = useState(null);       // { base64, type, preview }
@@ -66,10 +66,14 @@ export default function InvoiceScanner({ materials, onPricesUpdated, isDark = fa
     <>
       {/* Кнопка-триггер */}
       <button
+        type={'button'}
         onClick={() => setIsOpen(true)}
-        style={{ background: '#6b46c1', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+        style={compact
+          ? { width: '68px', height: '36px', background: '#6b46c1', color: '#fff', border: 'none', padding: 0, borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }
+          : { background: '#6b46c1', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }
+        }
       >
-        📸 Skanuj fakturę
+        {compact ? 'Skanuj' : '📸 Skanuj fakturę'}
       </button>
 
       {/* Модал */}

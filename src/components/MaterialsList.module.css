@@ -1,0 +1,234 @@
+.mobileCatalog {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% + 30px);
+  height: 100dvh;
+  margin: -15px;
+  overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-main);
+}
+
+.mobileAppBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 44px;
+  min-width: 0;
+  padding: 4px 12px;
+  padding-top: calc(4px + env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.mobileAppBar h1 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobileActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.addMaterialBtn {
+  width: 80px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mobileControls {
+  flex: 0 0 106px;
+  padding: 8px 12px 0;
+}
+
+.mobileSearch,
+.mobileFilters select {
+  width: 100%;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.mobileSearch {
+  height: 34px;
+  padding: 0 12px;
+}
+
+.mobileFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mobileFilters select {
+  height: 32px;
+  min-width: 0;
+  padding: 0 9px;
+}
+
+.mobileListMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.mobileListMeta button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.mobileSearch:focus,
+.mobileFilters select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.mobileList {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 12px calc(60px + env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-card);
+}
+
+.mobileListHeader {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px 12px;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mobileListHeader span:nth-child(2) {
+  text-align: right;
+}
+
+.mobileMaterialRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px 12px;
+  align-items: center;
+  width: 100%;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 8px 0 7px;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.mobileMaterialRow:nth-child(odd) {
+  background: var(--bg-kanban-col);
+}
+
+.mobileMaterialRowExpanded {
+  align-items: start;
+  height: auto;
+  min-height: 58px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  background: var(--accent-soft) !important;
+}
+
+.mobileMaterialInfo {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mobileMaterialName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileMaterialRowExpanded .mobileMaterialName {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.mobileMaterialDetails {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.mobileMaterialPrice {
+  align-self: center;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mobileMaterialRowExpanded .mobileMaterialPrice,
+.mobileMaterialRowExpanded .mobileChevron {
+  align-self: start;
+}
+
+.mobileChevron {
+  justify-self: end;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.mobileMaterialRow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.mobileEmpty {
+  padding: 28px 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 359px) {
+  .mobileAppBar h1 { font-size: 18px; }
+  .mobileActions { gap: 5px; }
+  .mobileFilters { gap: 6px; }
+}
