@@ -13,7 +13,7 @@ import s from './MobileProjectsScreen.module.css';
 //
 // Компонент всегда смонтирован (см. App.jsx) — видимость переключается только через className,
 // а не через условный рендер, чтобы поиск/фильтр внутри ProjectListPanel не сбрасывались при
-// переходе на Produkcja/Materiały/Więcej и обратно.
+// переходах между основными мобильными разделами.
 export default function MobileProjectsScreen({
   visible,
   clients,

@@ -40,6 +40,11 @@
 .navBtnActive { color: var(--accent); }
 
 .navLabel {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 359px) {
+  .navLabel { font-size: 9px; }
 }
