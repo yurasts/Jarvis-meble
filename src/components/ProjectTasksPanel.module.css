@@ -125,8 +125,22 @@
   border-bottom: 0;
 }
 
+.taskRowExpanded {
+  height: auto;
+  align-items: start;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
 .taskDone {
   opacity: 0.68;
+}
+
+.taskRowExpanded .taskText {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .taskDone .taskText {
@@ -183,7 +197,7 @@
 }
 
 .deleteButton,
-.mobileEditButton,
+.editButton,
 .saveEdit,
 .cancelEdit,
 .confirmYes,
@@ -204,6 +218,12 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
+}
+
+.editButton {
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--accent);
 }
 
 .saveEdit,
@@ -330,7 +350,7 @@
   }
 
   .deleteButton,
-  .mobileEditButton,
+  .editButton,
   .saveEdit,
   .cancelEdit {
     min-width: 24px;
@@ -338,9 +358,4 @@
     padding: 0 4px;
   }
 
-  .mobileEditButton {
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--accent);
-  }
 }
