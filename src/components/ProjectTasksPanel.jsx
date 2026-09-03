@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { nextTaskId } from './dashboardHelpers';
+import { useIsDesktop } from '../utils/useIsDesktop';
 import s from './ProjectTasksPanel.module.css';
 
 const formatTaskDate = (date) => {
@@ -9,6 +10,7 @@ const formatTaskDate = (date) => {
 };
 
 const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
+  const isDesktop = useIsDesktop();
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState('');
   const [showDone, setShowDone] = useState(false);
@@ -16,6 +18,7 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
   const [editText, setEditText] = useState('');
   const [editDate, setEditDate] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [expandedTaskId, setExpandedTaskId] = useState(null);
 
   const openTasks = tasks.filter(task => !task.isDone);
   const doneTasks = tasks.filter(task => task.isDone);
@@ -43,10 +46,12 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
 
   const toggleTask = (taskId) => {
     onChange(tasks.map(task => task.id === taskId ? { ...task, isDone: !task.isDone } : task));
+    setExpandedTaskId(current => current === taskId ? null : current);
   };
 
   const startEditing = (task) => {
     setEditingTaskId(task.id);
+    setExpandedTaskId(task.id);
     setEditText(task.text || '');
     setEditDate(task.date || '');
     setConfirmDeleteId(null);
@@ -71,15 +76,25 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
   const deleteTask = (taskId) => {
     onChange(tasks.filter(task => task.id !== taskId));
     setConfirmDeleteId(null);
+    setExpandedTaskId(current => current === taskId ? null : current);
     if (editingTaskId === taskId) cancelEditing();
   };
 
   const renderTask = (task) => {
     const isEditing = editingTaskId === task.id;
     const isConfirming = confirmDeleteId === task.id;
+    const isExpanded = expandedTaskId === task.id;
 
     return (
-      <div key={task.id} className={s.taskRow + (task.isDone ? ' ' + s.taskDone : '')}>
+      <div
+        key={task.id}
+        className={[
+          s.taskRow,
+          task.isDone ? s.taskDone : '',
+          isExpanded ? s.taskRowExpanded : '',
+          isEditing ? s.taskRowEditing : '',
+        ].filter(Boolean).join(' ')}
+      >
         <input
           type="checkbox"
           checked={Boolean(task.isDone)}
@@ -111,7 +126,15 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
             />
           </div>
         ) : (
-          <button type="button" className={s.taskText} onClick={() => startEditing(task)}>
+          <button
+            type="button"
+            className={s.taskText}
+            onClick={() => {
+              if (isDesktop) startEditing(task);
+              else setExpandedTaskId(current => current === task.id ? null : task.id);
+            }}
+            aria-expanded={!isDesktop ? isExpanded : undefined}
+          >
             {task.text}
           </button>
         )}
@@ -133,14 +156,26 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
             <button type="button" className={s.cancelEdit} onClick={cancelEditing} aria-label="Anuluj edycję">×</button>
           </div>
         ) : (
-          <button
-            type="button"
-            className={s.deleteButton}
-            onClick={() => setConfirmDeleteId(task.id)}
-            aria-label={'Usuń zadanie: ' + task.text}
-          >
-            ×
-          </button>
+          <div className={s.rowActions}>
+            {!isDesktop && isExpanded && (
+              <button
+                type="button"
+                className={s.mobileEditButton}
+                onClick={() => startEditing(task)}
+                aria-label="Edytuj zadanie"
+              >
+                ✎
+              </button>
+            )}
+            <button
+              type="button"
+              className={s.deleteButton}
+              onClick={() => setConfirmDeleteId(task.id)}
+              aria-label={'Usuń zadanie: ' + task.text}
+            >
+              ×
+            </button>
+          </div>
         )}
       </div>
     );
