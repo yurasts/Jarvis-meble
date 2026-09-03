@@ -42,6 +42,7 @@ export default function KanbanBoard({
   const [fileCounts, setFileCounts] = useState({}); // { [clientId]: totalCount }
   const [addingTaskFor, setAddingTaskFor] = useState(null); // client.id | null
   const [newTaskText, setNewTaskText] = useState('');
+  const [expandedTaskKey, setExpandedTaskKey] = useState(null);
 
   const effectiveScope = scopeView || 'firma';
   const scopedClients = clients.filter(c => (c.project_scope || 'firma') === effectiveScope);
@@ -59,11 +60,11 @@ export default function KanbanBoard({
 
   const getByStatus = (status) => scopedClients.filter(c => c.status === status);
 
-  const toggleTask = (e, client, taskId) => {
+  const toggleTask = (e, client, targetTask) => {
     e.stopPropagation();
     if (!updateClient) return;
     updateClient(client.id, {
-      tasks: (client.tasks || []).map(t => t.id === taskId ? { ...t, isDone: !t.isDone } : t),
+      tasks: (client.tasks || []).map(task => task === targetTask ? { ...task, isDone: !task.isDone } : task),
     });
   };
 
@@ -130,17 +131,32 @@ export default function KanbanBoard({
 
                   {shownTasks.length > 0 && (
                     <div className={s.taskPreviewList}>
-                      {shownTasks.map(task => (
-                        <label key={task.id} className={s.taskPreviewRow} onClick={e => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={task.isDone}
-                            onChange={(e) => toggleTask(e, client, task.id)}
-                            className={s.taskPreviewCheckbox}
-                          />
-                          <span className={s.taskPreviewText}>{task.text}</span>
-                        </label>
-                      ))}
+                      {shownTasks.map((task, taskIndex) => {
+                        const key = `${client.id}:${task.id ?? taskIndex}`;
+                        const isExpanded = expandedTaskKey === key;
+                        return (
+                          <div key={key} className={s.taskPreviewRow} onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={task.isDone}
+                              onChange={(e) => {
+                                if (isExpanded) setExpandedTaskKey(null);
+                                toggleTask(e, client, task);
+                              }}
+                              className={s.taskPreviewCheckbox}
+                              aria-label={task.isDone ? 'Oznacz jako niewykonane' : 'Oznacz jako wykonane'}
+                            />
+                            <button
+                              type="button"
+                              className={`${s.taskPreviewText} ${isExpanded ? s.taskPreviewTextExpanded : ''}`}
+                              onClick={() => setExpandedTaskKey(current => current === key ? null : key)}
+                              aria-expanded={isExpanded}
+                            >
+                              {task.text}
+                            </button>
+                          </div>
+                        );
+                      })}
                       {moreCount > 0 && (
                         <div className={s.taskMore}>+{moreCount} więcej...</div>
                       )}
