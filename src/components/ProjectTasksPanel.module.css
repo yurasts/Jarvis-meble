@@ -183,6 +183,7 @@
 }
 
 .deleteButton,
+.mobileEditButton,
 .saveEdit,
 .cancelEdit,
 .confirmYes,
@@ -238,8 +239,8 @@
   }
 
   .addForm {
-    padding: 8px;
-    grid-template-columns: minmax(0, 1fr) 44px;
+    padding: 6px 8px;
+    grid-template-columns: minmax(0, 1fr) 40px;
     gap: 6px;
   }
 
@@ -249,13 +250,13 @@
 
   .textInput,
   .dateInput {
-    height: 40px;
+    height: 34px;
     font-size: 16px;
   }
 
   .addButton {
-    width: 44px;
-    height: 40px;
+    width: 40px;
+    height: 34px;
     padding: 0;
     font-size: 17px;
   }
@@ -265,14 +266,55 @@
   }
 
   .taskRow {
-    min-height: 40px;
-    padding: 3px 5px 3px 8px;
-    grid-template-columns: 22px minmax(0, 1fr) auto auto;
-    gap: 5px;
+    height: 26px;
+    min-height: 26px;
+    padding: 0 4px 0 6px;
+    grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    gap: 4px;
+  }
+
+  .taskRowExpanded,
+  .taskRowEditing {
+    height: auto;
+  }
+
+  .taskRowExpanded {
+    align-items: start;
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+
+  .taskRowEditing {
+    min-height: 42px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .checkbox {
+    width: 15px;
+    height: 15px;
   }
 
   .taskText {
+    padding: 0;
     font-size: 12px;
+    line-height: 25px;
+  }
+
+  .taskRowExpanded .taskText {
+    padding: 2px 0;
+    overflow: visible;
+    font-size: 12px;
+    line-height: 15px;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .dateBadge {
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 18px;
   }
 
   .editFields {
@@ -284,12 +326,21 @@
 
   .rowActions {
     grid-column: 4;
+    gap: 2px;
   }
 
   .deleteButton,
+  .mobileEditButton,
   .saveEdit,
   .cancelEdit {
-    min-width: 36px;
-    height: 36px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 4px;
+  }
+
+  .mobileEditButton {
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--accent);
   }
 }
