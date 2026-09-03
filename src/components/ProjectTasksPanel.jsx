@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { nextTaskId } from './dashboardHelpers';
-import { useIsDesktop } from '../utils/useIsDesktop';
 import s from './ProjectTasksPanel.module.css';
 
 const formatTaskDate = (date) => {
@@ -10,7 +9,6 @@ const formatTaskDate = (date) => {
 };
 
 const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
-  const isDesktop = useIsDesktop();
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState('');
   const [showDone, setShowDone] = useState(false);
@@ -129,11 +127,8 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
           <button
             type="button"
             className={s.taskText}
-            onClick={() => {
-              if (isDesktop) startEditing(task);
-              else setExpandedTaskId(current => current === task.id ? null : task.id);
-            }}
-            aria-expanded={!isDesktop ? isExpanded : undefined}
+            onClick={() => setExpandedTaskId(current => current === task.id ? null : task.id)}
+            aria-expanded={isExpanded}
           >
             {task.text}
           </button>
@@ -157,10 +152,10 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
           </div>
         ) : (
           <div className={s.rowActions}>
-            {!isDesktop && isExpanded && (
+            {isExpanded && (
               <button
                 type="button"
-                className={s.mobileEditButton}
+                className={s.editButton}
                 onClick={() => startEditing(task)}
                 aria-label="Edytuj zadanie"
               >
