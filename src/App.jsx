@@ -5,7 +5,6 @@ import Login from './components/Login'
 import Dashboard from './components/Dashboard'
 import KanbanBoard from './components/KanbanBoard'
 import MaterialsList from './components/MaterialsList'
-import ProductionTab from './components/ProductionTab'
 import ProjectModal from './components/ProjectModal'
 import Settings from './components/Settings'
 import AiAssistant from './components/AiAssistant';
@@ -17,14 +16,13 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MobileClientBalanceScreen from './components/MobileClientBalanceScreen';
 import Pro100Library from './components/Pro100Library';
 import { useIsDesktop } from './utils/useIsDesktop';
-import { LayoutDashboard, FolderKanban, Wrench, Package, Settings as SettingsIcon } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
 // "Panel", а не "Dzisiaj" — отдельный экран "на сегодня" пока не реализован (см. ADR-002).
 const TAB_LABELS = {
   dashboard:  'Panel',
   board:      'Tablica projektów',
-  production: 'Produkcja',
   materials:  'Materiały',
   settings:   'Ustawienia',
   library:    'Biblioteka PRO100',
@@ -33,7 +31,6 @@ const TAB_LABELS = {
 const TABS = [
   { id: 'dashboard',  label: 'Panel',              Icon: LayoutDashboard },
   { id: 'board',      label: 'Tablica projektów',  Icon: FolderKanban    },
-  { id: 'production', label: 'Produkcja',          Icon: Wrench          },
   { id: 'materials',  label: 'Materiały',          Icon: Package         },
   { id: 'settings',   label: 'Ustawienia',         Icon: SettingsIcon    },
 ]
@@ -71,7 +68,7 @@ const AI_ASSISTANT_ENABLED = false
 function App() {
   const { session, profile: authProfile, profilesById, isDark, theme, loadingSession, awaitingAccess, signOut, updatePresenceTab, onlineUsers } = useAuth()
   // Forest — тоже тёмная по духу тема: компонентам, красящим себя через
-  // свой light/dark-хелпер (ProjectModal, Kanban, MaterialsList, Production),
+  // свой light/dark-хелпер (ProjectModal, Kanban, MaterialsList),
   // передаём именно этот флаг, чтобы они не "светлели" в Forest.
   const isDarkish = isDark || theme === 'forest'
   const [localProfile, setLocalProfile] = useState(null)
@@ -143,8 +140,6 @@ function App() {
   const [matPrice,    setMatPrice]    = useState('')
 
   const topbarRef = useRef(null)
-  // Кнопка "Więcej" мобильной нижней навигации тоже открывает dropdown топбара (ADR-003) —
-  // клики по ней не должны считаться "снаружи" в обработчике ниже.
   const bottomNavRef = useRef(null)
 
   // Закрываем dropdown при тапе вне него (топбара и мобильной нижней навигации)
@@ -230,7 +225,7 @@ function App() {
     setViewMode('tab') // уходя в глобальный раздел, скрываем рабочую область проекта (сам выбранный проект не сбрасываем)
     setPendingClient(null) // не оставляем «зависший» диалог переключения, если он был открыт
     setShowMobileHome(false) // уходя на конкретную вкладку — скрываем мобильный экран Projekty (ADR-003)
-    setMenuOpen(false) // закрываем dropdown топбара, если был открыт (в т.ч. если попали сюда через "Więcej")
+    setMenuOpen(false) // закрываем dropdown топбара, если он был открыт
     updatePresenceTab?.(id)
   }
 
@@ -248,16 +243,6 @@ function App() {
   const showMobileProjectsHome = () => {
     setShowMobileHome(true)
     setMenuOpen(false)
-  }
-
-  // "Więcej" (Mobile Project List v1, P1): старый мобильный topbar/dropdown теперь не рендерится
-  // вообще, пока открыт полноэкранный Projekty (см. !showMobileProjects ниже в JSX) — значит,
-  // прежде чем открыть dropdown, нужно сначала уйти с экрана Projekty, иначе topbar/dropdown
-  // просто негде показать. showMobileProjectsHome (кнопка "Projekty") при возврате, как и раньше,
-  // закрывает dropdown.
-  const showMoreMenu = () => {
-    setShowMobileHome(false)
-    setMenuOpen(o => !o)
   }
 
   async function updateClientFields(clientId, updatedFields) {
@@ -353,12 +338,6 @@ function App() {
     const id = e.dataTransfer.getData('clientId')
     setClients(clients.map(c => c.id.toString() === id ? { ...c, status: newStatus } : c))
     await supabase.from('clients').update({ status: newStatus }).eq('id', id)
-  }
-
-  async function handleToggleProductionStep(client, stepId, isDone) {
-    const updatedSteps = { ...(client.production_steps || {}), [stepId]: isDone }
-    setClients(clients.map(c => c.id === client.id ? { ...c, production_steps: updatedSteps } : c))
-    await supabase.from('clients').update({ production_steps: updatedSteps }).eq('id', client.id)
   }
 
   // Mobile / Client Balance / Expanded v1 — "операции сохранения" для единого cashTransactions,
@@ -460,17 +439,16 @@ function App() {
   // Мобильный экран Projekty (ADR-003) — !isDesktop, т.е. до 767px включительно (единая граница,
   // см. useIsDesktop.js). showWorkspace требует isDesktop=true, поэтому они взаимоисключающие.
   const showMobileProjects = !isDesktop && showMobileHome
-  // Подсветка активного пункта нижней навигации: "Projekty" — когда открыт мобильный экран
-  // списка; "Produkcja"/"Materiały" — когда открыта соответствующая вкладка (независимо от того,
-  // как в неё попали — через нижнюю навигацию, dropdown топбара или глобальный поиск);
-  // всё остальное (Panel/Tablica projektów/Ustawienia) считается "Więcej".
+  // Подсветка одного из четырёх прямых пунктов мобильной навигации.
   const mobileNavActive = showMobileProjects
     ? 'projekty'
-    : activeTab === 'production'
-      ? 'production'
+    : activeTab === 'board'
+      ? 'board'
       : activeTab === 'materials'
         ? 'materials'
-        : 'wiecej'
+        : activeTab === 'settings'
+          ? 'settings'
+          : ''
 
   return (
     <div className="app-container">
@@ -492,10 +470,8 @@ function App() {
       />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
-      {/* Mobile Project List v1 (P1): пока открыт полноэкранный Projekty (showMobileProjects),
-          старый topbar не рендерится вообще — его полностью заменяет собственный Mobile App Bar
-          внутри MobileProjectsScreen. "Więcej" (см. showMoreMenu выше) сначала уводит с экрана
-          Projekty (showMobileHome=false), и только тогда topbar/dropdown снова монтируются. */}
+      {/* Пока открыт полноэкранный Projekty, старый topbar не рендерится — его заменяет
+          собственный Mobile App Bar внутри MobileProjectsScreen. */}
       {!showMobileProjects && activeTab !== 'materials' && (
       <div className={s.topbar} ref={topbarRef}>
         {/* Левая часть — лого + текущая вкладка + стрелка */}
@@ -657,9 +633,6 @@ function App() {
             scopeView={effectiveScope}
           />
         )}
-        {activeTab === 'production' && (
-          <ProductionTab clients={clients} onToggleStep={handleToggleProductionStep} />
-        )}
         {activeTab === 'materials' && (
           <MaterialsList
             materials={materials}
@@ -793,9 +766,8 @@ function App() {
         </div>
       )}
 
-      {/* Мобильный экран Projekty (ADR-003, Mobile Field Mode). Смонтирован всегда — видимость
-          переключается через className внутри компонента, чтобы поиск/фильтр не сбрасывались
-          при переходе на Produkcja/Materiały/Więcej и обратно. На 768px и выше всегда скрыт. */}
+      {/* Мобильный экран Projekty смонтирован всегда, чтобы поиск и фильтр не сбрасывались
+          при переходах между нижними разделами. На 768px и выше всегда скрыт. */}
       <MobileProjectsScreen
         visible={showMobileProjects}
         clients={clients}
@@ -830,9 +802,9 @@ function App() {
         ref={bottomNavRef}
         active={mobileNavActive}
         onProjekty={showMobileProjectsHome}
-        onProdukcja={() => goToTab('production')}
+        onTablica={() => goToTab('board')}
         onMaterialy={() => goToTab('materials')}
-        onWiecej={showMoreMenu}
+        onUstawienia={() => goToTab('settings')}
       />
 
       {AI_ASSISTANT_ENABLED && <AiAssistant />}
