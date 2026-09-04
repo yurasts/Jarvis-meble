@@ -69,19 +69,14 @@
   .navBtn {
     flex: 0 0 auto;
     width: 100%;
-    min-height: 56px;
-    padding: 5px 2px;
+    min-height: 48px;
+    padding: 6px 2px;
     border-radius: 7px;
   }
 
   .navBtnActive { background: var(--accent-soft); }
 
   .navLabel {
-    width: 100%;
-    font-size: 9px;
-    line-height: 11px;
-    text-align: center;
-    white-space: normal;
-    overflow-wrap: anywhere;
+    display: none;
   }
 }
