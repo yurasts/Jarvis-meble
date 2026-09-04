@@ -531,7 +531,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       // overscrollBehavior: contain — доскролл содержимого не должен "протаскивать" документ под
       // экраном (rubber-band не открывает нижележащую страницу); background непрозрачен (var(--modal-bg))
       // и inset:0 полностью покрывает viewport — под экраном ничего не видно и не двигается.
-      ? { position: 'fixed', inset: 0, height: '100dvh', maxHeight: '100dvh', zIndex: 1000, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden', overscrollBehavior: 'contain' }
+      ? { position: 'fixed', inset: 0, left: 'var(--mobile-landscape-nav-width, 0px)', height: '100dvh', maxHeight: '100dvh', zIndex: 1000, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden', overscrollBehavior: 'contain' }
       : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
 
   const innerStyle = {

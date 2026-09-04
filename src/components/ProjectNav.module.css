@@ -10,7 +10,7 @@
   z-index: 10;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
   .sidebar { display: none; }
 }
 

@@ -25,7 +25,7 @@
   background: var(--bg-card);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
   .topHeader { display: none; }
   .contentWrapper { height: auto; min-height: 100vh; }
 }
@@ -114,7 +114,7 @@
 
 /* -------- МЕДИА -------- */
 /* .sidebar (ProjectNav) скрывается своим собственным media-query в ProjectNav.module.css */
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
   .topbar {
     display: flex;
     align-items: center;
@@ -177,5 +177,20 @@
     font-size: 11px;
     font-weight: 600;
     flex-shrink: 0;
+  }
+}
+
+@media (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
+  .topbar {
+    width: calc(100vw - var(--mobile-landscape-nav-width, 76px));
+    margin-left: var(--mobile-landscape-nav-width, 76px);
+  }
+
+  .contentWrapper {
+    flex: 0 0 calc(100vw - var(--mobile-landscape-nav-width, 76px));
+    width: calc(100vw - var(--mobile-landscape-nav-width, 76px));
+    height: 100dvh;
+    min-height: 0;
+    margin-left: var(--mobile-landscape-nav-width, 76px);
   }
 }

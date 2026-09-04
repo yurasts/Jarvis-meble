@@ -10,7 +10,7 @@
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
   .nav { display: flex; }
 }
 
@@ -47,4 +47,41 @@
 
 @media (max-width: 359px) {
   .navLabel { font-size: 9px; }
+}
+
+/* Телефон в альбомной ориентации: та же мобильная навигация становится
+   вертикальной рейкой и не превращается в компьютерный ProjectNav. */
+@media (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
+  .nav {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    width: var(--mobile-landscape-nav-width, 76px);
+    flex-direction: column;
+    gap: 2px;
+    border-top: 0;
+    border-right: 1px solid var(--border);
+    padding: max(6px, env(safe-area-inset-top, 0px)) 4px max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
+    box-sizing: border-box;
+    z-index: 1060;
+  }
+
+  .navBtn {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 56px;
+    padding: 5px 2px;
+    border-radius: 7px;
+  }
+
+  .navBtnActive { background: var(--accent-soft); }
+
+  .navLabel {
+    width: 100%;
+    font-size: 9px;
+    line-height: 11px;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
