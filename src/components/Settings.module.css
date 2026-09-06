@@ -362,3 +362,8 @@
   .accountCard { align-items: flex-start; flex-wrap: wrap; }
   .settingsLogoutBtn { width: 100%; margin-left: 0; }
 }
+@media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
+  .page {
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+}

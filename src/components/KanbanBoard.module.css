@@ -227,3 +227,9 @@
 .emptyIcon { font-size: 20px; opacity: 0.5; margin-bottom: 6px; }
 .emptyTitle { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .emptyHint { font-size: 12px; margin-top: 2px; opacity: 0.8; }
+
+@media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
+  .pageTitle {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}

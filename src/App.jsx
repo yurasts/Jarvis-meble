@@ -472,7 +472,7 @@ function App() {
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
       {/* Пока открыт полноэкранный Projekty, старый topbar не рендерится — его заменяет
           собственный Mobile App Bar внутри MobileProjectsScreen. */}
-      {!showMobileProjects && activeTab !== 'materials' && (
+      {!showMobileProjects && activeTab !== 'materials' && activeTab !== 'board' && activeTab !== 'settings' && (
       <div className={s.topbar} ref={topbarRef}>
         {/* Левая часть — лого + текущая вкладка + стрелка */}
         <div
