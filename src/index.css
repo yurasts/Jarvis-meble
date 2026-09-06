@@ -408,7 +408,7 @@ html[data-theme="dark"] .client-card:hover {
 }
 
 @media (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
-  :root { --mobile-landscape-nav-width: 56px; }
+  :root { --mobile-landscape-nav-width: calc(56px + env(safe-area-inset-left, 0px)); }
 
   html, body, #root,
   .app-container {
