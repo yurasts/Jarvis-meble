@@ -59,6 +59,7 @@
     width: var(--mobile-landscape-nav-width, 76px);
     flex-direction: column;
     gap: 2px;
+    justify-content: space-evenly;
     border-top: 0;
     border-right: 1px solid var(--border);
     padding: max(6px, env(safe-area-inset-top, 0px)) 4px max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
@@ -67,9 +68,10 @@
   }
 
   .navBtn {
-    flex: 0 0 auto;
+    flex: 0 0 48px;
     width: 100%;
     min-height: 48px;
+    max-height: 48px;
     padding: 6px 2px;
     border-radius: 7px;
   }
