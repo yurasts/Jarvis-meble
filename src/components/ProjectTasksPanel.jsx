@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { nextTaskId } from './dashboardHelpers';
 import s from './ProjectTasksPanel.module.css';
 
@@ -11,6 +12,7 @@ const formatTaskDate = (date) => {
 const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editText, setEditText] = useState('');
@@ -21,6 +23,17 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
   const openTasks = tasks.filter(task => !task.isDone);
   const doneTasks = tasks.filter(task => task.isDone);
 
+  const openAddModal = () => {
+    setNewText('');
+    setNewDate('');
+    setShowAddModal(true);
+  };
+
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    setNewText('');
+    setNewDate('');
+  };
   const addTask = (event) => {
     event.preventDefault();
     const text = newText.trim();
@@ -38,8 +51,7 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
         createdAt: new Date().toISOString(),
       },
     ]);
-    setNewText('');
-    setNewDate('');
+    closeAddModal();
   };
 
   const toggleTask = (taskId) => {
@@ -183,15 +195,50 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
           <h3>Zadania</h3>
           <span>{openTasks.length} do wykonania</span>
         </div>
+        <div className={s.headerActions}>
         {doneTasks.length > 0 && (
           <button type="button" className={s.doneToggle} onClick={() => setShowDone(value => !value)}>
             {showDone ? 'Ukryj' : 'Wykonane'} ({doneTasks.length})
           </button>
         )}
+          <button
+            type="button"
+            className={s.openAddButton}
+            onClick={openAddModal}
+            aria-label="Dodaj zadanie"
+          >
+            <span aria-hidden="true">+</span>
+            <span className={s.openAddLabel}>Dodaj zadanie</span>
+          </button>
+        </div>
       </div>
 
-      <form className={s.addForm} onSubmit={addTask}>
+      {showAddModal && createPortal((
+        <div
+          className={s.modalBackdrop}
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) closeAddModal();
+          }}
+        >
+          <form
+            className={s.addModal}
+            onSubmit={addTask}
+            onKeyDown={event => {
+              if (event.key === 'Escape') {
+                event.stopPropagation();
+                closeAddModal();
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-task-title"
+          >
+            <div className={s.modalHeader}>
+              <h3 id="add-task-title">Dodaj zadanie</h3>
+              <button type="button" className={s.modalClose} onClick={closeAddModal} aria-label="Zamknij">&times;</button>
+            </div>
         <input
+          autoFocus
           type="text"
           value={newText}
           onChange={event => setNewText(event.target.value)}
@@ -206,10 +253,17 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
           className={s.dateInput}
           aria-label="Termin (opcjonalnie)"
         />
+        <div className={s.modalActions}>
+          <button type="button" className={s.cancelAddButton} onClick={closeAddModal}>
+            Anuluj
+          </button>
         <button type="submit" className={s.addButton} disabled={!newText.trim()}>
-          <span aria-hidden="true">+</span> <span className={s.addLabel}>Dodaj</span>
+          Dodaj
         </button>
+        </div>
       </form>
+        </div>
+      ), document.body)}
 
       <div className={s.list}>
         {openTasks.length === 0 ? (
