@@ -407,6 +407,13 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
     );
   };
 
+  const actionButtons = (
+    <div className={s.actions}>
+      <button type="button" className={`${s.addBtn} ${s.addInflow}`} disabled={desktopLayout && editingKey !== null} onClick={() => openNew('inflow')}>+ Wpłata</button>
+      <button type="button" className={`${s.addBtn} ${s.addOutflow}`} disabled={desktopLayout && editingKey !== null} onClick={() => openNew('outflow')}>− Wydatek</button>
+    </div>
+  );
+
   return (
     <div className={`${s.card} ${desktopLayout ? s.desktopCard : ''}`} style={{ position: 'relative' }}>
       {pendingSwitch && (
@@ -484,6 +491,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
 
       {status === 'ready' && (
         <>
+          {desktopLayout && actionButtons}
           {desktopLayout ? (
             <div className={s.desktopTransactionsList}>
               {desktopPairs.length === 0 && !isNewKey(editingKey) && <div className={s.desktopEmpty}>Brak operacji.</div>}
@@ -555,10 +563,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
               {isNewKey(editingKey) && <div className={s.editorSlot}>{renderEditorFields()}</div>}
             </div>
           )}
-          <div className={s.actions}>
-            <button type="button" className={`${s.addBtn} ${s.addInflow}`} disabled={desktopLayout && editingKey !== null} onClick={() => openNew('inflow')}>+ Wpłata</button>
-            <button type="button" className={`${s.addBtn} ${s.addOutflow}`} disabled={desktopLayout && editingKey !== null} onClick={() => openNew('outflow')}>− Wydatek</button>
-          </div>
+          {!desktopLayout && actionButtons}
         </>
       )}
     </div>
