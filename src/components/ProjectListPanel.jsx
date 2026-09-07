@@ -56,13 +56,13 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
       onClick={() => onRowClick(client)}
       onKeyDown={(e) => { if (e.key === 'Enter') onRowClick(client); }}
     >
-      <span className={s.statusDot} style={{ background: color }} />
       <div className={s.rowText}>
         <div className={s.rowProject}>{projectName}</div>
       </div>
       <div className={s.rowMeta}>
         {openTasks > 0 && <span className={s.rowTasks}>{openTasks}</span>}
       </div>
+      <span className={s.statusDot} style={{ background: color }} />
     </div>
   );
 }
