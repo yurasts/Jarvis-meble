@@ -102,6 +102,45 @@
 .compactOutflow { color: #e53e3e; }
 .compactSaldo { color: var(--text-main); }
 
+.coefficientButton,
+.desktopCoefficientButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coefficientButton { color: var(--text-main); }
+
+.desktopCoefficientButton {
+  color: #fff;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.coefficientInput,
+.desktopCoefficientInput {
+  width: 52px;
+  min-width: 0;
+  height: 24px;
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: right;
+  outline: none;
+}
+
+.desktopCoefficientInput {
+  height: 22px;
+  font-size: 14px;
+}
+
 /* Плановые значения (не денежный поток) — Materiały/Usługi/współczynnik/Wycena, четыре
    выровненные колонки (review P1 — Figma "Client Balance"). */
 .plannedRow {

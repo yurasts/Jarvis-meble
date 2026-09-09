@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import ProjectCashLedger from './ProjectCashLedger';
 import { transactionsForProjects, summarizeCash } from '../utils/cashLedger';
+import { projectTotals } from './dashboardHelpers';
 import s from './MobileClientBalanceScreen.module.css';
 
 const formatDesktopMoney = (value) => Number(value || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -16,7 +17,7 @@ const formatDesktopMoney = (value) => Number(value || 0).toFixed(2).replace(/\B(
 // завершённые проекты тоже входят).
 export default function MobileClientBalanceScreen({
   clientName, clients, transactions, cashStatus = 'ready', onRetryCash,
-  onSaveTransaction, onDeleteTransaction, onClose, desktopLayout = false,
+  onSaveTransaction, onDeleteTransaction, onSaveProjectCoefficient, onClose, desktopLayout = false,
 }) {
   // editingKey лифтится сюда (не в ProjectCashLedger) — глобально на весь экран должен быть открыт
   // не более одного редактора операции, даже если у клиента несколько карточек-проектов.
@@ -35,11 +36,56 @@ export default function MobileClientBalanceScreen({
   const [pendingSwitchKey, setPendingSwitchKey] = useState(null);
   const [switchSaveError, setSwitchSaveError] = useState(false);
   const [switchSaving, setSwitchSaving] = useState(false);
+  const [coefficientDrafts, setCoefficientDrafts] = useState({});
+  const [editingCoefficientProjectId, setEditingCoefficientProjectId] = useState(null);
+  const [coefficientSaveError, setCoefficientSaveError] = useState('');
 
   const projects = (clients || []).filter((c) => (c.client_name || c.full_name || '—') === clientName);
   const projectIds = projects.map((p) => p.id);
   const clientTransactions = transactionsForProjects(transactions, projectIds);
   const { wplaty, wydatki, saldo } = summarizeCash(clientTransactions);
+
+  const coefficientDraftFor = (project) => {
+    const key = String(project.id);
+    return Object.prototype.hasOwnProperty.call(coefficientDrafts, key)
+      ? coefficientDrafts[key]
+      : String(Number(project.budget_coefficient) || 2);
+  };
+
+  const changedCoefficientProjects = projects.filter((project) => {
+    const key = String(project.id);
+    if (!Object.prototype.hasOwnProperty.call(coefficientDrafts, key)) return false;
+    const next = Number(coefficientDrafts[key]);
+    const current = Number(project.budget_coefficient) || 2;
+    return !Number.isFinite(next) || next <= 0 || Math.abs(next - current) > 0.000001;
+  });
+
+  const editCoefficient = (projectId) => {
+    const project = projects.find((item) => String(item.id) === String(projectId));
+    if (!project) return;
+    setCoefficientDrafts((current) => {
+      const key = String(projectId);
+      if (Object.prototype.hasOwnProperty.call(current, key)) return current;
+      return { ...current, [key]: String(Number(project.budget_coefficient) || 2) };
+    });
+    setEditingCoefficientProjectId(String(projectId));
+    setCoefficientSaveError('');
+  };
+
+  const changeCoefficient = (projectId, value) => {
+    setCoefficientDrafts((current) => ({ ...current, [String(projectId)]: value }));
+    setCoefficientSaveError('');
+  };
+
+  const cancelCoefficientEdit = (projectId) => {
+    setCoefficientDrafts((current) => {
+      const next = { ...current };
+      delete next[String(projectId)];
+      return next;
+    });
+    setEditingCoefficientProjectId(null);
+    setCoefficientSaveError('');
+  };
 
   // editingKey — либо `new-{direction}-{projectId}` (по конструкции принадлежит ровно одному
   // проекту), либо id существующей транзакции (глобально уникален, но какой карточке "свой" —
@@ -69,13 +115,16 @@ export default function MobileClientBalanceScreen({
   const cardRefs = useRef({});
 
   const requestBack = () => {
-    if (cashDirty) { setConfirmBack(true); return; }
+    if (cashDirty || changedCoefficientProjects.length > 0) { setConfirmBack(true); return; }
     onClose();
   };
 
   const discardAndBack = () => {
     setEditingKey(null);
     setCashDirty(false);
+    setCoefficientDrafts({});
+    setEditingCoefficientProjectId(null);
+    setCoefficientSaveError('');
     setConfirmBack(false);
     onClose();
   };
@@ -85,13 +134,43 @@ export default function MobileClientBalanceScreen({
   // остаётся видна внутри самой открытой карточки (её собственный editorError), кнопка ничего не
   // дублирует.
   const handleBottomSave = async () => {
-    if (activeProjectId === null) return;
-    const card = cardRefs.current[activeProjectId];
-    if (!card) return;
     setSavingBottom(true);
-    await card.saveActiveDraft();
+    setCoefficientSaveError('');
+
+    if (activeProjectId !== null) {
+      const card = cardRefs.current[activeProjectId];
+      const cashResult = await card?.saveActiveDraft();
+      if (cashResult?.error) {
+        setSavingBottom(false);
+        return;
+      }
+    }
+
+    for (const project of changedCoefficientProjects) {
+      const coefficient = Number(coefficientDraftFor(project));
+      if (!Number.isFinite(coefficient) || coefficient <= 0) {
+        setCoefficientSaveError('Współczynnik musi być większy od zera.');
+        setSavingBottom(false);
+        return;
+      }
+      const { total } = projectTotals(project);
+      const calculatedBudget = Number((total * coefficient).toFixed(2));
+      const result = await onSaveProjectCoefficient?.(project.id, coefficient, calculatedBudget);
+      if (result?.error || !onSaveProjectCoefficient) {
+        setCoefficientSaveError('Nie udało się zapisać współczynnika.');
+        setSavingBottom(false);
+        return;
+      }
+    }
+
+    if (changedCoefficientProjects.length > 0) {
+      setCoefficientDrafts({});
+      setEditingCoefficientProjectId(null);
+    }
     setSavingBottom(false);
   };
+
+  const hasSaveableChanges = activeProjectId !== null || changedCoefficientProjects.length > 0;
 
   // Przekazywane kartom zamiast bezpośrednio setEditingKey — jedyna droga, którą KAŻDA karta
   // (własna lub inna) zgłasza chęć otwarcia innej operacji. null (zamknięcie z poziomu karty, która
@@ -139,13 +218,19 @@ export default function MobileClientBalanceScreen({
               <span className={s.desktopClientName}>{clientName}</span>
             </div>
             <div className={s.desktopHeaderActions}>
+              {cashStatus === 'ready' && (
+                <div className={s.desktopHeaderSaldo}>
+                  <span>SALDO</span>
+                  <strong>{formatDesktopMoney(saldo)} zł</strong>
+                </div>
+              )}
               <span className={s.desktopProjectCount}>
                 {projects.length} {projects.length === 1 ? 'projekt' : 'projekty'}
               </span>
               <button
                 type="button"
                 className={s.desktopTopSave}
-                disabled={activeProjectId === null || savingBottom}
+                disabled={!hasSaveableChanges || savingBottom}
                 onClick={handleBottomSave}
               >
                 {savingBottom ? 'Zapisywanie…' : 'Zapisz'}
@@ -167,12 +252,9 @@ export default function MobileClientBalanceScreen({
                 <span>WYDATKI</span>
                 <strong className={s.outflow}>{formatDesktopMoney(wydatki)} zł</strong>
               </div>
-              <div className={`${s.desktopSummaryMetric} ${s.desktopSummarySaldo}`}>
-                <span>SALDO</span>
-                <strong>{formatDesktopMoney(saldo)} zł</strong>
-              </div>
             </div>
           )}
+          {coefficientSaveError && <div className={s.coefficientSaveError}>{coefficientSaveError}</div>}
         </div>
       ) : (
         <div className={s.header}>
@@ -206,6 +288,8 @@ export default function MobileClientBalanceScreen({
         </div>
       )}
 
+      {!desktopLayout && coefficientSaveError && <div className={s.mobileCoefficientSaveError}>{coefficientSaveError}</div>}
+
       <div className={`${s.content} ${desktopLayout ? s.desktopContent : ''}`}>
         {projects.length === 0 && <div className={s.empty}>Brak projektów tego klienta.</div>}
         {projects.map((project) => (
@@ -216,6 +300,12 @@ export default function MobileClientBalanceScreen({
               transactions={transactions}
               onSaveTransaction={onSaveTransaction}
               onDeleteTransaction={onDeleteTransaction}
+              coefficientValue={coefficientDraftFor(project)}
+              coefficientEditing={editingCoefficientProjectId === String(project.id)}
+              onCoefficientEdit={() => editCoefficient(project.id)}
+              onCoefficientChange={(value) => changeCoefficient(project.id, value)}
+              onCoefficientFinish={() => setEditingCoefficientProjectId(null)}
+              onCoefficientCancel={() => cancelCoefficientEdit(project.id)}
               showProjectHeader
               desktopLayout={desktopLayout}
               showDesktopSaldo={desktopLayout}
@@ -234,7 +324,7 @@ export default function MobileClientBalanceScreen({
         <button
           type="button"
           className={s.bottomSave}
-          disabled={activeProjectId === null || savingBottom}
+          disabled={!hasSaveableChanges || savingBottom}
           onClick={handleBottomSave}
         >
           {savingBottom ? 'Zapisywanie…' : 'Zapisz'}

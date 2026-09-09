@@ -57,6 +57,12 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   onRetry,
   desktopLayout = false,
   showDesktopSaldo = false,
+  coefficientValue,
+  coefficientEditing = false,
+  onCoefficientEdit,
+  onCoefficientChange,
+  onCoefficientFinish,
+  onCoefficientCancel,
 }, ref) {
   const isControlled = editingKeyProp !== undefined;
   const [internalEditingKey, setInternalEditingKey] = useState(null);
@@ -104,8 +110,9 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   const { wplaty, wydatki, saldo } = summarizeCash(list);
 
   const { materials, services, total: totalCost } = projectTotals(client);
-  const coef = Number(client.budget_coefficient) || 2;
-  const wycena = plannedWycena(client, totalCost);
+  const coef = Number(coefficientValue ?? client.budget_coefficient) || 2;
+  const hasCoefficientEditor = typeof onCoefficientEdit === 'function';
+  const wycena = coefficientValue !== undefined ? totalCost * coef : plannedWycena(client, totalCost);
 
   const closeEditor = () => {
     setEditingKey(null);
@@ -256,11 +263,52 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
     value > 0 ? `${sign}${formatDesktopMoney(value)} zł` : `${formatDesktopMoney(value)} zł`
   );
   const plannedMetrics = [
-    { label: 'Materiały', value: `${desktopLayout ? formatDesktopMoney(materials) : materials.toFixed(2)} zł` },
-    { label: 'Usługi', value: `${desktopLayout ? formatDesktopMoney(services) : services.toFixed(2)} zł` },
-    { label: 'Współczynnik', value: `×${coef}` },
-    { label: 'Wycena', value: `${desktopLayout ? formatDesktopMoney(wycena) : wycena.toFixed(2)} zł` },
+    { key: 'materials', label: 'Materiały', value: `${desktopLayout ? formatDesktopMoney(materials) : materials.toFixed(2)} zł` },
+    { key: 'services', label: 'Usługi', value: `${desktopLayout ? formatDesktopMoney(services) : services.toFixed(2)} zł` },
+    { key: 'coefficient', label: 'Współczynnik', value: `×${coef}` },
+    { key: 'estimate', label: 'Wycena', value: `${desktopLayout ? formatDesktopMoney(wycena) : wycena.toFixed(2)} zł` },
   ];
+
+  const renderMetricValue = (metric) => {
+    if (metric.key !== 'coefficient' || !hasCoefficientEditor) {
+      return <span className={desktopLayout ? s.desktopMetricValue : s.plannedValue}>{metric.value}</span>;
+    }
+
+    if (coefficientEditing) {
+      return (
+        <input
+          autoFocus
+          className={desktopLayout ? s.desktopCoefficientInput : s.coefficientInput}
+          type="number"
+          min="0.1"
+          step="0.1"
+          value={coefficientValue}
+          onChange={(event) => onCoefficientChange?.(event.target.value)}
+          onBlur={onCoefficientFinish}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              onCoefficientCancel?.();
+            }
+          }}
+          aria-label="Współczynnik projektu"
+        />
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        className={desktopLayout ? s.desktopCoefficientButton : s.coefficientButton}
+        onClick={onCoefficientEdit}
+        title="Zmień współczynnik"
+        aria-label={`Zmień współczynnik, obecnie ${coef}`}
+      >
+        ×{coef}
+      </button>
+    );
+  };
   const desktopInflows = list.filter((transaction) => transaction.direction === 'inflow');
   const desktopOutflows = list.filter((transaction) => transaction.direction === 'outflow');
   const desktopPairCount = Math.max(desktopInflows.length, desktopOutflows.length);
@@ -442,9 +490,9 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
               {projectName}
             </span>
             {plannedMetrics.map((metric) => (
-              <span key={metric.label} className={s.desktopMetric}>
+              <span key={metric.key} className={s.desktopMetric}>
                 <span className={s.desktopMetricLabel}>{metric.label}</span>
-                <span className={s.desktopMetricValue}>{metric.value}</span>
+                {renderMetricValue(metric)}
               </span>
             ))}
           </div>
@@ -471,9 +519,9 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
 
           <div className={s.plannedRow}>
             {plannedMetrics.map((metric) => (
-              <div key={metric.label} className={s.plannedCell}>
+              <div key={metric.key} className={s.plannedCell}>
                 <span className={s.plannedLabel}>{metric.label}</span>
-                <span className={s.plannedValue}>{metric.value}</span>
+                {renderMetricValue(metric)}
               </div>
             ))}
           </div>
