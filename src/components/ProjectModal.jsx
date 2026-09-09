@@ -80,6 +80,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // взаимно исключают друг друга — в любой момент активен ровно один.
   const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
   const [searchTerm, setSearchTerm] = useState('');
+  const [materialSearchOpen, setMaterialSearchOpen] = useState(false);
+  const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(0);
+  const materialPickerRef = useRef(null);
+  const materialOptionRefs = useRef([]);
   const [searchService, setSearchService] = useState('');
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -109,6 +113,18 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [desktopMaterialsOpen, setDesktopMaterialsOpen] = useState(true);
   const [desktopServicesOpen, setDesktopServicesOpen] = useState(true);
   const [desktopCashOpen, setDesktopCashOpen] = useState(true);
+
+  useEffect(() => {
+    if (!materialSearchOpen) return undefined;
+    const handleOutsidePointerDown = (event) => {
+      if (materialPickerRef.current?.contains(event.target)) return;
+      setMaterialSearchOpen(false);
+      setHighlightedMaterialIndex(0);
+      setExpandedMaterialId(null);
+    };
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
+  }, [materialSearchOpen]);
 
   // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
   // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
@@ -339,15 +355,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     setClient(prev => ({ ...prev, budget: newBudget }));
   }, [totalProjectCost, client.budget_coefficient, setClient]);
 
-  // Baza materiałów — компактный поиск (compact-project-workspace): пустой/пробельный запрос —
-  // ноль строк (каталог больше не отображается постоянно), непустой — фильтр по name/symbol,
-  // как раньше, ограничение на 12 совпадений применяется в месте рендера (.slice(0, 12)).
-  const filteredMaterials = searchTerm.trim()
-    ? (materials || []).filter(m => {
-        const q = searchTerm.trim().toLowerCase();
-        return (m.name || '').toLowerCase().includes(q) || (m.symbol || '').toLowerCase().includes(q);
-      })
-    : [];
+  // Baza materiałów: fokus otwiera istniejące pozycje także przy pustym zapytaniu;
+  // wpisany tekst filtruje po name/symbol, a widok ogranicza listę do 12 pozycji.
+  const materialQuery = searchTerm.trim().toLowerCase();
+  const filteredMaterials = materialQuery
+    ? (materials || []).filter(m =>
+        (m.name || '').toLowerCase().includes(materialQuery) ||
+        (m.symbol || '').toLowerCase().includes(materialQuery)
+      )
+    : (materials || []);
 
   const toggleRow = (key) => setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleExpandedItem = (key) => setExpandedItemKey(prev => (prev === key ? null : key));
@@ -752,6 +768,147 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     </button>
   );
 
+  const closeMaterialPicker = () => {
+    setSearchTerm('');
+    setMaterialSearchOpen(false);
+    setHighlightedMaterialIndex(0);
+    setExpandedMaterialId(null);
+  };
+
+  const addMaterialFromPicker = (material) => {
+    handleAddItem('calc_materials', calcMaterials, material);
+    closeMaterialPicker();
+  };
+
+  const handleManualMaterialAdd = () => {
+    closeMaterialPicker();
+    handleCustomAdd('calc_materials', calcMaterials);
+  };
+
+  const moveMaterialHighlight = (nextIndex) => {
+    const visibleCount = Math.min(filteredMaterials.length, 12);
+    if (!visibleCount) return;
+    const normalizedIndex = (nextIndex + visibleCount) % visibleCount;
+    setHighlightedMaterialIndex(normalizedIndex);
+    requestAnimationFrame(() => materialOptionRefs.current[normalizedIndex]?.scrollIntoView({ block: 'nearest' }));
+  };
+
+  const handleMaterialPickerKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeMaterialPicker();
+      e.currentTarget.blur();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMaterialSearchOpen(true);
+      moveMaterialHighlight(highlightedMaterialIndex + 1);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMaterialSearchOpen(true);
+      moveMaterialHighlight(highlightedMaterialIndex - 1);
+      return;
+    }
+    if (e.key === 'Enter' && materialSearchOpen) {
+      const selected = filteredMaterials.slice(0, 12)[highlightedMaterialIndex];
+      if (selected) {
+        e.preventDefault();
+        addMaterialFromPicker(selected);
+      }
+    }
+  };
+
+  // Jeden wspólny selektor dla desktopu i mobile. Bez zapytania pokazuje pierwsze pozycje
+  // z już załadowanej bazy; wpisany tekst filtruje po nazwie lub symbolu.
+  const renderMaterialPicker = (compact = false) => (
+    <div ref={materialPickerRef} style={{ position: 'relative', width: '100%', boxSizing: 'border-box', background: bgInput }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: compact ? '4px' : '5px' }}>
+        <input
+          type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={materialSearchOpen}
+          aria-controls="material-picker-options"
+          aria-activedescendant={materialSearchOpen && filteredMaterials[highlightedMaterialIndex] ? `material-option-${highlightedMaterialIndex}` : undefined}
+          placeholder="🔍 Szukaj materiału w bazie…"
+          value={searchTerm}
+          onFocus={() => { setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
+          onChange={e => { setSearchTerm(e.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
+          onKeyDown={handleMaterialPickerKeyDown}
+          style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: compact ? '6px 8px' : '5px 8px', border: `1px solid ${border}`, borderRadius: '5px', fontSize: compact ? '12.5px' : '12px', background: bgInput, color: text }}
+        />
+        <button
+          type="button"
+          onClick={handleManualMaterialAdd}
+          style={{ flexShrink: 0, minHeight: compact ? '34px' : '30px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: compact ? '4px 8px' : '3px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+        >
+          + Ręcznie
+        </button>
+      </div>
+
+      {materialSearchOpen && (
+        <div
+          id="material-picker-options"
+          role="listbox"
+          style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, maxHeight: compact ? '208px' : '220px', overflowY: 'auto', border: `1px solid ${border}`, borderRadius: '0 0 6px 6px', boxShadow: '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
+        >
+          {filteredMaterials.slice(0, 12).map((m, index) => {
+            const materialKey = m.id ?? `${m.name || 'material'}-${index}`;
+            const isSelected = calcMaterials.some(item => item.id === m.id);
+            const isExpanded = expandedMaterialId === materialKey;
+            return (
+              <div
+                key={materialKey}
+                id={`material-option-${index}`}
+                role="option"
+                aria-selected={highlightedMaterialIndex === index}
+                ref={node => { materialOptionRefs.current[index] = node; }}
+                onMouseEnter={() => setHighlightedMaterialIndex(index)}
+                style={{ borderBottom: `1px solid ${border}`, backgroundColor: highlightedMaterialIndex === index ? c('#dbeafe', '#17365c') : (isSelected ? bgMatRow : bgInput) }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: compact ? '5px' : '8px', minHeight: compact ? '34px' : '32px', padding: compact ? '2px 4px 2px 8px' : '2px 5px 2px 8px' }}>
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpandedMaterialId(prev => prev === materialKey ? null : materialKey)}
+                    title={m.name || ''}
+                    style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isExpanded ? 'normal' : 'nowrap', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: text, fontFamily: 'inherit', fontSize: compact ? '12px' : '12px', fontWeight: 600 }}
+                  >
+                    {m.name}
+                  </button>
+                  <span style={{ whiteSpace: 'nowrap', color: textLight, fontSize: compact ? '10.5px' : '11px', fontWeight: 400 }}>
+                    <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
+                    {' · '}{m.unit || 'szt'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => addMaterialFromPicker(m)}
+                    style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '10.5px', whiteSpace: 'nowrap' }}
+                  >
+                    {isSelected ? '+ 1' : '+ Dodaj'}
+                  </button>
+                </div>
+                {isExpanded && (
+                  <div style={{ padding: '0 8px 5px', fontSize: '10.5px', color: textLight, whiteSpace: 'normal' }}>
+                    {m.supplier && <>Dostawca: {m.supplier} · </>}
+                    Kategoria: {m.category || '-'}
+                    {m.symbol && <> · Symbol: {m.symbol}</>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filteredMaterials.length === 0 && (
+            <div style={{ padding: '9px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
       <div style={innerStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
@@ -1025,50 +1182,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 {renderSectionHeader(mobileMaterialsOpen, handleToggleMobileMaterials, totalMaterials)}
                 {mobileMaterialsOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {/* 1. Szukaj materiału w bazie… */}
-                    <input
-                      type="text"
-                      placeholder="Szukaj materiału w bazie…"
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Escape') setSearchTerm(''); }}
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: `1px solid ${border}`, borderRadius: '6px', fontSize: '12.5px', background: bgInput, color: text }}
-                    />
-                    {/* 2. Результаты — только при непустом запросе */}
-                    {searchTerm.trim() && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '220px', overflowY: 'auto', border: `1px solid ${border}`, borderRadius: '6px', padding: '4px', background: bgInput }}>
-                        {filteredMaterials.slice(0, 12).map(m => {
-                          const isSelected = calcMaterials.some(item => item.id === m.id);
-                          return (
-                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px' }}>
-                              <span style={{ flex: 1, minWidth: 0, fontSize: '12.5px', fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
-                              <span style={{ flexShrink: 0, fontSize: '12px', color: c('#2b6cb0','#63b3ed'), fontWeight: 'bold' }}>{Number(m.price).toFixed(2)} zł</span>
-                              <button
-                                type="button"
-                                onClick={() => { handleAddItem('calc_materials', calcMaterials, m); setSearchTerm(''); }}
-                                style={{ flexShrink: 0, background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}
-                              >
-                                {isSelected ? '+ Kol.' : '+ Dodaj'}
-                              </button>
-                            </div>
-                          );
-                        })}
-                        {filteredMaterials.length === 0 && (
-                          <div style={{ padding: '8px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
-                        )}
-                      </div>
-                    )}
-                    {/* 3. Добавленные материалы */}
+                    {/* Dodane materiały */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                       {calcMaterials.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych materiałów</div>
                       )}
                       {calcMaterials.map((item, index) => renderMobileRow('calc_materials', calcMaterials, index))}
                     </div>
-                    {/* 4. Ручное добавление */}
-                    <div style={{ textAlign: 'right' }}>
-                      <button type="button" onClick={() => handleCustomAdd('calc_materials', calcMaterials)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '7px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>+ Dodaj pozycję ręcznie</button>
-                    </div>
+                    {renderMaterialPicker(true)}
                   </div>
                 )}
               </div>
@@ -1180,9 +1301,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         </div>
                       );
                     })}
+                    {renderMaterialPicker(true)}
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
+                  <div style={{ overflow: 'visible', border: `1px solid ${border}`, borderRadius: '6px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
                       <thead>
                         <tr style={{ background: bgHeader, textAlign: 'left', color: textLight }}>
@@ -1233,65 +1355,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           );
                         })}
                         {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
+                        <tr>
+                          <td colSpan="6" style={{ padding: 0, borderTop: `1px solid ${border}`, textAlign: 'left' }}>
+                            {renderMaterialPicker(false)}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
-                  </div>
-                )}
-                <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                  <button onClick={() => handleCustomAdd('calc_materials', calcMaterials)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj pozycję ręcznie</button>
-                </div>
-              </div>
-
-              {/* Baza materiałów — компактный поиск (compact-project-workspace): без заголовка,
-                  без фильтров категории/поставщика, без постоянно отображаемого каталога и без
-                  "Brak wyników" на пустой запрос — список появляется только во время ввода. */}
-              <div style={{ display: desktopMaterialsOpen ? 'block' : 'none' }}>
-                <input
-                  type="text"
-                  placeholder="🔍 Szukaj materiału…"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Escape') setSearchTerm(''); }}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                />
-                {searchTerm.trim() && (
-                  <div style={{ marginTop: '6px', maxHeight: '220px', overflowY: 'auto', border: `1px solid ${border}`, background: bgInput, borderRadius: '4px' }}>
-                    {filteredMaterials.slice(0, 12).map(m => {
-                      const isSelected = calcMaterials.some(item => item.id === m.id);
-                      const isExpanded = expandedMaterialId === m.id;
-                      return (
-                        <div key={m.id} style={{ borderBottom: `1px solid ${border}`, backgroundColor: isSelected ? bgMatRow : bgInput }}>
-                          <div
-                            onClick={() => setExpandedMaterialId(prev => prev === m.id ? null : m.id)}
-                            style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '4px 8px', fontSize: '12px', cursor: 'pointer' }}
-                          >
-                            <div style={{
-                              flex: 1, minWidth: 0, fontWeight: 'bold', color: text,
-                              overflow: 'hidden', textOverflow: 'ellipsis',
-                              whiteSpace: isExpanded ? 'normal' : 'nowrap',
-                            }}>
-                              {m.name}
-                            </div>
-                            <div style={{ width: '64px', flexShrink: 0, textAlign: 'left' }}>
-                              <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
-                            </div>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleAddItem('calc_materials', calcMaterials, m); setSearchTerm(''); }}
-                              style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '3px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '62px', flexShrink: 0 }}
-                            >
-                              {isSelected ? '+ Kol.' : '+ Dodaj'}
-                            </button>
-                          </div>
-                          {isExpanded && (
-                            <div style={{ padding: '0 8px 6px 8px', fontSize: '11px', color: textLight }}>
-                              {m.supplier && <>Dostawca: {m.supplier} · </>}
-                              Kategoria: {m.category || '-'}
-                              {m.symbol && <> · Symbol: {m.symbol}</>}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
               </div>
