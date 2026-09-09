@@ -250,6 +250,25 @@ function App() {
     await supabase.from('clients').update(updatedFields).eq('id', clientId)
   }
 
+  async function saveProjectCoefficient(projectId, coefficient, calculatedBudget) {
+    try {
+      const { data, error } = await supabase.from('clients')
+        .update({ budget_coefficient: coefficient, budget: calculatedBudget })
+        .eq('id', projectId)
+        .select()
+        .single()
+
+      if (error) return { error }
+
+      setClients(prev => prev.map(c => c.id === projectId ? data : c))
+      setActiveClient(prev => prev?.id === projectId ? data : prev)
+      setOriginalClient(prev => prev?.id === projectId ? JSON.parse(JSON.stringify(data)) : prev)
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
+  }
+
   async function handleAddClient(e) {
     e.preventDefault()
     const { data, error } = await supabase.from('clients').insert([{
@@ -575,6 +594,7 @@ function App() {
             transactions={cashTransactions}
             onSaveTransaction={saveCashTransaction}
             onDeleteTransaction={deleteCashTransaction}
+            onSaveProjectCoefficient={saveProjectCoefficient}
             cashStatus={cashStatus}
             onRetryCash={loadCashTransactions}
             onClose={() => { setBalanceClientName(null); setViewMode('tab') }}
@@ -790,6 +810,7 @@ function App() {
           transactions={cashTransactions}
           onSaveTransaction={saveCashTransaction}
           onDeleteTransaction={deleteCashTransaction}
+          onSaveProjectCoefficient={saveProjectCoefficient}
           cashStatus={cashStatus}
           onRetryCash={loadCashTransactions}
           onClose={() => setBalanceClientName(null)}

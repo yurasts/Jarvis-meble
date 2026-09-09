@@ -283,6 +283,23 @@
   flex-shrink: 0;
 }
 
+.desktopHeaderSaldo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.desktopHeaderSaldo strong {
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 700;
+}
+
 .desktopProjectCount {
   color: var(--text-muted);
   font-size: 14px;
@@ -359,6 +376,23 @@
   color: var(--accent);
   font-size: 12px;
   line-height: 20px;
+}
+
+.coefficientSaveError {
+  color: #e53e3e;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: right;
+}
+
+.mobileCoefficientSaveError {
+  flex-shrink: 0;
+  padding: 6px 15px;
+  color: #e53e3e;
+  background: var(--modal-bg);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
 }
 
 .desktopContent {
