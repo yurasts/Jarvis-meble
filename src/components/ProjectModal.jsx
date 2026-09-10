@@ -83,6 +83,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [materialSearchOpen, setMaterialSearchOpen] = useState(false);
   const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(0);
   const materialPickerRef = useRef(null);
+  const materialSearchInputRef = useRef(null);
   const materialOptionRefs = useRef([]);
   const [searchService, setSearchService] = useState('');
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
@@ -118,6 +119,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     if (!materialSearchOpen) return undefined;
     const handleOutsidePointerDown = (event) => {
       if (materialPickerRef.current?.contains(event.target)) return;
+      materialSearchInputRef.current?.blur();
       setMaterialSearchOpen(false);
       setHighlightedMaterialIndex(0);
       setExpandedMaterialId(null);
@@ -273,7 +275,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     onClose();
   }, [isMobileVariant, onClose]);
 
-  const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : finalizeClose(); }, [isDirty, finalizeClose]);
+  const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : finalizeClose(); }, [isDirty, finalizeClose, setConfirmClose]);
 
   // Escape w widoku embedded i mobile: idzie przez ten sam handleClose (z potwierdzeniem
   // niezapisanych zmian) — nigdy nie zamyka bezpośrednio przez onClose().
@@ -501,6 +503,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     const name = prompt('Wpisz nazwę:');
     if (!name) return;
     const price = parseFloat(prompt('Wpisz cenę za szt/usługę (zł):') || '0');
+    // eslint-disable-next-line react-hooks/purity -- ID powstaje wyłącznie po ręcznym dodaniu pozycji przez użytkownika.
     updateItems(field, [...currentItems, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak', ...authorMeta() }]);
   };
 
@@ -769,6 +772,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   );
 
   const closeMaterialPicker = () => {
+    materialSearchInputRef.current?.blur();
     setSearchTerm('');
     setMaterialSearchOpen(false);
     setHighlightedMaterialIndex(0);
@@ -823,10 +827,44 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   // Jeden wspólny selektor dla desktopu i mobile. Bez zapytania pokazuje pierwsze pozycje
   // z już załadowanej bazy; wpisany tekst filtruje po nazwie lub symbolu.
-  const renderMaterialPicker = (compact = false) => (
-    <div ref={materialPickerRef} style={{ position: 'relative', width: '100%', boxSizing: 'border-box', background: bgInput }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: compact ? '4px' : '5px' }}>
+  const renderMaterialPicker = (compact = false) => {
+    // Na iPhonie selektor po otwarciu staje się kompaktowym panelem przy górnej krawędzi
+    // widocznego ekranu. Dzięki temu wyniki nie otwierają się pod polem znajdującym się na
+    // końcu długiej listy i nie chowają się za klawiaturą. Font 16px na polu wejściowym jest
+    // celowy: iOS Safari automatycznie powiększa stronę po fokusie na input z mniejszym fontem.
+    const mobileOverlay = compact && isMobileVariant && materialSearchOpen;
+
+    return (
+    <div ref={materialPickerRef} style={{
+      position: mobileOverlay ? 'fixed' : 'relative',
+      zIndex: mobileOverlay ? 1300 : 'auto',
+      top: mobileOverlay ? 'calc(env(safe-area-inset-top, 0px) + 6px)' : 'auto',
+      left: mobileOverlay ? 'calc(var(--mobile-landscape-nav-width, 0px) + 8px)' : 'auto',
+      right: mobileOverlay ? '8px' : 'auto',
+      width: mobileOverlay ? 'auto' : '100%',
+      boxSizing: 'border-box',
+      background: bgInput,
+      border: mobileOverlay ? `1px solid ${border}` : 'none',
+      borderRadius: mobileOverlay ? '8px' : 0,
+      boxShadow: mobileOverlay ? '0 8px 28px rgba(0,0,0,0.28)' : 'none',
+      overflow: 'hidden',
+    }}>
+      {mobileOverlay && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '26px', padding: '2px 7px 0 10px', color: textLight, fontSize: '11px', fontWeight: 700 }}>
+          <span>Materiały z bazy</span>
+          <button
+            type="button"
+            aria-label="Zamknij wyszukiwanie materiałów"
+            onClick={closeMaterialPicker}
+            style={{ width: '32px', height: '32px', padding: 0, border: 'none', background: 'transparent', color: text, fontSize: '20px', lineHeight: 1, cursor: 'pointer' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: mobileOverlay ? '2px 5px 5px' : compact ? '4px' : '5px' }}>
         <input
+          ref={materialSearchInputRef}
           type="text"
           role="combobox"
           aria-autocomplete="list"
@@ -838,12 +876,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           onFocus={() => { setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
           onChange={e => { setSearchTerm(e.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
           onKeyDown={handleMaterialPickerKeyDown}
-          style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', padding: compact ? '6px 8px' : '5px 8px', border: `1px solid ${border}`, borderRadius: '5px', fontSize: compact ? '12.5px' : '12px', background: bgInput, color: text }}
+          style={{ flex: 1, minWidth: 0, height: mobileOverlay ? '38px' : 'auto', boxSizing: 'border-box', padding: compact ? '6px 8px' : '5px 8px', border: `1px solid ${border}`, borderRadius: '5px', fontSize: compact && isMobileVariant ? '16px' : compact ? '12.5px' : '12px', background: bgInput, color: text }}
         />
         <button
           type="button"
           onClick={handleManualMaterialAdd}
-          style={{ flexShrink: 0, minHeight: compact ? '34px' : '30px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: compact ? '4px 8px' : '3px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+          style={{ flexShrink: 0, minHeight: mobileOverlay ? '38px' : compact ? '34px' : '30px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: compact ? '4px 8px' : '3px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
         >
           + Ręcznie
         </button>
@@ -853,7 +891,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         <div
           id="material-picker-options"
           role="listbox"
-          style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, maxHeight: compact ? '208px' : '220px', overflowY: 'auto', border: `1px solid ${border}`, borderRadius: '0 0 6px 6px', boxShadow: '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
+          style={{ position: mobileOverlay ? 'relative' : 'absolute', zIndex: 20, top: mobileOverlay ? 'auto' : '100%', left: 0, right: 0, maxHeight: mobileOverlay ? 'min(36dvh, 260px)' : compact ? '208px' : '220px', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', border: `1px solid ${border}`, borderLeft: mobileOverlay ? 'none' : `1px solid ${border}`, borderRight: mobileOverlay ? 'none' : `1px solid ${border}`, borderBottom: mobileOverlay ? 'none' : `1px solid ${border}`, borderRadius: mobileOverlay ? 0 : '0 0 6px 6px', boxShadow: mobileOverlay ? 'none' : '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
         >
           {filteredMaterials.slice(0, 12).map((m, index) => {
             const materialKey = m.id ?? `${m.name || 'material'}-${index}`;
@@ -869,7 +907,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 onMouseEnter={() => setHighlightedMaterialIndex(index)}
                 style={{ borderBottom: `1px solid ${border}`, backgroundColor: highlightedMaterialIndex === index ? c('#dbeafe', '#17365c') : (isSelected ? bgMatRow : bgInput) }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: compact ? '5px' : '8px', minHeight: compact ? '34px' : '32px', padding: compact ? '2px 4px 2px 8px' : '2px 5px 2px 8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: compact ? '5px' : '8px', minHeight: mobileOverlay ? '30px' : compact ? '34px' : '32px', padding: mobileOverlay ? '1px 4px 1px 8px' : compact ? '2px 4px 2px 8px' : '2px 5px 2px 8px' }}>
                   <button
                     type="button"
                     aria-expanded={isExpanded}
@@ -907,7 +945,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
