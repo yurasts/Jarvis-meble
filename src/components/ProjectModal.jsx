@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
 import ProjectTasksPanel from './ProjectTasksPanel';
@@ -127,6 +128,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     document.addEventListener('pointerdown', handleOutsidePointerDown);
     return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
   }, [materialSearchOpen]);
+
+  useEffect(() => {
+    if (!materialSearchOpen || !isMobileVariant) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      materialSearchInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [isMobileVariant, materialSearchOpen]);
 
   // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
   // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
@@ -825,31 +834,32 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     }
   };
 
-  // Jeden wspólny selektor dla desktopu i mobile. Bez zapytania pokazuje pierwsze pozycje
-  // z już załadowanej bazy; wpisany tekst filtruje po nazwie lub symbolu.
+  // Jeden wspólny selektor dla desktopu i mobile. Na mobile pole w treści jest przyciskiem,
+  // a prawdziwy input powstaje dopiero w portalu u góry ekranu. iOS nie zdąży więc przewinąć
+  // długiej strony do dolnego pola przed przeniesieniem selektora.
   const renderMaterialPicker = (compact = false) => {
-    // Na iPhonie selektor po otwarciu staje się kompaktowym panelem przy górnej krawędzi
-    // widocznego ekranu. Dzięki temu wyniki nie otwierają się pod polem znajdującym się na
-    // końcu długiej listy i nie chowają się za klawiaturą. Font 16px na polu wejściowym jest
-    // celowy: iOS Safari automatycznie powiększa stronę po fokusie na input z mniejszym fontem.
-    const mobileOverlay = compact && isMobileVariant && materialSearchOpen;
+    const mobilePicker = compact && isMobileVariant;
+    const openMobilePicker = () => {
+      setHighlightedMaterialIndex(0);
+      setMaterialSearchOpen(true);
+    };
 
-    return (
+    const pickerPanel = (
     <div ref={materialPickerRef} style={{
-      position: mobileOverlay ? 'fixed' : 'relative',
-      zIndex: mobileOverlay ? 1300 : 'auto',
-      top: mobileOverlay ? 'calc(env(safe-area-inset-top, 0px) + 6px)' : 'auto',
-      left: mobileOverlay ? 'calc(var(--mobile-landscape-nav-width, 0px) + 8px)' : 'auto',
-      right: mobileOverlay ? '8px' : 'auto',
-      width: mobileOverlay ? 'auto' : '100%',
+      position: mobilePicker ? 'fixed' : 'relative',
+      zIndex: mobilePicker ? 1300 : 'auto',
+      top: mobilePicker ? 'calc(env(safe-area-inset-top, 0px) + 6px)' : 'auto',
+      left: mobilePicker ? 'calc(var(--mobile-landscape-nav-width, 0px) + 8px)' : 'auto',
+      right: mobilePicker ? '8px' : 'auto',
+      width: mobilePicker ? 'auto' : '100%',
       boxSizing: 'border-box',
       background: bgInput,
-      border: mobileOverlay ? `1px solid ${border}` : 'none',
-      borderRadius: mobileOverlay ? '8px' : 0,
-      boxShadow: mobileOverlay ? '0 8px 28px rgba(0,0,0,0.28)' : 'none',
+      border: mobilePicker ? `1px solid ${border}` : 'none',
+      borderRadius: mobilePicker ? '8px' : 0,
+      boxShadow: mobilePicker ? '0 8px 28px rgba(0,0,0,0.28)' : 'none',
       overflow: 'hidden',
     }}>
-      {mobileOverlay && (
+      {mobilePicker && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '26px', padding: '2px 7px 0 10px', color: textLight, fontSize: '11px', fontWeight: 700 }}>
           <span>Materiały z bazy</span>
           <button
@@ -862,7 +872,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </button>
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: mobileOverlay ? '2px 5px 5px' : compact ? '4px' : '5px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: mobilePicker ? '2px 5px 5px' : compact ? '4px' : '5px' }}>
         <input
           ref={materialSearchInputRef}
           type="text"
@@ -876,12 +886,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           onFocus={() => { setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
           onChange={e => { setSearchTerm(e.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
           onKeyDown={handleMaterialPickerKeyDown}
-          style={{ flex: 1, minWidth: 0, height: mobileOverlay ? '38px' : 'auto', boxSizing: 'border-box', padding: compact ? '6px 8px' : '5px 8px', border: `1px solid ${border}`, borderRadius: '5px', fontSize: compact && isMobileVariant ? '16px' : compact ? '12.5px' : '12px', background: bgInput, color: text }}
+          style={{ flex: 1, minWidth: 0, height: mobilePicker ? '38px' : 'auto', boxSizing: 'border-box', padding: compact ? '6px 8px' : '5px 8px', border: `1px solid ${border}`, borderRadius: '5px', fontSize: mobilePicker ? '16px' : compact ? '12.5px' : '12px', background: bgInput, color: text }}
         />
         <button
           type="button"
           onClick={handleManualMaterialAdd}
-          style={{ flexShrink: 0, minHeight: mobileOverlay ? '38px' : compact ? '34px' : '30px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: compact ? '4px 8px' : '3px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+          style={{ flexShrink: 0, minHeight: mobilePicker ? '38px' : compact ? '34px' : '30px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: compact ? '4px 8px' : '3px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
         >
           + Ręcznie
         </button>
@@ -891,7 +901,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         <div
           id="material-picker-options"
           role="listbox"
-          style={{ position: mobileOverlay ? 'relative' : 'absolute', zIndex: 20, top: mobileOverlay ? 'auto' : '100%', left: 0, right: 0, maxHeight: mobileOverlay ? 'min(36dvh, 260px)' : compact ? '208px' : '220px', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', border: `1px solid ${border}`, borderLeft: mobileOverlay ? 'none' : `1px solid ${border}`, borderRight: mobileOverlay ? 'none' : `1px solid ${border}`, borderBottom: mobileOverlay ? 'none' : `1px solid ${border}`, borderRadius: mobileOverlay ? 0 : '0 0 6px 6px', boxShadow: mobileOverlay ? 'none' : '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
+          style={{ position: mobilePicker ? 'relative' : 'absolute', zIndex: 20, top: mobilePicker ? 'auto' : '100%', left: 0, right: 0, maxHeight: mobilePicker ? 'min(36dvh, 260px)' : compact ? '208px' : '220px', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', border: `1px solid ${border}`, borderLeft: mobilePicker ? 'none' : `1px solid ${border}`, borderRight: mobilePicker ? 'none' : `1px solid ${border}`, borderBottom: mobilePicker ? 'none' : `1px solid ${border}`, borderRadius: mobilePicker ? 0 : '0 0 6px 6px', boxShadow: mobilePicker ? 'none' : '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
         >
           {filteredMaterials.slice(0, 12).map((m, index) => {
             const materialKey = m.id ?? `${m.name || 'material'}-${index}`;
@@ -907,7 +917,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 onMouseEnter={() => setHighlightedMaterialIndex(index)}
                 style={{ borderBottom: `1px solid ${border}`, backgroundColor: highlightedMaterialIndex === index ? c('#dbeafe', '#17365c') : (isSelected ? bgMatRow : bgInput) }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: compact ? '5px' : '8px', minHeight: mobileOverlay ? '30px' : compact ? '34px' : '32px', padding: mobileOverlay ? '1px 4px 1px 8px' : compact ? '2px 4px 2px 8px' : '2px 5px 2px 8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: compact ? '5px' : '8px', minHeight: mobilePicker ? '30px' : compact ? '34px' : '32px', padding: mobilePicker ? '1px 4px 1px 8px' : compact ? '2px 4px 2px 8px' : '2px 5px 2px 8px' }}>
                   <button
                     type="button"
                     aria-expanded={isExpanded}
@@ -945,6 +955,33 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         </div>
       )}
     </div>
+    );
+
+    if (!mobilePicker) return pickerPanel;
+
+    return (
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%', padding: '4px', boxSizing: 'border-box', background: bgInput }}>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={materialSearchOpen}
+            aria-controls="material-picker-options"
+            onClick={openMobilePicker}
+            style={{ flex: 1, minWidth: 0, height: '34px', boxSizing: 'border-box', padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '5px', background: bgInput, color: textLight, fontFamily: 'inherit', fontSize: '12.5px', textAlign: 'left', cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            🔍 Szukaj materiału w bazie…
+          </button>
+          <button
+            type="button"
+            onClick={handleManualMaterialAdd}
+            style={{ flexShrink: 0, minHeight: '34px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: '4px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+          >
+            + Ręcznie
+          </button>
+        </div>
+        {materialSearchOpen && createPortal(pickerPanel, document.body)}
+      </>
     );
   };
 
