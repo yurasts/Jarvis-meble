@@ -857,7 +857,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       border: mobilePicker ? `1px solid ${border}` : 'none',
       borderRadius: mobilePicker ? '8px' : 0,
       boxShadow: mobilePicker ? '0 8px 28px rgba(0,0,0,0.28)' : 'none',
-      overflow: 'hidden',
+      overflow: mobilePicker ? 'hidden' : 'visible',
     }}>
       {mobilePicker && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '26px', padding: '2px 7px 0 10px', color: textLight, fontSize: '11px', fontWeight: 700 }}>
