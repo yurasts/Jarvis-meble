@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
 import ProjectTasksPanel from './ProjectTasksPanel';
+import ProjectImportantPoints from './ProjectImportantPoints';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 
@@ -207,6 +208,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         calc_expenses:  client.calc_expenses  || [],
         tasks:          client.tasks          || [],
         notes:         client.notes         || '',
+        important_points: client.important_points || [],
         deadline:      client.deadline      || '',
         address:       client.address       || '',
         phone:         client.phone         || '',
@@ -219,6 +221,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         calc_expenses:  originalClient.calc_expenses  || [],
         tasks:          originalClient.tasks          || [],
         notes:         originalClient.notes         || '',
+        important_points: originalClient.important_points || [],
         deadline:      originalClient.deadline      || '',
         address:       originalClient.address       || '',
         phone:         originalClient.phone         || '',
@@ -1766,6 +1769,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               tasks={client.tasks || []}
               currentProfile={currentProfile}
               onChange={(tasks) => setClient(prev => ({ ...prev, tasks }))}
+            />
+          )}
+
+          {(isEmbedded || isMobileVariant) && (
+            <ProjectImportantPoints
+              points={client.important_points || []}
+              currentProfile={currentProfile}
+              onChange={(importantPoints) => setClient(prev => ({ ...prev, important_points: importantPoints }))}
             />
           )}
         </div>
