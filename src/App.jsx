@@ -297,6 +297,7 @@ function App() {
         calc_services:      activeClient.calc_services     || [],
         calc_expenses:      activeClient.calc_expenses     || [],
         tasks:              activeClient.tasks             || [],
+        important_points:   activeClient.important_points  || [],
         budget:             activeClient.budget            || 0,
         budget_coefficient: activeClient.budget_coefficient || 2.0,
       })
