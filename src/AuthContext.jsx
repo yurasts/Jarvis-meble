@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   // Канал presence живёт в ref, а не в state — сам по себе не влияет на рендер,
   // и не требует synchronous setState внутри эффекта его создания (см. ниже).
   const presenceChannelRef = useRef(null)
+  const sessionUserId = session?.user?.id
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data?.session ?? null))
@@ -29,18 +30,25 @@ export function AuthProvider({ children }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  const refreshProfiles = useCallback(async () => {
+    if (!sessionUserId) return { error: null }
+
+    const { data, error } = await supabase.from('profiles').select('*')
+    if (!error && data) {
+      setProfilesById(Object.fromEntries(data.map(p => [p.id, p])))
+      setProfile(data.find(p => p.id === sessionUserId) || null)
+    }
+    setProfilesLoaded(true)
+    return { error }
+  }, [sessionUserId])
+
   useEffect(() => {
-    if (!session) return
+    if (!sessionUserId) return
     async function loadProfiles() {
-      const { data } = await supabase.from('profiles').select('*')
-      if (data) {
-        setProfilesById(Object.fromEntries(data.map(p => [p.id, p])))
-        setProfile(data.find(p => p.id === session.user.id) || null)
-      }
-      setProfilesLoaded(true)
+      await refreshProfiles()
     }
     loadProfiles()
-  }, [session])
+  }, [sessionUserId, refreshProfiles])
 
   // Применяем тему к DOM
   useEffect(() => {
@@ -52,7 +60,6 @@ export function AuthProvider({ children }) {
   // канала) реагирует именно на смену пользователя/сессии и на смену имени/цвета
   // (то, что реально трекается), а не на любую смену ссылки на объект profile
   // (например, смену theme, которая presence не касается).
-  const sessionUserId   = session?.user?.id
   const profileId       = profile?.id
   const profileFullName = profile?.full_name
   const profileColor    = profile?.color || '#718096'
@@ -128,6 +135,7 @@ export function AuthProvider({ children }) {
     loadingSession: session === undefined,
     awaitingAccess: !!session && profilesLoaded && !profile,
     updateTheme,
+    refreshProfiles,
     updatePresenceTab,
     onlineUsers,
     signOut: () => supabase.auth.signOut(),
