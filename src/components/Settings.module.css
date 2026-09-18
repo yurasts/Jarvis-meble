@@ -293,6 +293,99 @@
 }
 
 /* Единственное место ручного переключения Moje/GGS — самый низ Ustawienia. */
+.employeeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.employeeRow {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.1fr) repeat(3, minmax(105px, 0.75fr));
+  align-items: end;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-base);
+}
+
+.employeeIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.employeeAvatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.employeeText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.employeeText strong {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.employeeText span,
+.employeeField > span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.employeeField {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.employeeSelect {
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 12px;
+}
+
+.employeeSelect:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.employeeState {
+  grid-column: 1 / -1;
+  min-height: 16px;
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.employeeSuccess {
+  margin-bottom: 10px;
+  color: #38a169;
+  font-size: 12px;
+  font-weight: 700;
+}
 .scopeSection { margin-bottom: 32px; }
 .scopeToggle {
   display: grid;
@@ -358,6 +451,20 @@
 .onlineSettingsText { display: flex; min-width: 0; flex-direction: column; }
 .onlineSettingsText strong { overflow: hidden; color: var(--text-main); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .onlineSettingsText span { color: var(--text-muted); font-size: 10px; }
+@media (max-width: 640px) {
+  .employeeRow {
+    grid-template-columns: 1fr 1fr;
+    align-items: end;
+  }
+
+  .employeeIdentity {
+    grid-column: 1 / -1;
+  }
+
+  .employeeState {
+    display: none;
+  }
+}
 @media (max-width: 480px) {
   .accountCard { align-items: flex-start; flex-wrap: wrap; }
   .settingsLogoutBtn { width: 100%; margin-left: 0; }

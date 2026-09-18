@@ -44,6 +44,10 @@ const normalizeIdentity = (value) =>
   String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 
 const defaultProjectScope = (profile, session) => {
+  if (profile?.default_scope === 'personal' || profile?.default_scope === 'firma') {
+    return profile.default_scope
+  }
+
   const emailName = session?.user?.email?.split('@')[0] || ''
   const candidates = [
     profile?.full_name,
@@ -71,7 +75,6 @@ function App() {
   // свой light/dark-хелпер (ProjectModal, Kanban, MaterialsList),
   // передаём именно этот флаг, чтобы они не "светлели" в Forest.
   const isDarkish = isDark || theme === 'forest'
-  const [localProfile, setLocalProfile] = useState(null)
 
   const [activeTab, setActiveTab]   = useState('dashboard')
   // 'tab' — обычный контент активного раздела; 'project' — рабочая область проекта справа (desktop, ADR-002 UX-фаза 2)
@@ -422,7 +425,7 @@ function App() {
     </div>
   )
 
-  const profile   = localProfile ?? authProfile
+  const profile   = authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
   // При каждом новом входе стартовая группа вычисляется заново: Yury/Yuryshab/Alex → Moje,
@@ -667,7 +670,6 @@ function App() {
           <Settings
             profile={profile}
             profilesById={profilesById}
-            onColorUpdate={(hex) => setLocalProfile(p => ({ ...(p ?? profile), color: hex }))}
             scopeView={effectiveScope}
             setScopeView={setScopeView}
             onlineUsers={allOnline}

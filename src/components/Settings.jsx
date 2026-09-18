@@ -16,39 +16,43 @@ const PALETTE = [
   { hex: '#718096', label: 'Szary'     },
 ];
 
+const ROLE_OPTIONS = [
+  { value: 'owner', label: 'Właściciel' },
+  { value: 'designer', label: 'Projektant' },
+  { value: 'assembler', label: 'Monter' },
+  { value: 'installer', label: 'Instalator' },
+];
+
+const SCOPE_OPTIONS = [
+  { value: 'personal', label: 'Moje' },
+  { value: 'firma', label: 'GGS' },
+];
+
+const EMPLOYEE_ADMIN_NAMES = new Set(['yury', 'yuryshab']);
+
 const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 const Settings = ({
-  profile, profilesById, onColorUpdate, scopeView, setScopeView,
+  profile, profilesById, scopeView, setScopeView,
   onlineUsers = [], tabLabels = {}, onSignOut,
 }) => {
-  const { isDark, theme, updateTheme } = useAuth();
-  const [saving, setSaving] = useState(false);
-  const [saved,  setSaved]  = useState(false);
-
+  const { isDark, theme, updateTheme, refreshProfiles } = useAuth();
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('installer');
+  const [newScope, setNewScope] = useState('firma');
   const [newColor, setNewColor] = useState(PALETTE[0].hex);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState(false);
+  const [employeeSavingId, setEmployeeSavingId] = useState(null);
+  const [employeeNotice, setEmployeeNotice] = useState(null);
 
-  const allProfiles = Object.values(profilesById);
+  const allProfiles = Object.values(profilesById)
+    .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'pl'));
 
-  const handleColorSelect = async (hex) => {
-    if (!profile) return;
-    setSaving(true);
-    const { error } = await supabase.from('profiles').update({ color: hex }).eq('id', profile.id);
-    if (!error) {
-      onColorUpdate(hex);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }
-    setSaving(false);
-  };
 
   const handleAddEmployee = async () => {
     setAddError('');
@@ -78,11 +82,21 @@ const Settings = ({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      if (data?.id) {
+        const { error: scopeError } = await supabase
+          .from('profiles')
+          .update({ default_scope: newScope })
+          .eq('id', data.id);
+        if (scopeError) throw scopeError;
+      }
+
+      await refreshProfiles();
       setAddSuccess(true);
       setNewName('');
       setNewEmail('');
       setNewPassword('');
       setNewRole('installer');
+      setNewScope('firma');
       setNewColor(PALETTE[0].hex);
       setTimeout(() => setAddSuccess(false), 4000);
     } catch (err) {
@@ -92,9 +106,34 @@ const Settings = ({
     }
   };
 
+  const handleEmployeeUpdate = async (employee, field, value) => {
+    if (employee.id === profile.id && field === 'role') {
+      setEmployeeNotice({ type: 'error', text: 'Nie możesz zmienić własnej roli.' });
+      return;
+    }
+
+    setEmployeeSavingId(employee.id);
+    setEmployeeNotice(null);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ [field]: value })
+      .eq('id', employee.id);
+
+    if (error) {
+      setEmployeeNotice({ type: 'error', text: 'Nie udało się zapisać zmiany.' });
+    } else {
+      const { error: refreshError } = await refreshProfiles();
+      setEmployeeNotice(refreshError
+        ? { type: 'error', text: 'Zmiana zapisana, ale lista nie została odświeżona.' }
+        : { type: 'success', text: 'Zmiana zapisana.' });
+    }
+    setEmployeeSavingId(null);
+  };
+
   if (!profile) return null;
 
-  const currentColor = profile.color || '#718096';
+  const canManageEmployees = profile.role === 'owner'
+    && EMPLOYEE_ADMIN_NAMES.has((profile.full_name || '').trim().toLowerCase());
 
   return (
     <div className={s.page}>
@@ -168,41 +207,89 @@ const Settings = ({
         </div>
       </div>
 
-      {/* ЦВЕТ */}
-      <div className={s.section}>
-        <h3 className={s.sectionTitle}>🎨 Mój kolor identyfikacyjny</h3>
-        <p className={s.sectionDesc}>Widoczny przy wszystkich Twoich zadaniach i zmianach.</p>
-
-        <div className={s.profilePreview}>
-          <div className={s.profileAvatar} style={{ background: currentColor }} />
-          <div>
-            <div className={s.profileName}>{profile.full_name}</div>
-            <div className={s.profileMeta}>{profile.role} • {currentColor}</div>
-          </div>
-          {saved && <div className={s.savedBadge}>✓ Zapisano</div>}
-        </div>
-
-        <div className={s.palette}>
-          {PALETTE.map(({ hex, label }) => (
-            <button
-              key={hex}
-              className={[s.colorBtn, currentColor === hex ? s.selected : ''].join(' ')}
-              style={{
-                background: hex,
-                boxShadow: currentColor === hex
-                  ? `0 0 0 2px var(--bg-card), 0 0 0 4px ${hex}`
-                  : '0 2px 4px rgba(0,0,0,0.15)',
-              }}
-              onClick={() => handleColorSelect(hex)}
-              disabled={saving}
-              title={label}
-            />
-          ))}
-        </div>
-      </div>
-
       {/* ДОБАВИТЬ СОТРУДНИКА — только владелец */}
-      {profile.role === 'owner' && (
+      {canManageEmployees && (
+        <div className={s.section}>
+          <h3 className={s.sectionTitle}>Zarządzanie pracownikami</h3>
+          <p className={s.sectionDesc}>Zmieniaj role, kolor identyfikacyjny i domyślną grupę projektów pracowników.</p>
+
+          {employeeNotice && (
+            <div className={employeeNotice.type === 'error' ? s.formError : s.employeeSuccess}>
+              {employeeNotice.text}
+            </div>
+          )}
+
+          <div className={s.employeeList}>
+            {allProfiles.map((employee) => {
+              const isSelf = employee.id === profile.id;
+              const isSavingEmployee = employeeSavingId === employee.id;
+              return (
+                <div key={employee.id} className={s.employeeRow}>
+                  <div className={s.employeeIdentity}>
+                    <div className={s.employeeAvatar} style={{ background: employee.color || '#718096' }}>
+                      {initials(employee.full_name)}
+                    </div>
+                    <div className={s.employeeText}>
+                      <strong>{employee.full_name || 'Bez nazwy'}</strong>
+                      <span>{isSelf ? 'Twoje konto' : 'Pracownik'}</span>
+                    </div>
+                  </div>
+
+                  <label className={s.employeeField}>
+                    <span>Rola</span>
+                    <select
+                      className={s.employeeSelect}
+                      value={employee.role || 'installer'}
+                      disabled={isSelf || isSavingEmployee}
+                      onChange={(event) => handleEmployeeUpdate(employee, 'role', event.target.value)}
+                      aria-label={`Rola: ${employee.full_name}`}
+                      title={isSelf ? 'Własnej roli nie można zmienić tutaj' : undefined}
+                    >
+                      {ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className={s.employeeField}>
+                    <span>Grupa domyślna</span>
+                    <select
+                      className={s.employeeSelect}
+                      value={employee.default_scope === 'personal' ? 'personal' : 'firma'}
+                      disabled={isSavingEmployee}
+                      onChange={(event) => handleEmployeeUpdate(employee, 'default_scope', event.target.value)}
+                      aria-label={`Grupa projektów: ${employee.full_name}`}
+                    >
+                      {SCOPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className={s.employeeField}>
+                    <span>Kolor identyfikacyjny</span>
+                    <select
+                      className={s.employeeSelect}
+                      value={employee.color || '#718096'}
+                      disabled={isSavingEmployee}
+                      onChange={(event) => handleEmployeeUpdate(employee, 'color', event.target.value)}
+                      aria-label={`Kolor identyfikacyjny: ${employee.full_name}`}
+                    >
+                      {PALETTE.map(({ hex, label }) => (
+                        <option key={hex} value={hex}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {isSavingEmployee && (
+                    <div className={s.employeeState} aria-live="polite">Zapisywanie…</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {canManageEmployees && (
         <div className={s.section}>
           <h3 className={s.sectionTitle}>➕ Dodaj pracownika</h3>
           <p className={s.sectionDesc}>Utwórz nowe konto logowania dla członka zespołu.</p>
@@ -233,11 +320,22 @@ const Settings = ({
               className={s.formInput}
               value={newRole}
               onChange={e => setNewRole(e.target.value)}
+              aria-label="Rola nowego pracownika"
             >
-              <option value="installer">Instalator</option>
-              <option value="designer">Projektant</option>
-              <option value="assembler">Monter</option>
-              <option value="owner">Właściciel</option>
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+
+            <select
+              className={s.formInput}
+              value={newScope}
+              onChange={e => setNewScope(e.target.value)}
+              aria-label="Domyślna grupa projektów nowego pracownika"
+            >
+              {SCOPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>Grupa: {option.label}</option>
+              ))}
             </select>
 
             <div className={s.palette}>
@@ -367,8 +465,8 @@ const Settings = ({
       <div className={`${s.section} ${s.scopeSection}`}>
         <h3 className={s.sectionTitle}>Grupa projektów</h3>
         <p className={s.sectionDesc}>
-          Wybierz grupę widoczną w Projektach, Panelu i Tablicy projektów. Po następnym logowaniu
-          aplikacja ponownie ustawi grupę domyślną przypisaną do użytkownika.
+          Wybierz grupę widoczną w bieżącej sesji. Po następnym logowaniu aplikacja użyje grupy
+          domyślnej przypisanej do Twojego konta przez właściciela.
         </p>
         <div className={s.scopeToggle} role="tablist" aria-label="Grupa projektów">
           <button
