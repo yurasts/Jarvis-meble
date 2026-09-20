@@ -127,6 +127,9 @@ function App() {
   const [workspaceDirty,  setWorkspaceDirty]  = useState(false)
   // Projekt, który użytkownik próbuje otworzyć zamiast aktualnego (gdy są niezapisane zmiany)
   const [pendingClient,   setPendingClient]   = useState(null) // { client, initialTab } | null
+  // Bilans także musi przejść przez dialog niezapisanych zmian — inaczej ukrycie ProjectModal
+  // odmontowuje lokalny draft materiałów/usług bez zapisania.
+  const [pendingBalanceClientName, setPendingBalanceClientName] = useState(null)
 
   const [name,     setName]     = useState('')
   const [projectName, setProjectName] = useState('')
@@ -196,6 +199,7 @@ function App() {
 
   const openProjectModal = (client, initialTab = 'materials') => {
     setBalanceClientName(null)
+    setPendingBalanceClientName(null)
     setActiveClient(client)
     setOriginalClient(JSON.parse(JSON.stringify(client)))
     setProjectModalTab(initialTab)
@@ -214,13 +218,30 @@ function App() {
     openProjectModal(client, initialTab)
   }
 
-  const confirmPendingSwitch = () => {
+  const confirmPendingSwitch = ({ saved = false } = {}) => {
     const target = pendingClient
+    const balanceTarget = pendingBalanceClientName
     setPendingClient(null)
-    if (target) openProjectModal(target.client, target.initialTab)
+    setPendingBalanceClientName(null)
+
+    if (target) {
+      openProjectModal(target.client, target.initialTab)
+      return
+    }
+
+    if (balanceTarget) {
+      // Przy odrzuceniu nie zostawiamy w App lokalnego, brudnego projektu ukrytego pod Bilansem.
+      if (!saved && originalClient) setActiveClient(JSON.parse(JSON.stringify(originalClient)))
+      setWorkspaceDirty(false)
+      setBalanceClientName(balanceTarget)
+      setViewMode('balance')
+    }
   }
 
-  const cancelPendingSwitch = () => setPendingClient(null)
+  const cancelPendingSwitch = () => {
+    setPendingClient(null)
+    setPendingBalanceClientName(null)
+  }
 
   const goToTab = (id) => {
     setBalanceClientName(null)
@@ -235,6 +256,7 @@ function App() {
   const openPro100Library = () => {
     setBalanceClientName(null)
     setPendingClient(null)
+    setPendingBalanceClientName(null)
     setViewMode('library')
     setShowMobileHome(false)
     setMenuOpen(false)
@@ -452,10 +474,18 @@ function App() {
 
   const showDesktopLibrary = isDesktop && viewMode === 'library'
   const openClientBalance = (clientName) => {
+    if (isDesktop && viewMode === 'project' && activeClient && workspaceDirty) {
+      setPendingClient(null)
+      setPendingBalanceClientName(clientName)
+      return
+    }
+
     setBalanceClientName(clientName)
     if (isDesktop) {
       setViewMode('balance')
       setPendingClient(null)
+      setPendingBalanceClientName(null)
+      setWorkspaceDirty(false)
     }
   }
 
@@ -620,7 +650,11 @@ function App() {
             theme={theme}
             initialTab={projectModalTab}
             onDirtyChange={setWorkspaceDirty}
-            pendingProjectLabel={pendingClient ? (pendingClient.client.project_name || pendingClient.client.client_name || pendingClient.client.full_name || '—') : null}
+            pendingProjectLabel={pendingClient
+              ? (pendingClient.client.project_name || pendingClient.client.client_name || pendingClient.client.full_name || '—')
+              : pendingBalanceClientName
+                ? `Bilans klienta: ${pendingBalanceClientName}`
+                : null}
             onConfirmSwitch={confirmPendingSwitch}
             onCancelSwitch={cancelPendingSwitch}
             cashTransactions={cashTransactions}
