@@ -1827,7 +1827,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               )}
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
                 <button
-                  onClick={() => { if (pendingTabChange) { discardTabChange(); } else if (pendingProjectLabel) { onConfirmSwitch?.(); } else { finalizeClose(); } }}
+                  onClick={() => { if (pendingTabChange) { discardTabChange(); } else if (pendingProjectLabel) { onConfirmSwitch?.({ saved: false }); } else { finalizeClose(); } }}
                   style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
                   {closeLabels.discard}
@@ -1838,7 +1838,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     const result = await saveAllDirty();
                     if (result?.error) { return; }
                     setConfirmClose(false);
-                    pendingProjectLabel ? onConfirmSwitch?.() : finalizeClose();
+                    pendingProjectLabel ? onConfirmSwitch?.({ saved: true }) : finalizeClose();
                   }}
                   style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
