@@ -16,16 +16,18 @@ const materialPriority = (material) => {
   if (category.includes('plyt') || /^(pl|plyta)\b/.test(name)) return 0;
   if (category.includes('obrzez') || /\babs\b/.test(searchable)) return 1;
   if (searchable.includes('zawias')) return 2;
-  if (searchable.includes('prowadnic')) return 3;
+  if (/(prowadnic|tandem|movento|tandembox|metabox|legrabox)/.test(searchable)) return 3;
   return 4;
 };
 
-export const sortMaterialsByWorkflow = (materials = []) =>
-  [...materials].sort((a, b) => {
-    const priorityDifference = materialPriority(a) - materialPriority(b);
-    if (priorityDifference !== 0) return priorityDifference;
+export const compareMaterialsByWorkflow = (a, b) => {
+  const priorityDifference = materialPriority(a) - materialPriority(b);
+  if (priorityDifference !== 0) return priorityDifference;
 
-    const aName = String(a?.name || a?.symbol || '');
-    const bName = String(b?.name || b?.symbol || '');
-    return aName.localeCompare(bName, 'pl', { numeric: true, sensitivity: 'base' });
-  });
+  const aName = String(a?.name || a?.symbol || '');
+  const bName = String(b?.name || b?.symbol || '');
+  return aName.localeCompare(bName, 'pl', { numeric: true, sensitivity: 'base' });
+};
+
+export const sortMaterialsByWorkflow = (materials = []) =>
+  [...materials].sort(compareMaterialsByWorkflow);
