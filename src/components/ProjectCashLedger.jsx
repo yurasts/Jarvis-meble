@@ -485,7 +485,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
             <div className={s.desktopSaldoRow}>Saldo <strong>{formatDesktopMoney(saldo)} zł</strong></div>
           )}
           <div className={s.desktopProjectHeader}>
-            <span className={s.desktopProjectName}>
+            <span className={s.desktopProjectName} title={projectName}>
               <span className={s.projectStatusDot} style={{ background: statusColor }} />
               {projectName}
             </span>

@@ -391,10 +391,10 @@
 }
 .desktopProjectHeader {
   display: grid;
-  grid-template-columns: minmax(120px, 160px) repeat(4, minmax(75px, 1fr));
+  grid-template-columns: minmax(260px, 2fr) repeat(4, minmax(92px, 1fr));
   align-items: center;
-  min-height: 28px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 12px;
   box-sizing: border-box;
   background: #aeaeb2;
   color: #fff;
@@ -405,21 +405,24 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 16px;
-  line-height: 24px;
+  padding: 4px 8px 4px 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 16px;
   font-weight: 700;
 }
 
 .desktopMetric {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
   min-width: 0;
-  height: 28px;
+  min-height: 36px;
+  padding: 2px 0;
+  box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
 }
@@ -702,11 +705,11 @@
 
 @media (max-width: 960px) {
   .desktopProjectHeader {
-    grid-template-columns: minmax(105px, 130px) repeat(4, minmax(64px, 1fr));
+    grid-template-columns: minmax(180px, 1.6fr) repeat(4, minmax(70px, 1fr));
     padding: 0 10px;
   }
 
-  .desktopMetric { gap: 4px; }
-  .desktopMetricLabel { font-size: 10px; }
+  .desktopProjectName { font-size: 14px; }
+  .desktopMetricLabel { font-size: 9px; }
   .desktopMetricValue { font-size: 12px; }
 }
