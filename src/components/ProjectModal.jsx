@@ -6,6 +6,7 @@ import ProjectTasksPanel from './ProjectTasksPanel';
 import ProjectImportantPoints from './ProjectImportantPoints';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
+import { compareMaterialsByWorkflow } from '../utils/materialSort';
 
 // Лёгкая заливка фона по статусу проекта
 const STATUS_OVERLAY = {
@@ -187,6 +188,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   const calcMaterials = client.calc_materials || [];
+  const sortedCalcMaterialEntries = calcMaterials
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => compareMaterialsByWorkflow(a.item, b.item));
   const calcServices  = client.calc_services  || [];
   const calcExpenses  = client.calc_expenses  || [];
 
@@ -1266,7 +1270,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                       {calcMaterials.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych materiałów</div>
                       )}
-                      {calcMaterials.map((item, index) => renderMobileRow('calc_materials', calcMaterials, index))}
+                      {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
                     </div>
                     {renderMaterialPicker(true)}
                   </div>
@@ -1279,7 +1283,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 {isMobile ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materiałów</div>}
-                    {calcMaterials.map((item, index) => {
+                    {sortedCalcMaterialEntries.map(({ item, index }) => {
                       // itemKey — stabilny identyfikator pozycji (item.id, nie index) używany jako
                       // klucz React ORAZ jako klucz expandedItemKey/matKey — usuwanie pierwszej
                       // pozycji nie powinno "przenosić" rozwinięcia/DOM-u na sąsiedni wiersz, co przy
@@ -1396,10 +1400,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         </tr>
                       </thead>
                       <tbody>
-                        {calcMaterials.map((item, index) => {
+                        {sortedCalcMaterialEntries.map(({ item, index }) => {
                           const itemKey = item.id ?? index;
                           return (
-                          <tr key={index} style={{ borderBottom: `1px solid ${border}`, backgroundColor: bgMatRow, borderLeft: `3px solid ${rowStripe(item)}` }}>
+                          <tr key={itemKey} style={{ borderBottom: `1px solid ${border}`, backgroundColor: bgMatRow, borderLeft: `3px solid ${rowStripe(item)}` }}>
                             <td onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ padding: '2px 8px', fontWeight: 400, fontSize: '14px', lineHeight: '18px', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
                             <td style={{ padding: '4px 8px' }}>
                               {editingPrice === `mat-${index}` ? (
