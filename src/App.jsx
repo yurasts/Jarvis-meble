@@ -725,7 +725,7 @@ function App() {
             <form onSubmit={handleAddClient}>
               <div className="form-group"><label>Imię i nazwisko klienta</label><input type="text" required value={name} onChange={e => setName(e.target.value)} /></div>
               <div className="form-group"><label>Nazwa projektu (szafa, kuchnia, łazienka...)</label><input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="np. szafa do sypialni" /></div>
-              <div className="form-group"><label>Telefon</label><input type="text" required value={phone} onChange={e => setPhone(e.target.value)} /></div>
+              <div className="form-group"><label>Telefon (opcjonalnie)</label><input type="tel" value={phone} onChange={e => setPhone(e.target.value)} /></div>
               <div className="form-group"><label>Adres montażu</label><input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="np. Gdańsk, ul. Długa 12/4" /></div>
               <div style={{ display:'flex', gap:'15px' }}>
                 <div className="form-group" style={{ flex:1 }}><label>Budżet (PLN)</label><input type="number" value={budget} onChange={e => setBudget(e.target.value)} /></div>
