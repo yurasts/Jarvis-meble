@@ -16,6 +16,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MobileClientBalanceScreen from './components/MobileClientBalanceScreen';
 import Pro100Library from './components/Pro100Library';
 import { useIsDesktop } from './utils/useIsDesktop';
+import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -187,7 +188,7 @@ function App() {
       const { data: clientsData }   = await supabase.from('clients').select('*')
       if (clientsData)   setClients(clientsData)
       const { data: materialsData } = await supabase.from('materials').select('*')
-      if (materialsData) setMaterials(materialsData)
+      if (materialsData) setMaterials(sortMaterialsByWorkflow(materialsData))
       const { data: servicesData }  = await supabase.from('services').select('*')
       if (servicesData)  setServicesList(servicesData)
       loadCashTransactions()
@@ -351,7 +352,7 @@ function App() {
       .insert([{ name: matName, category: matCategory, unit: matUnit, price: Number(matPrice), price_history: [] }])
       .select()
     if (!error && data) {
-      setMaterials([...materials, data[0]])
+      setMaterials(sortMaterialsByWorkflow([...materials, data[0]]))
       setMatName(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
     }
@@ -365,7 +366,7 @@ function App() {
       .from('materials').update({ price: newPrice, price_history: history })
       .eq('id', existing.id).select()
     if (!error && data) {
-      setMaterials(materials.map(m => m.id === existing.id ? data[0] : m))
+      setMaterials(sortMaterialsByWorkflow(materials.map(m => m.id === existing.id ? data[0] : m)))
       setDuplicateFound(null)
       setMatName(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
@@ -374,7 +375,7 @@ function App() {
 
   async function reloadMaterials() {
     const { data } = await supabase.from('materials').select('*')
-    if (data) setMaterials(data)
+    if (data) setMaterials(sortMaterialsByWorkflow(data))
   }
 
   const handleDragStart = (e, id) => e.dataTransfer.setData('clientId', id)
