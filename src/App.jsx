@@ -17,6 +17,7 @@ import MobileClientBalanceScreen from './components/MobileClientBalanceScreen';
 import Pro100Library from './components/Pro100Library';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
+import { findEquivalentMaterial } from './utils/materialPickerGroups';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -142,6 +143,7 @@ function App() {
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false)
   const [duplicateFound,      setDuplicateFound]      = useState(null)
   const [matName,     setMatName]     = useState('')
+  const [matSymbol,   setMatSymbol]   = useState('')
   const [matCategory, setMatCategory] = useState('Płyta')
   const [matUnit,     setMatUnit]     = useState('szt')
   const [matPrice,    setMatPrice]    = useState('')
@@ -337,8 +339,14 @@ function App() {
 
   async function handleAddMaterial(e) {
     e.preventDefault()
-    const { data: existing } = await supabase
-      .from('materials').select('*').ilike('name', matName.trim()).maybeSingle()
+    const candidate = {
+      name: matName.trim(),
+      symbol: matSymbol.trim() || null,
+      category: matCategory,
+      unit: matUnit,
+      price: Number(matPrice),
+    }
+    const existing = findEquivalentMaterial(materials, candidate)
     if (existing) {
       setDuplicateFound({
         existing,
@@ -349,11 +357,11 @@ function App() {
     }
     const { data, error } = await supabase
       .from('materials')
-      .insert([{ name: matName, category: matCategory, unit: matUnit, price: Number(matPrice), price_history: [] }])
+      .insert([{ ...candidate, price_history: [] }])
       .select()
     if (!error && data) {
       setMaterials(sortMaterialsByWorkflow([...materials, data[0]]))
-      setMatName(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
+      setMatName(''); setMatSymbol(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
     }
   }
@@ -368,7 +376,7 @@ function App() {
     if (!error && data) {
       setMaterials(sortMaterialsByWorkflow(materials.map(m => m.id === existing.id ? data[0] : m)))
       setDuplicateFound(null)
-      setMatName(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
+      setMatName(''); setMatSymbol(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
     }
   }
@@ -774,6 +782,7 @@ function App() {
             <h2>Dodaj nowy materiał</h2>
             <form onSubmit={handleAddMaterial}>
               <div className="form-group"><label>Pełna nazwa</label><input type="text" required value={matName} onChange={e => setMatName(e.target.value)} /></div>
+              <div className="form-group"><label>Artykuł</label><input type="text" value={matSymbol} onChange={e => setMatSymbol(e.target.value)} placeholder="np. W960 SM lub BL-71B3550" /></div>
               <div className="form-group">
                 <label>Kategoria</label>
                 <select value={matCategory} onChange={e => setMatCategory(e.target.value)} style={{ padding:'10px', borderRadius:'6px', border:'1px solid #ccc' }}>

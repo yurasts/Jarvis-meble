@@ -16,8 +16,9 @@ const materialPriority = (material) => {
   if (category.includes('plyt') || /^(pl|plyta)\b/.test(name)) return 0;
   if (category.includes('obrzez') || /\babs\b/.test(searchable)) return 1;
   if (searchable.includes('zawias')) return 2;
-  if (/(prowadnic|tandem|movento|tandembox|metabox|legrabox)/.test(searchable)) return 3;
-  return 4;
+  if (/\bprowadnik\b/.test(searchable)) return 3;
+  if (/\btip[\s-]*on\b/.test(searchable)) return 4;
+  return 5;
 };
 
 export const compareMaterialsByWorkflow = (a, b) => {

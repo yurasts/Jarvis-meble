@@ -34,7 +34,7 @@ export default function InvoiceScanner({ materials, onPricesUpdated, isDark = fa
         body: {
           imageBase64: image.base64,
           imageType: image.type,
-          materials: materials.map(m => ({ id: m.id, name: m.name, symbol: m.symbol || null, price: m.price }))
+          materials: materials.map(m => ({ id: m.id, name: m.name, symbol: m.symbol || null, category: m.category || null, supplier: m.supplier || null, unit: m.unit || null, price: m.price }))
         }
       });
       if (fnErr) throw new Error(fnErr.message);
