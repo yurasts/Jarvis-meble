@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
@@ -7,6 +7,7 @@ import ProjectImportantPoints from './ProjectImportantPoints';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
+import { groupMaterialsForPicker, materialMatchesQuery } from '../utils/materialPickerGroups';
 
 // Лёгкая заливка фона по статусу проекта
 const STATUS_OVERLAY = {
@@ -85,9 +86,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [searchTerm, setSearchTerm] = useState('');
   const [materialSearchOpen, setMaterialSearchOpen] = useState(false);
   const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(0);
+  const [materialCategoryFilter, setMaterialCategoryFilter] = useState('');
+  const [materialSupplierFilter, setMaterialSupplierFilter] = useState('');
+  const [replacingMaterialIndex, setReplacingMaterialIndex] = useState(null);
   const materialPickerRef = useRef(null);
   const materialSearchInputRef = useRef(null);
   const materialOptionRefs = useRef([]);
+  const materialOfferButtonRefs = useRef({});
   const [searchService, setSearchService] = useState('');
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -126,6 +131,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       setMaterialSearchOpen(false);
       setHighlightedMaterialIndex(0);
       setExpandedMaterialId(null);
+      setReplacingMaterialIndex(null);
     };
     document.addEventListener('pointerdown', handleOutsidePointerDown);
     return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
@@ -375,13 +381,23 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   // Baza materiałów: fokus otwiera istniejące pozycje także przy pustym zapytaniu;
   // wpisany tekst filtruje po name/symbol, a widok ogranicza listę do 12 pozycji.
-  const materialQuery = searchTerm.trim().toLowerCase();
-  const filteredMaterials = materialQuery
-    ? (materials || []).filter(m =>
-        (m.name || '').toLowerCase().includes(materialQuery) ||
-        (m.symbol || '').toLowerCase().includes(materialQuery)
-      )
-    : (materials || []);
+  const materialQuery = searchTerm.trim();
+  const materialCategoryOptions = useMemo(() => (
+    [...new Set((materials || []).map(material => material.category).filter(Boolean))]
+      .sort((a, b) => String(a).localeCompare(String(b), 'pl'))
+  ), [materials]);
+  const materialSupplierOptions = useMemo(() => (
+    [...new Set((materials || []).map(material => material.supplier).filter(Boolean))]
+      .sort((a, b) => String(a).localeCompare(String(b), 'pl'))
+  ), [materials]);
+  const filteredMaterialGroups = useMemo(() => {
+    const matchingMaterials = (materials || []).filter(material => (
+      materialMatchesQuery(material, materialQuery)
+      && (!materialCategoryFilter || material.category === materialCategoryFilter)
+      && (!materialSupplierFilter || material.supplier === materialSupplierFilter)
+    ));
+    return groupMaterialsForPicker(matchingMaterials);
+  }, [materials, materialCategoryFilter, materialQuery, materialSupplierFilter]);
 
   const toggleRow = (key) => setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleExpandedItem = (key) => setExpandedItemKey(prev => (prev === key ? null : key));
@@ -705,6 +721,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               style={{ width: '46px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '16px', background: bgInput, color: text }}
             />
             <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
+            {field === 'calc_materials' && (
+              <button
+                type="button"
+                aria-label={`Zamień materiał ${item.name}`}
+                title="Zamień materiał"
+                onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
+                style={{ flexShrink: 0, width: '22px', height: '22px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: accent.text, cursor: 'pointer', fontSize: '12px', lineHeight: 1 }}
+              >
+                ↔
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
@@ -749,6 +776,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         <span style={{ flexShrink: 0, width: '54px', font: 'inherit', color: textLight, textAlign: 'right' }}>{Number(item.price).toFixed(2)} zł</span>
         <span style={{ flexShrink: 0, width: '26px', font: 'inherit', color: textLight, textAlign: 'right' }}>{item.quantity ?? 1}</span>
         <span style={{ flexShrink: 0, width: '60px', font: 'inherit', color: accent.text, textAlign: 'right' }}>{total} zł</span>
+        {field === 'calc_materials' && (
+          <button
+            type="button"
+            aria-label={`Zamień materiał ${item.name}`}
+            title="Zamień materiał"
+            onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
+            style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: accent.text, cursor: 'pointer', fontSize: '12px', lineHeight: 1 }}
+          >
+            ↔
+          </button>
+        )}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
@@ -793,10 +831,51 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     setMaterialSearchOpen(false);
     setHighlightedMaterialIndex(0);
     setExpandedMaterialId(null);
+    setReplacingMaterialIndex(null);
+  };
+
+  const startMaterialReplacement = (index) => {
+    finishEditing();
+    setReplacingMaterialIndex(index);
+    setSearchTerm('');
+    setHighlightedMaterialIndex(0);
+    setExpandedMaterialId(null);
+    setMaterialSearchOpen(true);
+    requestAnimationFrame(() => materialSearchInputRef.current?.focus({ preventScroll: true }));
+  };
+
+  const replaceMaterialFromPicker = (material) => {
+    const current = calcMaterials[replacingMaterialIndex];
+    if (!current) return;
+
+    const quantity = Number(current.quantity) || 1;
+    const existingIndex = calcMaterials.findIndex((item, index) => (
+      index !== replacingMaterialIndex && item.id === material.id
+    ));
+
+    if (existingIndex >= 0) {
+      const merged = calcMaterials
+        .map((item, index) => index === existingIndex
+          ? { ...item, quantity: (Number(item.quantity) || 1) + quantity }
+          : item)
+        .filter((_, index) => index !== replacingMaterialIndex);
+      updateItems('calc_materials', merged);
+    } else {
+      const replacement = [...calcMaterials];
+      replacement[replacingMaterialIndex] = {
+        ...material,
+        quantity,
+        addedById: current.addedById ?? currentProfile?.id ?? null,
+        addedByColor: current.addedByColor || currentProfile?.color || '#718096',
+      };
+      updateItems('calc_materials', replacement);
+    }
+    closeMobileRowEditor();
   };
 
   const addMaterialFromPicker = (material) => {
-    handleAddItem('calc_materials', calcMaterials, material);
+    if (replacingMaterialIndex !== null) replaceMaterialFromPicker(material);
+    else handleAddItem('calc_materials', calcMaterials, material);
     closeMaterialPicker();
   };
 
@@ -806,7 +885,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   const moveMaterialHighlight = (nextIndex) => {
-    const visibleCount = Math.min(filteredMaterials.length, 12);
+    const visibleCount = Math.min(filteredMaterialGroups.length, 12);
     if (!visibleCount) return;
     const normalizedIndex = (nextIndex + visibleCount) % visibleCount;
     setHighlightedMaterialIndex(normalizedIndex);
@@ -833,10 +912,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       return;
     }
     if (e.key === 'Enter' && materialSearchOpen) {
-      const selected = filteredMaterials.slice(0, 12)[highlightedMaterialIndex];
-      if (selected) {
+      const selectedGroup = filteredMaterialGroups.slice(0, 12)[highlightedMaterialIndex];
+      if (selectedGroup) {
         e.preventDefault();
-        addMaterialFromPicker(selected);
+        if (selectedGroup.offers.length === 1) {
+          addMaterialFromPicker(selectedGroup.offers[0]);
+        } else {
+          setExpandedMaterialId(selectedGroup.key);
+          requestAnimationFrame(() => materialOfferButtonRefs.current[`${selectedGroup.key}-0`]?.focus());
+        }
       }
     }
   };
@@ -879,6 +963,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </button>
         </div>
       )}
+      {replacingMaterialIndex !== null && calcMaterials[replacingMaterialIndex] && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '30px', padding: '4px 8px', borderBottom: `1px solid ${border}`, background: c('#ebf8ff', '#17365c'), color: text, fontSize: '11px' }}>
+          <strong style={{ flexShrink: 0 }}>Zamiana:</strong>
+          <span title={calcMaterials[replacingMaterialIndex].name} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {calcMaterials[replacingMaterialIndex].name}
+          </span>
+          <button type="button" onClick={closeMaterialPicker} style={{ flexShrink: 0, border: 'none', background: 'transparent', color: textLight, cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>
+            Anuluj
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: mobilePicker ? '2px 5px 5px' : compact ? '4px' : '5px' }}>
         <input
           ref={materialSearchInputRef}
@@ -887,7 +982,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           aria-autocomplete="list"
           aria-expanded={materialSearchOpen}
           aria-controls="material-picker-options"
-          aria-activedescendant={materialSearchOpen && filteredMaterials[highlightedMaterialIndex] ? `material-option-${highlightedMaterialIndex}` : undefined}
+          aria-activedescendant={materialSearchOpen && filteredMaterialGroups[highlightedMaterialIndex] ? `material-option-${highlightedMaterialIndex}` : undefined}
           placeholder="🔍 Szukaj materiału w bazie…"
           value={searchTerm}
           onFocus={() => { setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
@@ -903,6 +998,26 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           + Ręcznie
         </button>
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '5px', padding: mobilePicker ? '0 5px 5px' : '0 5px 5px' }}>
+        <select
+          aria-label="Typ materiału"
+          value={materialCategoryFilter}
+          onChange={event => { setMaterialCategoryFilter(event.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); setExpandedMaterialId(null); }}
+          style={{ minWidth: 0, height: mobilePicker ? '36px' : '30px', boxSizing: 'border-box', border: `1px solid ${border}`, borderRadius: '5px', padding: '2px 7px', background: bgInput, color: text, fontSize: mobilePicker ? '16px' : '11px' }}
+        >
+          <option value="">Typ: wszystkie</option>
+          {materialCategoryOptions.map(category => <option key={category} value={category}>{category}</option>)}
+        </select>
+        <select
+          aria-label="Dostawca materiału"
+          value={materialSupplierFilter}
+          onChange={event => { setMaterialSupplierFilter(event.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); setExpandedMaterialId(null); }}
+          style={{ minWidth: 0, height: mobilePicker ? '36px' : '30px', boxSizing: 'border-box', border: `1px solid ${border}`, borderRadius: '5px', padding: '2px 7px', background: bgInput, color: text, fontSize: mobilePicker ? '16px' : '11px' }}
+        >
+          <option value="">Dostawca: wszyscy</option>
+          {materialSupplierOptions.map(supplier => <option key={supplier} value={supplier}>{supplier}</option>)}
+        </select>
+      </div>
 
       {materialSearchOpen && (
         <div
@@ -910,10 +1025,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           role="listbox"
           style={{ position: mobilePicker ? 'relative' : 'absolute', zIndex: 20, top: mobilePicker ? 'auto' : '100%', left: 0, right: 0, maxHeight: mobilePicker ? 'min(36dvh, 260px)' : compact ? '208px' : '220px', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', border: `1px solid ${border}`, borderLeft: mobilePicker ? 'none' : `1px solid ${border}`, borderRight: mobilePicker ? 'none' : `1px solid ${border}`, borderBottom: mobilePicker ? 'none' : `1px solid ${border}`, borderRadius: mobilePicker ? 0 : '0 0 6px 6px', boxShadow: mobilePicker ? 'none' : '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
         >
-          {filteredMaterials.slice(0, 12).map((m, index) => {
-            const materialKey = m.id ?? `${m.name || 'material'}-${index}`;
-            const isSelected = calcMaterials.some(item => item.id === m.id);
+          {filteredMaterialGroups.slice(0, 12).map((group, index) => {
+            const materialKey = group.key;
+            const hasMultipleOffers = group.offers.length > 1;
+            const isSelected = group.offers.some(offer => calcMaterials.some(item => item.id === offer.id));
             const isExpanded = expandedMaterialId === materialKey;
+            const primaryOffer = group.offers[0];
             return (
               <div
                 key={materialKey}
@@ -929,34 +1046,67 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     type="button"
                     aria-expanded={isExpanded}
                     onClick={() => setExpandedMaterialId(prev => prev === materialKey ? null : materialKey)}
-                    title={m.name || ''}
-                    style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isExpanded ? 'normal' : 'nowrap', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: text, fontFamily: 'inherit', fontSize: compact ? '12px' : '12px', fontWeight: 600 }}
+                    title={group.label}
+                    style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: text, fontFamily: 'inherit', fontSize: '12px', fontWeight: 700 }}
                   >
-                    {m.name}
+                    {group.label}
                   </button>
                   <span style={{ whiteSpace: 'nowrap', color: textLight, fontSize: compact ? '10.5px' : '11px', fontWeight: 400 }}>
-                    <strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(m.price).toFixed(2)} zł</strong>
-                    {' · '}{m.unit || 'szt'}
+                    {hasMultipleOffers ? (
+                      <>{group.offers.length} wariantów</>
+                    ) : (
+                      <><strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(primaryOffer.price).toFixed(2)} zł</strong>{' · '}{primaryOffer.unit || 'szt'}</>
+                    )}
                   </span>
                   <button
                     type="button"
-                    onClick={() => addMaterialFromPicker(m)}
-                    style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '10.5px', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (hasMultipleOffers) {
+                        setExpandedMaterialId(prev => prev === materialKey ? null : materialKey);
+                      } else {
+                        addMaterialFromPicker(primaryOffer);
+                      }
+                    }}
+                    style={{ background: hasMultipleOffers || replacingMaterialIndex !== null ? c('#2b6cb0', '#3182ce') : (isSelected ? '#718096' : '#38a169'), color: '#fff', border: 'none', padding: '4px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '10.5px', whiteSpace: 'nowrap' }}
                   >
-                    {isSelected ? '+ 1' : '+ Dodaj'}
+                    {hasMultipleOffers ? (isExpanded ? 'Zwiń' : 'Wybierz') : (replacingMaterialIndex !== null ? 'Zamień' : (isSelected ? '+ 1' : '+ Dodaj'))}
                   </button>
                 </div>
                 {isExpanded && (
-                  <div style={{ padding: '0 8px 5px', fontSize: '10.5px', color: textLight, whiteSpace: 'normal' }}>
-                    {m.supplier && <>Dostawca: {m.supplier} · </>}
-                    Kategoria: {m.category || '-'}
-                    {m.symbol && <> · Symbol: {m.symbol}</>}
+                  <div style={{ borderTop: `1px solid ${border}`, background: c('#f8fafc', '#162232') }}>
+                    {group.offers.map((offer, offerIndex) => {
+                      const offerKey = offer.id ?? `${materialKey}-${offerIndex}`;
+                      const offerSelected = calcMaterials.some(item => item.id === offer.id);
+                      return (
+                        <div key={offerKey} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: '7px', minHeight: '38px', padding: '3px 5px 3px 12px', borderBottom: offerIndex < group.offers.length - 1 ? `1px solid ${border}` : 'none' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div title={offer.name || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: text, fontSize: '11px', fontWeight: 600 }}>
+                              {offer.name}
+                            </div>
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: textLight, fontSize: '9.5px' }}>
+                              {offer.supplier || 'Dostawca nieokreślony'}{offer.category ? ` · ${offer.category}` : ''}{offer.symbol ? ` · ${offer.symbol}` : ''}
+                            </div>
+                          </div>
+                          <span style={{ whiteSpace: 'nowrap', color: c('#2b6cb0','#63b3ed'), fontSize: '10.5px', fontWeight: 700 }}>
+                            {Number(offer.price).toFixed(2)} zł · {offer.unit || 'szt'}
+                          </span>
+                          <button
+                            ref={node => { materialOfferButtonRefs.current[`${materialKey}-${offerIndex}`] = node; }}
+                            type="button"
+                            onClick={() => addMaterialFromPicker(offer)}
+                            style={{ background: replacingMaterialIndex !== null ? c('#2b6cb0', '#3182ce') : (offerSelected ? '#718096' : '#38a169'), color: '#fff', border: 'none', padding: '4px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '10.5px', whiteSpace: 'nowrap' }}
+                          >
+                            {replacingMaterialIndex !== null ? 'Zamień' : (offerSelected ? '+ 1' : '+ Dodaj')}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             );
           })}
-          {filteredMaterials.length === 0 && (
+          {filteredMaterialGroups.length === 0 && (
             <div style={{ padding: '9px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
           )}
         </div>
@@ -1377,6 +1527,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                                 {priceNode}
                                 {qtyNode}
                                 {sumNode}
+                                <button
+                                  type="button"
+                                  aria-label={`Zamień materiał ${item.name}`}
+                                  title="Zamień materiał"
+                                  onClick={(event) => { event.stopPropagation(); startMaterialReplacement(index); }}
+                                  style={{ flexShrink: 0, width: '24px', height: '24px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '13px', lineHeight: 1 }}
+                                >
+                                  ↔
+                                </button>
                                 {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
                               </>
                             )}
@@ -1396,6 +1555,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Jm</th>
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, width: '60px' }}>Ilość</th>
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Suma</th>
+                          <th style={{ padding: '6px 3px', borderBottom: `2px solid ${border}`, width: '64px' }}></th>
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}></th>
                         </tr>
                       </thead>
@@ -1433,13 +1593,24 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                               />
                             </td>
                             <td style={{ padding: '4px 8px', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
+                            <td style={{ padding: '2px 3px', textAlign: 'center' }}>
+                              <button
+                                type="button"
+                                aria-label={`Zamień materiał ${item.name}`}
+                                title="Zamień materiał"
+                                onClick={() => startMaterialReplacement(index)}
+                                style={{ height: '24px', padding: '0 7px', border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '11px', fontWeight: 700, lineHeight: 1 }}
+                              >
+                                Zamień
+                              </button>
+                            </td>
                             {renderDeleteBtn('calc_materials', calcMaterials, index)}
                           </tr>
                           );
                         })}
-                        {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
+                        {calcMaterials.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
                         <tr>
-                          <td colSpan="6" style={{ padding: 0, borderTop: `1px solid ${border}`, textAlign: 'left' }}>
+                          <td colSpan="7" style={{ padding: 0, borderTop: `1px solid ${border}`, textAlign: 'left' }}>
                             {renderMaterialPicker(false)}
                           </td>
                         </tr>

@@ -11,7 +11,7 @@ function MobileMaterialRow({ item, expanded, onToggle }) {
         <span className={s.mobileMaterialName}>{item.name || item.symbol || 'Bez nazwy'}</span>
         {expanded && (
           <span className={s.mobileMaterialDetails}>
-            {[item.category, item.supplier, item.unit].filter(Boolean).join(' · ') || 'Brak informacji'}
+            {[item.symbol && `Artykuł: ${item.symbol}`, item.category, item.supplier, item.unit].filter(Boolean).join(' · ') || 'Brak informacji'}
           </span>
         )}
       </span>
@@ -59,7 +59,7 @@ export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onA
       </header>
       <div className={s.mobileControls}>
         <input type={'search'} className={s.mobileSearch} value={search}
-          placeholder={'Szukaj nazwy, symbolu lub opisu...'}
+          placeholder={'Szukaj nazwy, artykułu lub opisu...'}
           onChange={event => setSearch(event.target.value)} />
         <div className={s.mobileFilters}>
           <select aria-label={'Typ materialu'} value={category} onChange={event => setCategory(event.target.value)}>

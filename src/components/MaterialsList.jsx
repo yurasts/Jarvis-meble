@@ -160,7 +160,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
           <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="🔍 Szukaj materiału..."
+              placeholder="🔍 Szukaj nazwy lub artykułu..."
               value={searchMat}
               onChange={e => setSearchMat(e.target.value)}
               style={{ flex: 1, minWidth: '160px', padding: '6px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: bgInput, color: text, fontSize: '13px' }}
@@ -188,6 +188,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
               <thead>
                 <tr style={{ background: 'var(--bg-kanban-col)', textAlign: 'left' }}>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Kategoria</th>
+                  <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Artykuł</th>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Cena, PLN</th>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Nazwa materiału</th>
                   <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, color: textLight }}>Jm</th>
@@ -203,6 +204,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                   }).map((mat, index) => (
                   <tr key={mat.id} style={{ background: index % 2 === 0 ? stripe1 : stripe2, lineHeight: '1.2' }}>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.category}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text, fontWeight: 600, whiteSpace: 'nowrap' }}>{mat.symbol || '—'}</td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>
                       <PriceTrend mat={mat} />
                     </td>
