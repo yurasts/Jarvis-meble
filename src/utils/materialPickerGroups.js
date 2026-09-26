@@ -171,15 +171,12 @@ export const groupMaterialsForPicker = (materials = []) => {
       return;
     }
 
-    const suffix = identity.dimension ? ` · ${identity.dimension.replace(/x/g, '×')}` : '';
     groups.set(identity.key, {
       key: identity.key,
       kind: identity.kind.key,
       kindLabel: identity.kind.label,
       code: identity.code,
-      label: identity.code
-        ? `${identity.kind.label} · ${identity.code.toUpperCase()}${suffix}`
-        : String(material?.name || material?.symbol || 'Materiał'),
+      label: String(material?.name || material?.symbol || 'Materiał'),
       offers: [material],
     });
   });
