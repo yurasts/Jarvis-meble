@@ -15,10 +15,11 @@ const materialPriority = (material) => {
   // później zawiasy i prowadnice. Pozostałe pozycje trafiają na koniec.
   if (category.includes('plyt') || /^(pl|plyta)\b/.test(name)) return 0;
   if (category.includes('obrzez') || /\babs\b/.test(searchable)) return 1;
-  if (searchable.includes('zawias')) return 2;
+  if (category.includes('zawias') || (searchable.includes('zawias') && !/\bprowadnik\b/.test(searchable))) return 2;
   if (/\bprowadnik\b/.test(searchable)) return 3;
   if (/\btip[\s-]*on\b/.test(searchable)) return 4;
-  return 5;
+  if (category.includes('prowadnic') || /\bprowadnic[aeęy]?\b/.test(searchable)) return 5;
+  return 6;
 };
 
 export const compareMaterialsByWorkflow = (a, b) => {

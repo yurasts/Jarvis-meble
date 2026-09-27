@@ -885,7 +885,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   const moveMaterialHighlight = (nextIndex) => {
-    const visibleCount = Math.min(filteredMaterialGroups.length, 12);
+    const visibleCount = filteredMaterialGroups.length;
     if (!visibleCount) return;
     const normalizedIndex = (nextIndex + visibleCount) % visibleCount;
     setHighlightedMaterialIndex(normalizedIndex);
@@ -912,7 +912,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       return;
     }
     if (e.key === 'Enter' && materialSearchOpen) {
-      const selectedGroup = filteredMaterialGroups.slice(0, 12)[highlightedMaterialIndex];
+      const selectedGroup = filteredMaterialGroups[highlightedMaterialIndex];
       if (selectedGroup) {
         e.preventDefault();
         if (selectedGroup.offers.length === 1) {
@@ -1025,7 +1025,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           role="listbox"
           style={{ position: mobilePicker ? 'relative' : 'absolute', zIndex: 20, top: mobilePicker ? 'auto' : '100%', left: 0, right: 0, maxHeight: mobilePicker ? 'min(36dvh, 260px)' : compact ? '208px' : '220px', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', border: `1px solid ${border}`, borderLeft: mobilePicker ? 'none' : `1px solid ${border}`, borderRight: mobilePicker ? 'none' : `1px solid ${border}`, borderBottom: mobilePicker ? 'none' : `1px solid ${border}`, borderRadius: mobilePicker ? 0 : '0 0 6px 6px', boxShadow: mobilePicker ? 'none' : '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
         >
-          {filteredMaterialGroups.slice(0, 12).map((group, index) => {
+          {filteredMaterialGroups.map((group, index) => {
             const materialKey = group.key;
             const hasMultipleOffers = group.offers.length > 1;
             const isSelected = group.offers.some(offer => calcMaterials.some(item => item.id === offer.id));
