@@ -63,10 +63,10 @@ const ProjectImportantPoints = ({ points = [], onChange, currentProfile = null }
   };
 
   return (
-    <section className={s.panel} aria-label="Информация">
+    <section className={s.panel} aria-label="Informacje">
       <div className={s.header}>
         <div className={s.heading}>
-          <h3>Информация</h3>
+          <h3>Informacje</h3>
           <span>{points.length}</span>
         </div>
         <button type="button" className={s.addOpenButton} onClick={() => setShowAddModal(true)} aria-label="Dodaj ważną informację">
