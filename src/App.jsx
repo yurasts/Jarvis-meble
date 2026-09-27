@@ -787,6 +787,7 @@ function App() {
                 <label>Kategoria</label>
                 <select value={matCategory} onChange={e => setMatCategory(e.target.value)} style={{ padding:'10px', borderRadius:'6px', border:'1px solid #ccc' }}>
                   <option value="Płyta">Płyta</option><option value="Obrzeże">Obrzeże</option>
+                  <option value="Zawiasy">Zawiasy</option><option value="Prowadnice">Prowadnice</option>
                   <option value="HDF">HDF</option><option value="Laminat">Laminat</option>
                   <option value="Akcesoria">Akcesoria (Okucia)</option><option value="Inne">Inne</option>
                 </select>
