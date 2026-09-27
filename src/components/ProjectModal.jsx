@@ -705,6 +705,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 глобальный window keydown-слушатель Escape (закрывает весь mobile Workspace, см.
                 выше по файлу) — без остановки всплытия Escape тут закрыл бы редактор строки И ТУТ
                 ЖЕ весь экран проекта одним нажатием. */}
+            {field === 'calc_materials' && (
+              <button
+                type="button"
+                aria-label={`Zamień materiał ${item.name}`}
+                title="Zamień materiał"
+                onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
+                style={{ flexShrink: 0, width: '22px', height: '22px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: accent.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
+              >
+                ✎
+              </button>
+            )}
             <input
               autoFocus type="number" step="0.01" value={priceDraft}
               onChange={e => setPriceDraft(e.target.value)}
@@ -722,17 +733,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               style={{ width: '46px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '16px', background: bgInput, color: text }}
             />
             <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
-            {field === 'calc_materials' && (
-              <button
-                type="button"
-                aria-label={`Zamień materiał ${item.name}`}
-                title="Zamień materiał"
-                onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
-                style={{ flexShrink: 0, width: '22px', height: '22px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: accent.text, cursor: 'pointer', fontSize: '12px', lineHeight: 1 }}
-              >
-                ↔
-              </button>
-            )}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
@@ -773,21 +773,21 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       >
         {/* Единая типографика колонок (п.4 ревью): размер/насыщенность заданы один раз на строке
             (fontSize/fontWeight выше), дочерние — font:inherit; различается только color. */}
-        <span style={{ flex: 1, minWidth: 0, font: 'inherit', color: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-        <span style={{ flexShrink: 0, width: '54px', font: 'inherit', color: textLight, textAlign: 'right' }}>{Number(item.price).toFixed(2)} zł</span>
-        <span style={{ flexShrink: 0, width: '26px', font: 'inherit', color: textLight, textAlign: 'right' }}>{item.quantity ?? 1}</span>
-        <span style={{ flexShrink: 0, width: '60px', font: 'inherit', color: accent.text, textAlign: 'right' }}>{total} zł</span>
         {field === 'calc_materials' && (
           <button
             type="button"
             aria-label={`Zamień materiał ${item.name}`}
             title="Zamień materiał"
             onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
-            style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: accent.text, cursor: 'pointer', fontSize: '12px', lineHeight: 1 }}
+            style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: accent.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
           >
-            ↔
+            ✎
           </button>
         )}
+        <span style={{ flex: 1, minWidth: 0, font: 'inherit', color: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+        <span style={{ flexShrink: 0, width: '54px', font: 'inherit', color: textLight, textAlign: 'right' }}>{Number(item.price).toFixed(2)} zł</span>
+        <span style={{ flexShrink: 0, width: '26px', font: 'inherit', color: textLight, textAlign: 'right' }}>{item.quantity ?? 1}</span>
+        <span style={{ flexShrink: 0, width: '60px', font: 'inherit', color: accent.text, textAlign: 'right' }}>{total} zł</span>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
@@ -1515,6 +1515,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                               </div>
                             ) : (
                               <>
+                                <button
+                                  type="button"
+                                  aria-label={`Zamień materiał ${item.name}`}
+                                  title="Zamień materiał"
+                                  onClick={(event) => { event.stopPropagation(); startMaterialReplacement(index); }}
+                                  style={{ flexShrink: 0, width: '24px', height: '24px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
+                                >
+                                  ✎
+                                </button>
                                 {!showFullName && (
                                   <button
                                     type="button"
@@ -1528,15 +1537,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                                 {priceNode}
                                 {qtyNode}
                                 {sumNode}
-                                <button
-                                  type="button"
-                                  aria-label={`Zamień materiał ${item.name}`}
-                                  title="Zamień materiał"
-                                  onClick={(event) => { event.stopPropagation(); startMaterialReplacement(index); }}
-                                  style={{ flexShrink: 0, width: '24px', height: '24px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '13px', lineHeight: 1 }}
-                                >
-                                  ↔
-                                </button>
                                 {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
                               </>
                             )}
@@ -1556,7 +1556,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Jm</th>
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, width: '60px' }}>Ilość</th>
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Suma</th>
-                          <th style={{ padding: '6px 3px', borderBottom: `2px solid ${border}`, width: '64px' }}></th>
                           <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}></th>
                         </tr>
                       </thead>
@@ -1565,7 +1564,20 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                           const itemKey = item.id ?? index;
                           return (
                           <tr key={itemKey} style={{ borderBottom: `1px solid ${border}`, backgroundColor: replacingMaterialIndex === index ? c('#dbeafe', '#17365c') : bgMatRow, borderLeft: `3px solid ${rowStripe(item)}`, boxShadow: replacingMaterialIndex === index ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
-                            <td onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ padding: '2px 8px', fontWeight: 400, fontSize: '14px', lineHeight: '18px', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
+                            <td style={{ padding: '2px 8px', fontWeight: 400, fontSize: '14px', lineHeight: '18px', maxWidth: '200px', color: c('#2b6cb0','#63b3ed') }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                                <button
+                                  type="button"
+                                  aria-label={`Zamień materiał ${item.name}`}
+                                  title="Zamień materiał"
+                                  onClick={(event) => { event.stopPropagation(); startMaterialReplacement(index); }}
+                                  style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
+                                >
+                                  ✎
+                                </button>
+                                <span onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', cursor: 'pointer' }}>{item.name}</span>
+                              </div>
+                            </td>
                             <td style={{ padding: '4px 8px' }}>
                               {editingPrice === `mat-${index}` ? (
                                 <input autoFocus type="number" step="0.01" value={priceDraft}
@@ -1594,24 +1606,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                               />
                             </td>
                             <td style={{ padding: '4px 8px', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                            <td style={{ padding: '2px 3px', textAlign: 'center' }}>
-                              <button
-                                type="button"
-                                aria-label={`Zamień materiał ${item.name}`}
-                                title="Zamień materiał"
-                                onClick={() => startMaterialReplacement(index)}
-                                style={{ height: '24px', padding: '0 7px', border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '11px', fontWeight: 700, lineHeight: 1 }}
-                              >
-                                Zamień
-                              </button>
-                            </td>
                             {renderDeleteBtn('calc_materials', calcMaterials, index)}
                           </tr>
                           );
                         })}
-                        {calcMaterials.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
+                        {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
                         <tr>
-                          <td colSpan="7" style={{ padding: 0, borderTop: `1px solid ${border}`, textAlign: 'left' }}>
+                          <td colSpan="6" style={{ padding: 0, borderTop: `1px solid ${border}`, textAlign: 'left' }}>
                             {renderMaterialPicker(false)}
                           </td>
                         </tr>
