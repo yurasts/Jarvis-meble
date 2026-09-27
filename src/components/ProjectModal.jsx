@@ -647,6 +647,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     const accent = MOBILE_ROW_ACCENT[field];
     const isExpanded = expandedItemKey === rowKey;
     const isConfirmingDelete = confirmDeleteKey === deleteKey;
+    const isReplacingMaterial = field === 'calc_materials' && replacingMaterialIndex === index;
     const total = (Number(item.price) * Number(item.quantity || 1)).toFixed(2);
 
     // Открытие строки (A → B, hotfix): порядок вызовов здесь ДЕТЕРМИНИРОВАН и важен. finishEditing()
@@ -673,7 +674,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       // Полное имя может занимать несколько строк — фиксированная высота 24px здесь недопустима
       // (обрезала бы длинные названия). Tak/Nie — отдельной строкой справа, не перекрывают текст.
       return (
-        <div key={itemKey} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 8px', borderRadius: '5px', borderLeft: `3px solid ${rowStripe(item)}`, background: accent.bg }}>
+        <div key={itemKey} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 8px', borderRadius: '5px', borderLeft: `3px solid ${rowStripe(item)}`, background: isReplacingMaterial ? c('#dbeafe', '#17365c') : accent.bg, boxShadow: isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
           <span style={{ fontSize: '12px', color: text, whiteSpace: 'normal', wordBreak: 'break-word' }}>
             Usunąć „{item.name}”?
           </span>
@@ -687,7 +688,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
     if (isExpanded) {
       return (
-        <div key={itemKey} style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden', minHeight: '64px', boxSizing: 'border-box', background: accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center' }}>
+        <div key={itemKey} style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden', minHeight: '64px', boxSizing: 'border-box', background: isReplacingMaterial ? c('#dbeafe', '#17365c') : accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center', boxShadow: isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
           <button
             type="button"
             onClick={finishEditing}
@@ -768,7 +769,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         tabIndex={0}
         onClick={openRow}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(); } }}
-        style={{ height: '24px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', borderRadius: '5px', cursor: 'pointer', borderLeft: `3px solid ${rowStripe(item)}`, background: accent.bg, fontSize: '11px', fontWeight: 400, color: text }}
+        style={{ height: '24px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', borderRadius: '5px', cursor: 'pointer', borderLeft: `3px solid ${rowStripe(item)}`, background: isReplacingMaterial ? c('#dbeafe', '#17365c') : accent.bg, boxShadow: isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none', fontSize: '11px', fontWeight: 400, color: text }}
       >
         {/* Единая типографика колонок (п.4 ревью): размер/насыщенность заданы один раз на строке
             (fontSize/fontWeight выше), дочерние — font:inherit; различается только color. */}
@@ -1563,7 +1564,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         {sortedCalcMaterialEntries.map(({ item, index }) => {
                           const itemKey = item.id ?? index;
                           return (
-                          <tr key={itemKey} style={{ borderBottom: `1px solid ${border}`, backgroundColor: bgMatRow, borderLeft: `3px solid ${rowStripe(item)}` }}>
+                          <tr key={itemKey} style={{ borderBottom: `1px solid ${border}`, backgroundColor: replacingMaterialIndex === index ? c('#dbeafe', '#17365c') : bgMatRow, borderLeft: `3px solid ${rowStripe(item)}`, boxShadow: replacingMaterialIndex === index ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
                             <td onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ padding: '2px 8px', fontWeight: 400, fontSize: '14px', lineHeight: '18px', cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', color: c('#2b6cb0','#63b3ed') }}>{item.name}</td>
                             <td style={{ padding: '4px 8px' }}>
                               {editingPrice === `mat-${index}` ? (
