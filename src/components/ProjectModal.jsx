@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
 import ProjectTasksPanel from './ProjectTasksPanel';
 import ProjectImportantPoints from './ProjectImportantPoints';
+import MobileProjectItemRow from './MobileProjectItemRow';
+import MaterialPicker from './MaterialPicker';
+import DesktopProjectItemsTable from './DesktopProjectItemsTable';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
@@ -640,162 +642,48 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     const itemKey = item.id ?? index;
     const prefix = MOBILE_ROW_PREFIX[field];
     const rowKey = `${prefix}-${itemKey}`;
-    // Тот же формат ключа (`${prefix}-${index}`), что уже используют editingPrice/qtyDraft в
-    // desktop-таблице/isMobile-карточках выше — polностью переиспользуем их состояние и handlers.
     const stateKey = `${prefix}-${index}`;
     const deleteKey = `${field}-${index}`;
     const accent = MOBILE_ROW_ACCENT[field];
-    const isExpanded = expandedItemKey === rowKey;
-    const isConfirmingDelete = confirmDeleteKey === deleteKey;
-    const isReplacingMaterial = field === 'calc_materials' && replacingMaterialIndex === index;
-    const total = (Number(item.price) * Number(item.quantity || 1)).toFixed(2);
 
-    // Открытие строки (A → B, hotfix): порядок вызовов здесь ДЕТЕРМИНИРОВАН и важен. finishEditing()
-    // идёт ПЕРВЫМ — коммитит/закрывает ПРЕДЫДУЩУЮ раскрытую строку (если была) через её же onBlur,
-    // затем полностью сбрасывает UI-состояние редактора (в т.ч. priceDraft='' и qtyDraft={}).
-    // setPriceDraft(String(item.price)) для ЭТОЙ строки и setExpandedItemKey(rowKey) идут СТРОГО
-    // ПОСЛЕ — оба вызова синхронны и относятся к тем же state-переменным, что и внутри
-    // finishEditing()/closeMobileRowEditor(), поэтому по правилам батчинга React побеждает
-    // последнее вызванное обновление: итоговые priceDraft/expandedItemKey — гарантированно от B,
-    // а не затёртый сброс от finishEditing(). qtyDraft у B остаётся пуст (из closeMobileRowEditor) —
-    // qtyDraft строки A туда не попадает, B при необходимости сам засеет свой через handleQtyFocus.
-    // setExpandedItemKey(rowKey) — напрямую, а не toggleExpandedItem: openRow всегда означает
-    // "открыть" (вызывается только из свёрнутого состояния строки), не переключить.
     const openRow = () => {
       finishEditing();
       setPriceDraft(String(item.price));
       setExpandedItemKey(rowKey);
     };
 
-    // Подтверждение удаления показывается ПЕРВЫМ (до проверки isExpanded) — поэтому "Nie" всегда
-    // возвращает ровно то состояние (свёрнуто/раскрыто), в котором строка была до нажатия ✖,
-    // не трогая expandedItemKey.
-    if (isConfirmingDelete) {
-      // Полное имя может занимать несколько строк — фиксированная высота 24px здесь недопустима
-      // (обрезала бы длинные названия). Tak/Nie — отдельной строкой справа, не перекрывают текст.
-      return (
-        <div key={itemKey} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 8px', borderRadius: '5px', borderLeft: `3px solid ${rowStripe(item)}`, background: isReplacingMaterial ? c('#dbeafe', '#17365c') : accent.bg, boxShadow: isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
-          <span style={{ fontSize: '12px', color: text, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-            Usunąć „{item.name}”?
-          </span>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button type="button" onClick={() => handleRemoveItem(field, items, index)} style={{ flexShrink: 0, background: '#e53e3e', color: '#fff', border: 'none', padding: '3px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Tak</button>
-            <button type="button" onClick={() => setConfirmDeleteKey(null)} style={{ flexShrink: 0, background: bgHeader, color: text, border: `1px solid ${border}`, padding: '3px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
-          </div>
-        </div>
-      );
-    }
-
-    if (isExpanded) {
-      return (
-        <div key={itemKey} style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden', minHeight: '64px', boxSizing: 'border-box', background: isReplacingMaterial ? c('#dbeafe', '#17365c') : accent.bg, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${rowStripe(item)}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center', boxShadow: isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
-          <button
-            type="button"
-            onClick={finishEditing}
-            style={{ display: 'block', width: '100%', maxWidth: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', fontSize: '12.5px', color: accent.text, cursor: 'pointer', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-          >
-            {item.name}
-          </button>
-          <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {/* fontSize: 16px на price/qty (hotfix) — обязательно: iOS WebKit сам масштабирует
-                (зумит) всю страницу при фокусе на input с font-size < 16px, тот же трюк, что и
-                у остальных полей приложения. maxWidth:100%/minWidth:0/boxSizing:border-box —
-                инпуты не должны раздувать строку шире родителя ни при каком контенте.
-                stopPropagation на Escape (предыдущий hotfix) обязателен: ProjectModal вешает СВОЙ
-                глобальный window keydown-слушатель Escape (закрывает весь mobile Workspace, см.
-                выше по файлу) — без остановки всплытия Escape тут закрыл бы редактор строки И ТУТ
-                ЖЕ весь экран проекта одним нажатием. */}
-            {field === 'calc_materials' && (
-              <button
-                type="button"
-                aria-label={`Zamień materiał ${item.name}`}
-                title="Zamień materiał"
-                onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
-                style={{ flexShrink: 0, width: '22px', height: '22px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: accent.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
-              >
-                ✎
-              </button>
-            )}
-            <input
-              autoFocus type="number" step="0.01" value={priceDraft}
-              onChange={e => setPriceDraft(e.target.value)}
-              onBlur={() => handlePriceSave(field, items, index)}
-              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave(field, items, index); if (e.key === 'Escape') { e.stopPropagation(); finishEditing(); } }}
-              style={{ width: '64px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '16px', background: bgInput, color: text }}
-            />
-            <input
-              type="text"
-              value={qtyDraft[stateKey] !== undefined ? qtyDraft[stateKey] : (item.quantity ?? 1)}
-              onFocus={() => handleQtyFocus(stateKey, item.quantity ?? 1)}
-              onChange={e => handleQtyChange(stateKey, e.target.value)}
-              onBlur={() => handleQtyCommit(field, items, index, stateKey)}
-              onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit(field, items, index, stateKey); e.target.blur(); } if (e.key === 'Escape') { e.stopPropagation(); finishEditing(); } }}
-              style={{ width: '46px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '16px', background: bgInput, color: text }}
-            />
-            <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
-              style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
-            >
-              ✖
-            </button>
-          </div>
-          {/* Явная кнопка закрытия редактора — отдельной компактной строкой, не рядом с
-              (потенциально длинным) названием, чтобы не перекрывать его. Delete (✖) выше — своя,
-              отдельная кнопка, не переопределяется. Внешняя кнопка — только touch target (40px,
-              прозрачный фон, padding:0); видимая зелёная "таблетка" — внутренний <span> высотой
-              24px (hotfix — визуально вдвое компактнее при сохранении безопасной area касания). */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={finishEditing}
-              aria-label="Zakończ edycję"
-              style={{ minHeight: '40px', boxSizing: 'border-box', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', padding: '0 12px', borderRadius: '5px', background: '#38a169', color: '#fff', fontSize: '12.5px', fontWeight: 'bold' }}>
-                Gotowe
-              </span>
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div
+      <MobileProjectItemRow
         key={itemKey}
-        role="button"
-        tabIndex={0}
-        onClick={openRow}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(); } }}
-        style={{ height: '24px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', borderRadius: '5px', cursor: 'pointer', borderLeft: `3px solid ${rowStripe(item)}`, background: isReplacingMaterial ? c('#dbeafe', '#17365c') : accent.bg, boxShadow: isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none', fontSize: '11px', fontWeight: 400, color: text }}
-      >
-        {/* Единая типографика колонок (п.4 ревью): размер/насыщенность заданы один раз на строке
-            (fontSize/fontWeight выше), дочерние — font:inherit; различается только color. */}
-        {field === 'calc_materials' && (
-          <button
-            type="button"
-            aria-label={`Zamień materiał ${item.name}`}
-            title="Zamień materiał"
-            onClick={(e) => { e.stopPropagation(); startMaterialReplacement(index); }}
-            style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: accent.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
-          >
-            ✎
-          </button>
-        )}
-        <span style={{ flex: 1, minWidth: 0, font: 'inherit', color: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-        <span style={{ flexShrink: 0, width: '54px', font: 'inherit', color: textLight, textAlign: 'right' }}>{Number(item.price).toFixed(2)} zł</span>
-        <span style={{ flexShrink: 0, width: '26px', font: 'inherit', color: textLight, textAlign: 'right' }}>{item.quantity ?? 1}</span>
-        <span style={{ flexShrink: 0, width: '60px', font: 'inherit', color: accent.text, textAlign: 'right' }}>{total} zł</span>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setConfirmDeleteKey(deleteKey); }}
-          style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '13px', padding: 0, lineHeight: 1 }}
-        >
-          ✖
-        </button>
-      </div>
+        field={field}
+        item={item}
+        isExpanded={expandedItemKey === rowKey}
+        isConfirmingDelete={confirmDeleteKey === deleteKey}
+        isReplacingMaterial={field === 'calc_materials' && replacingMaterialIndex === index}
+        priceDraft={priceDraft}
+        quantityDraft={qtyDraft[stateKey]}
+        accent={accent}
+        colors={{
+          bgHeader,
+          bgInput,
+          border,
+          text,
+          textLight,
+          rowStripe: rowStripe(item),
+          replacementBackground: c('#dbeafe', '#17365c'),
+        }}
+        onOpen={openRow}
+        onFinishEditing={finishEditing}
+        onPriceDraftChange={setPriceDraft}
+        onPriceSave={() => handlePriceSave(field, items, index)}
+        onQuantityFocus={currentValue => handleQtyFocus(stateKey, currentValue)}
+        onQuantityChange={value => handleQtyChange(stateKey, value)}
+        onQuantityCommit={() => handleQtyCommit(field, items, index, stateKey)}
+        onRequestDelete={() => setConfirmDeleteKey(deleteKey)}
+        onCancelDelete={() => setConfirmDeleteKey(null)}
+        onRemove={() => handleRemoveItem(field, items, index)}
+        onStartMaterialReplacement={() => startMaterialReplacement(index)}
+      />
     );
   };
 
@@ -929,221 +817,113 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Jeden wspólny selektor dla desktopu i mobile. Na mobile pole w treści jest przyciskiem,
   // a prawdziwy input powstaje dopiero w portalu u góry ekranu. iOS nie zdąży więc przewinąć
   // długiej strony do dolnego pola przed przeniesieniem selektora.
-  const renderMaterialPicker = (compact = false) => {
-    const mobilePicker = compact && isMobileVariant;
-    const openMobilePicker = () => {
-      setHighlightedMaterialIndex(0);
-      setMaterialSearchOpen(true);
-    };
+  const renderMaterialPicker = (compact = false) => (
+    <MaterialPicker
+      compact={compact}
+      isMobileVariant={isMobileVariant}
+      isOpen={materialSearchOpen}
+      searchTerm={searchTerm}
+      highlightedIndex={highlightedMaterialIndex}
+      groups={filteredMaterialGroups}
+      categoryFilter={materialCategoryFilter}
+      categoryOptions={materialCategoryOptions}
+      supplierFilter={materialSupplierFilter}
+      supplierOptions={materialSupplierOptions}
+      expandedGroupId={expandedMaterialId}
+      replacingMaterialIndex={replacingMaterialIndex}
+      selectedMaterials={calcMaterials}
+      pickerRef={materialPickerRef}
+      searchInputRef={materialSearchInputRef}
+      optionRefs={materialOptionRefs}
+      offerButtonRefs={materialOfferButtonRefs}
+      colors={{
+        bgInput,
+        bgHeader,
+        bgMaterialRow: bgMatRow,
+        border,
+        text,
+        textLight,
+        replacementBackground: c('#ebf8ff', '#17365c'),
+        highlightBackground: c('#dbeafe', '#17365c'),
+        expandedBackground: c('#f8fafc', '#162232'),
+        blueText: c('#2b6cb0', '#63b3ed'),
+        blueButton: c('#2b6cb0', '#3182ce'),
+      }}
+      onClose={closeMaterialPicker}
+      onOpen={() => {
+        setHighlightedMaterialIndex(0);
+        setMaterialSearchOpen(true);
+      }}
+      onManualAdd={handleManualMaterialAdd}
+      onSearchFocus={() => {
+        setMaterialSearchOpen(true);
+        setHighlightedMaterialIndex(0);
+      }}
+      onSearchChange={value => {
+        setSearchTerm(value);
+        setMaterialSearchOpen(true);
+        setHighlightedMaterialIndex(0);
+      }}
+      onSearchKeyDown={handleMaterialPickerKeyDown}
+      onCategoryChange={value => {
+        setMaterialCategoryFilter(value);
+        setMaterialSearchOpen(true);
+        setHighlightedMaterialIndex(0);
+        setExpandedMaterialId(null);
+      }}
+      onSupplierChange={value => {
+        setMaterialSupplierFilter(value);
+        setMaterialSearchOpen(true);
+        setHighlightedMaterialIndex(0);
+        setExpandedMaterialId(null);
+      }}
+      onHighlight={setHighlightedMaterialIndex}
+      onToggleGroup={key => setExpandedMaterialId(previous => previous === key ? null : key)}
+      onSelectMaterial={addMaterialFromPicker}
+    />
+  );
 
-    const pickerPanel = (
-    <div ref={materialPickerRef} style={{
-      position: mobilePicker ? 'fixed' : 'relative',
-      zIndex: mobilePicker ? 1300 : 'auto',
-      top: mobilePicker ? 'calc(env(safe-area-inset-top, 0px) + 6px)' : 'auto',
-      left: mobilePicker ? 'calc(var(--mobile-landscape-nav-width, 0px) + 8px)' : 'auto',
-      right: mobilePicker ? '8px' : 'auto',
-      width: mobilePicker ? 'auto' : '100%',
-      boxSizing: 'border-box',
-      background: bgInput,
-      border: mobilePicker ? `1px solid ${border}` : 'none',
-      borderRadius: mobilePicker ? '8px' : 0,
-      boxShadow: mobilePicker ? '0 8px 28px rgba(0,0,0,0.28)' : 'none',
-      overflow: mobilePicker ? 'hidden' : 'visible',
-    }}>
-      {mobilePicker && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '26px', padding: '2px 7px 0 10px', color: textLight, fontSize: '11px', fontWeight: 700 }}>
-          <span>Materiały z bazy</span>
-          <button
-            type="button"
-            aria-label="Zamknij wyszukiwanie materiałów"
-            onClick={closeMaterialPicker}
-            style={{ width: '32px', height: '32px', padding: 0, border: 'none', background: 'transparent', color: text, fontSize: '20px', lineHeight: 1, cursor: 'pointer' }}
-          >
-            ×
-          </button>
-        </div>
-      )}
-      {replacingMaterialIndex !== null && calcMaterials[replacingMaterialIndex] && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minHeight: '30px', padding: '4px 8px', borderBottom: `1px solid ${border}`, background: c('#ebf8ff', '#17365c'), color: text, fontSize: '11px' }}>
-          <strong style={{ flexShrink: 0 }}>Zamiana:</strong>
-          <span title={calcMaterials[replacingMaterialIndex].name} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {calcMaterials[replacingMaterialIndex].name}
-          </span>
-          <button type="button" onClick={closeMaterialPicker} style={{ flexShrink: 0, border: 'none', background: 'transparent', color: textLight, cursor: 'pointer', fontSize: '11px', fontWeight: 700 }}>
-            Anuluj
-          </button>
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? '5px' : '7px', padding: mobilePicker ? '2px 5px 5px' : compact ? '4px' : '5px' }}>
-        <input
-          ref={materialSearchInputRef}
-          type="text"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={materialSearchOpen}
-          aria-controls="material-picker-options"
-          aria-activedescendant={materialSearchOpen && filteredMaterialGroups[highlightedMaterialIndex] ? `material-option-${highlightedMaterialIndex}` : undefined}
-          placeholder="🔍 Szukaj materiału w bazie…"
-          value={searchTerm}
-          onFocus={() => { setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
-          onChange={e => { setSearchTerm(e.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); }}
-          onKeyDown={handleMaterialPickerKeyDown}
-          style={{ flex: 1, minWidth: 0, height: mobilePicker ? '38px' : 'auto', boxSizing: 'border-box', padding: compact ? '6px 8px' : '5px 8px', border: `1px solid ${border}`, borderRadius: '5px', fontSize: mobilePicker ? '16px' : compact ? '12.5px' : '12px', background: bgInput, color: text }}
-        />
-        <button
-          type="button"
-          onClick={handleManualMaterialAdd}
-          style={{ flexShrink: 0, minHeight: mobilePicker ? '38px' : compact ? '34px' : '30px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: compact ? '4px 8px' : '3px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
-        >
-          + Ręcznie
-        </button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '5px', padding: mobilePicker ? '0 5px 5px' : '0 5px 5px' }}>
-        <select
-          aria-label="Typ materiału"
-          value={materialCategoryFilter}
-          onChange={event => { setMaterialCategoryFilter(event.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); setExpandedMaterialId(null); }}
-          style={{ minWidth: 0, height: mobilePicker ? '36px' : '30px', boxSizing: 'border-box', border: `1px solid ${border}`, borderRadius: '5px', padding: '2px 7px', background: bgInput, color: text, fontSize: mobilePicker ? '16px' : '11px' }}
-        >
-          <option value="">Typ: wszystkie</option>
-          {materialCategoryOptions.map(category => <option key={category} value={category}>{category}</option>)}
-        </select>
-        <select
-          aria-label="Dostawca materiału"
-          value={materialSupplierFilter}
-          onChange={event => { setMaterialSupplierFilter(event.target.value); setMaterialSearchOpen(true); setHighlightedMaterialIndex(0); setExpandedMaterialId(null); }}
-          style={{ minWidth: 0, height: mobilePicker ? '36px' : '30px', boxSizing: 'border-box', border: `1px solid ${border}`, borderRadius: '5px', padding: '2px 7px', background: bgInput, color: text, fontSize: mobilePicker ? '16px' : '11px' }}
-        >
-          <option value="">Dostawca: wszyscy</option>
-          {materialSupplierOptions.map(supplier => <option key={supplier} value={supplier}>{supplier}</option>)}
-        </select>
-      </div>
-
-      {materialSearchOpen && (
-        <div
-          id="material-picker-options"
-          role="listbox"
-          style={{ position: mobilePicker ? 'relative' : 'absolute', zIndex: 20, top: mobilePicker ? 'auto' : '100%', left: 0, right: 0, maxHeight: mobilePicker ? 'min(36dvh, 260px)' : compact ? '208px' : '220px', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', border: `1px solid ${border}`, borderLeft: mobilePicker ? 'none' : `1px solid ${border}`, borderRight: mobilePicker ? 'none' : `1px solid ${border}`, borderBottom: mobilePicker ? 'none' : `1px solid ${border}`, borderRadius: mobilePicker ? 0 : '0 0 6px 6px', boxShadow: mobilePicker ? 'none' : '0 6px 16px rgba(0,0,0,0.16)', background: bgInput }}
-        >
-          {filteredMaterialGroups.map((group, index) => {
-            const materialKey = group.key;
-            const hasMultipleOffers = group.offers.length > 1;
-            const isSelected = group.offers.some(offer => calcMaterials.some(item => item.id === offer.id));
-            const isExpanded = expandedMaterialId === materialKey;
-            const primaryOffer = group.offers[0];
-            return (
-              <div
-                key={materialKey}
-                id={`material-option-${index}`}
-                role="option"
-                aria-selected={highlightedMaterialIndex === index}
-                ref={node => { materialOptionRefs.current[index] = node; }}
-                onMouseEnter={() => setHighlightedMaterialIndex(index)}
-                style={{ borderBottom: `1px solid ${border}`, backgroundColor: highlightedMaterialIndex === index ? c('#dbeafe', '#17365c') : (isSelected ? bgMatRow : bgInput) }}
-              >
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: compact ? '5px' : '8px', minHeight: mobilePicker ? '30px' : compact ? '34px' : '32px', padding: mobilePicker ? '1px 4px 1px 8px' : compact ? '2px 4px 2px 8px' : '2px 5px 2px 8px' }}>
-                  <button
-                    type="button"
-                    aria-expanded={isExpanded}
-                    onClick={() => setExpandedMaterialId(prev => prev === materialKey ? null : materialKey)}
-                    title={group.label}
-                    style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: text, fontFamily: 'inherit', fontSize: '12px', fontWeight: 700 }}
-                  >
-                    {group.label}
-                  </button>
-                  <span style={{ whiteSpace: 'nowrap', color: textLight, fontSize: compact ? '10.5px' : '11px', fontWeight: 400 }}>
-                    {hasMultipleOffers ? (
-                      <>{group.offers.length} wariantów</>
-                    ) : (
-                      <><strong style={{ color: c('#2b6cb0','#63b3ed') }}>{Number(primaryOffer.price).toFixed(2)} zł</strong>{' · '}{primaryOffer.unit || 'szt'}</>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (hasMultipleOffers) {
-                        setExpandedMaterialId(prev => prev === materialKey ? null : materialKey);
-                      } else {
-                        addMaterialFromPicker(primaryOffer);
-                      }
-                    }}
-                    style={{ background: hasMultipleOffers || replacingMaterialIndex !== null ? c('#2b6cb0', '#3182ce') : (isSelected ? '#718096' : '#38a169'), color: '#fff', border: 'none', padding: '4px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '10.5px', whiteSpace: 'nowrap' }}
-                  >
-                    {hasMultipleOffers ? (isExpanded ? 'Zwiń' : 'Wybierz') : (replacingMaterialIndex !== null ? 'Zamień' : (isSelected ? '+ 1' : '+ Dodaj'))}
-                  </button>
-                </div>
-                {isExpanded && (
-                  <div style={{ borderTop: `1px solid ${border}`, background: c('#f8fafc', '#162232') }}>
-                    {group.offers.map((offer, offerIndex) => {
-                      const offerKey = offer.id ?? `${materialKey}-${offerIndex}`;
-                      const offerSelected = calcMaterials.some(item => item.id === offer.id);
-                      return (
-                        <div key={offerKey} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto auto', alignItems: 'center', gap: '7px', minHeight: '38px', padding: '3px 5px 3px 12px', borderBottom: offerIndex < group.offers.length - 1 ? `1px solid ${border}` : 'none' }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div title={offer.name || ''} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: text, fontSize: '11px', fontWeight: 600 }}>
-                              {offer.name}
-                            </div>
-                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: textLight, fontSize: '9.5px' }}>
-                              {offer.supplier || 'Dostawca nieokreślony'}{offer.category ? ` · ${offer.category}` : ''}{offer.symbol ? ` · ${offer.symbol}` : ''}
-                            </div>
-                          </div>
-                          <span style={{ whiteSpace: 'nowrap', color: c('#2b6cb0','#63b3ed'), fontSize: '10.5px', fontWeight: 700 }}>
-                            {Number(offer.price).toFixed(2)} zł · {offer.unit || 'szt'}
-                          </span>
-                          <button
-                            ref={node => { materialOfferButtonRefs.current[`${materialKey}-${offerIndex}`] = node; }}
-                            type="button"
-                            onClick={() => addMaterialFromPicker(offer)}
-                            style={{ background: replacingMaterialIndex !== null ? c('#2b6cb0', '#3182ce') : (offerSelected ? '#718096' : '#38a169'), color: '#fff', border: 'none', padding: '4px 7px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '10.5px', whiteSpace: 'nowrap' }}
-                          >
-                            {replacingMaterialIndex !== null ? 'Zamień' : (offerSelected ? '+ 1' : '+ Dodaj')}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {filteredMaterialGroups.length === 0 && (
-            <div style={{ padding: '9px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
-          )}
-        </div>
-      )}
-    </div>
-    );
-
-    if (!mobilePicker) return pickerPanel;
+  const renderDesktopItemsTable = ({ kind, entries, items, field, headerBackground, headerText, headerBorder, accent, rowBackground, footer = null, replacingIndex = null }) => (
+    <DesktopProjectItemsTable
+      kind={kind}
+      entries={entries}
+      expandedItemKey={expandedItemKey}
+      editingPrice={editingPrice}
+      priceDraft={priceDraft}
+      quantityDrafts={qtyDraft}
+      replacingIndex={replacingIndex}
+      colors={{
+        border,
+        text,
+        mutedText: textLight,
+        inputBackground: bgInput,
+        headerBackground,
+        headerText,
+        headerBorder,
+        accent,
+        rowBackground,
+        replacementBackground: c('#dbeafe', '#17365c'),
+        nameText: kind === 'materials' ? accent : text,
+      }}
+      rowStripe={rowStripe}
+      footer={footer}
+      onToggleExpanded={toggleExpandedItem}
+      onStartReplacement={startMaterialReplacement}
+      onStartPriceEdit={(stateKey, price) => {
+        setEditingPrice(stateKey);
+        setPriceDraft(String(price));
+      }}
+      onPriceDraftChange={setPriceDraft}
+      onPriceSave={index => handlePriceSave(field, items, index)}
+      onCancelPriceEdit={() => setEditingPrice(null)}
+      onQuantityFocus={handleQtyFocus}
+      onQuantityChange={handleQtyChange}
+      onQuantityCommit={(index, stateKey) => handleQtyCommit(field, items, index, stateKey)}
+      renderDeleteCell={index => renderDeleteBtn(field, items, index)}
+    />
+  );
 
     return (
-      <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', width: '100%', padding: '4px', boxSizing: 'border-box', background: bgInput }}>
-          <button
-            type="button"
-            role="combobox"
-            aria-expanded={materialSearchOpen}
-            aria-controls="material-picker-options"
-            onClick={openMobilePicker}
-            style={{ flex: 1, minWidth: 0, height: '34px', boxSizing: 'border-box', padding: '6px 8px', border: `1px solid ${border}`, borderRadius: '5px', background: bgInput, color: textLight, fontFamily: 'inherit', fontSize: '12.5px', textAlign: 'left', cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            🔍 Szukaj materiału w bazie…
-          </button>
-          <button
-            type="button"
-            onClick={handleManualMaterialAdd}
-            style={{ flexShrink: 0, minHeight: '34px', background: bgHeader, color: text, border: `1px solid ${border}`, padding: '4px 8px', borderRadius: '5px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap' }}
-          >
-            + Ręcznie
-          </button>
-        </div>
-        {materialSearchOpen && createPortal(pickerPanel, document.body)}
-      </>
-    );
-  };
-
-  return (
     <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
       <div style={innerStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
 
@@ -1547,78 +1327,19 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     {renderMaterialPicker(true)}
                   </div>
                 ) : (
-                  <div style={{ overflow: 'visible', border: `1px solid ${border}`, borderRadius: '6px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                      <thead>
-                        <tr style={{ background: bgHeader, textAlign: 'left', color: textLight }}>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Nazwa materiału</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Cena j.</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Jm</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}`, width: '60px' }}>Ilość</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}>Suma</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${border}` }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedCalcMaterialEntries.map(({ item, index }) => {
-                          const itemKey = item.id ?? index;
-                          return (
-                          <tr key={itemKey} style={{ borderBottom: `1px solid ${border}`, backgroundColor: replacingMaterialIndex === index ? c('#dbeafe', '#17365c') : bgMatRow, borderLeft: `3px solid ${rowStripe(item)}`, boxShadow: replacingMaterialIndex === index ? 'inset 0 0 0 2px #3182ce' : 'none' }}>
-                            <td style={{ padding: '2px 8px', fontWeight: 400, fontSize: '14px', lineHeight: '18px', maxWidth: '200px', color: c('#2b6cb0','#63b3ed') }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
-                                <button
-                                  type="button"
-                                  aria-label={`Zamień materiał ${item.name}`}
-                                  title="Zamień materiał"
-                                  onClick={(event) => { event.stopPropagation(); startMaterialReplacement(index); }}
-                                  style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
-                                >
-                                  ✎
-                                </button>
-                                <span onClick={() => toggleExpandedItem(`mat-${itemKey}`)} style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `mat-${itemKey}` ? 'normal' : 'nowrap', cursor: 'pointer' }}>{item.name}</span>
-                              </div>
-                            </td>
-                            <td style={{ padding: '4px 8px' }}>
-                              {editingPrice === `mat-${index}` ? (
-                                <input autoFocus type="number" step="0.01" value={priceDraft}
-                                  onChange={e => setPriceDraft(e.target.value)}
-                                  onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
-                                  onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                                  style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                                />
-                              ) : (
-                                <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
-                                  style={{ cursor: 'pointer', color: c('#2b6cb0','#63b3ed'), borderBottom: '1px dashed #a0aec0' }} title="Kliknij aby zmienić cenę">
-                                  {Number(item.price).toFixed(2)} zł
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ padding: '4px 8px', color: textLight }}>{item.unit || 'szt'}</td>
-                            <td style={{ padding: '4px 8px' }}>
-                              <input type="text"
-                                value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
-                                onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
-                                onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
-                                onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
-                                onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
-                                title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                                style={{ width: '70px', padding: '2px 4px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                              />
-                            </td>
-                            <td style={{ padding: '4px 8px', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                            {renderDeleteBtn('calc_materials', calcMaterials, index)}
-                          </tr>
-                          );
-                        })}
-                        {calcMaterials.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych materiałów</td></tr>}
-                        <tr>
-                          <td colSpan="6" style={{ padding: 0, borderTop: `1px solid ${border}`, textAlign: 'left' }}>
-                            {renderMaterialPicker(false)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  renderDesktopItemsTable({
+                    kind: 'materials',
+                    entries: sortedCalcMaterialEntries,
+                    items: calcMaterials,
+                    field: 'calc_materials',
+                    headerBackground: bgHeader,
+                    headerText: textLight,
+                    headerBorder: border,
+                    accent: c('#2b6cb0', '#63b3ed'),
+                    rowBackground: bgMatRow,
+                    footer: renderMaterialPicker(false),
+                    replacingIndex: replacingMaterialIndex,
+                  })
                 )}
               </div>
             </div>
@@ -1717,58 +1438,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     ))}
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                      <thead>
-                        <tr style={{ background: bgSrvRow, textAlign: 'left', color: c('#276749','#68d391') }}>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}>Nazwa usługi</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}>Cena jend. (zł)</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}`, width: '80px' }}>Ilość</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}>Suma</th>
-                          <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderSrv}` }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {calcServices.map((item, index) => {
-                          const itemKey = item.id ?? index;
-                          return (
-                          <tr key={index} style={{ borderBottom: `1px solid ${border}`, background: bg, borderLeft: `3px solid ${rowStripe(item)}` }}>
-                            <td onClick={() => toggleExpandedItem(`srv-${itemKey}`)} style={{ padding: '6px 8px', color: text, cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `srv-${itemKey}` ? 'normal' : 'nowrap' }}>{item.name}</td>
-                            <td style={{ padding: '6px 8px' }}>
-                              {editingPrice === `srv-${index}` ? (
-                                <input autoFocus type="number" step="0.01" value={priceDraft}
-                                  onChange={e => setPriceDraft(e.target.value)}
-                                  onBlur={() => handlePriceSave('calc_services', calcServices, index)}
-                                  onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                                  style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                                />
-                              ) : (
-                                <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
-                                  style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0', color: text }} title="Kliknij aby zmienić cenę">
-                                  {Number(item.price).toFixed(2)}
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ padding: '6px 8px' }}>
-                              <input type="text"
-                                value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
-                                onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
-                                onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
-                                onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
-                                onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
-                                title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                                style={{ width: '70px', padding: '2px 4px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                              />
-                            </td>
-                            <td style={{ padding: '6px 8px', fontWeight: 'bold', color: c('#276749','#68d391') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                            {renderDeleteBtn('calc_services', calcServices, index)}
-                          </tr>
-                          );
-                        })}
-                        {calcServices.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodanych usług</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
+                  renderDesktopItemsTable({
+                    kind: 'services',
+                    entries: calcServices.map((item, index) => ({ item, index })),
+                    items: calcServices,
+                    field: 'calc_services',
+                    headerBackground: bgSrvRow,
+                    headerText: c('#276749', '#68d391'),
+                    headerBorder: borderSrv,
+                    accent: c('#276749', '#68d391'),
+                    rowBackground: bg,
+                  })
                 )}
                 <div style={{ textAlign: 'right', marginTop: '8px' }}>
                   <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
@@ -1877,58 +1557,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   ))}
                 </div>
               ) : (
-              <div style={{ overflowX: 'auto', border: `1px solid ${border}`, borderRadius: '6px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                  <thead>
-                    <tr style={{ background: bgExpRow, textAlign: 'left', color: c('#c53030','#fc8181') }}>
-                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}>Opis wydatku</th>
-                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}>Kwota bazowa (zł)</th>
-                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}`, width: '80px' }}>Mnożnik / Ilość</th>
-                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}>Suma Wydatku</th>
-                      <th style={{ padding: '6px 8px', borderBottom: `2px solid ${borderExp}` }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {calcExpenses.map((item, index) => {
-                      const itemKey = item.id ?? index;
-                      return (
-                      <tr key={index} style={{ borderBottom: `1px solid ${border}`, background: bg, borderLeft: `3px solid ${rowStripe(item)}` }}>
-                        <td onClick={() => toggleExpandedItem(`exp-${itemKey}`)} style={{ padding: '6px 8px', color: text, cursor: 'pointer', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedItemKey === `exp-${itemKey}` ? 'normal' : 'nowrap' }}>{item.name}</td>
-                        <td style={{ padding: '6px 8px' }}>
-                          {editingPrice === `exp-${index}` ? (
-                            <input autoFocus type="number" step="0.01" value={priceDraft}
-                              onChange={e => setPriceDraft(e.target.value)}
-                              onBlur={() => handlePriceSave('calc_expenses', calcExpenses, index)}
-                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_expenses', calcExpenses, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                              style={{ width: '70px', padding: '2px 4px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                            />
-                          ) : (
-                            <span onClick={() => { setEditingPrice(`exp-${index}`); setPriceDraft(String(item.price)); }}
-                              style={{ cursor: 'pointer', borderBottom: '1px dashed #a0aec0', color: text }} title="Kliknij aby zmienić cenę">
-                              {Number(item.price).toFixed(2)}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '6px 8px' }}>
-                          <input type="text"
-                            value={qtyDraft[`exp-${index}`] !== undefined ? qtyDraft[`exp-${index}`] : (item.quantity || 1)}
-                            onFocus={() => handleQtyFocus(`exp-${index}`, item.quantity || 1)}
-                            onChange={e => handleQtyChange(`exp-${index}`, e.target.value)}
-                            onBlur={() => handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`)}
-                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`); e.target.blur(); } }}
-                            title="Wpisz liczbę lub wyrażenie: 37+20+16"
-                            style={{ width: '70px', padding: '2px 4px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '12px', background: bgInput, color: text }}
-                          />
-                        </td>
-                        <td style={{ padding: '6px 8px', fontWeight: 'bold', color: c('#c53030','#fc8181') }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</td>
-                        {renderDeleteBtn('calc_expenses', calcExpenses, index)}
-                      </tr>
-                      );
-                    })}
-                    {calcExpenses.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '15px', color: '#a0aec0' }}>Brak dodatkowych wydatków</td></tr>}
-                  </tbody>
-                </table>
-              </div>
+              renderDesktopItemsTable({
+                kind: 'expenses',
+                entries: calcExpenses.map((item, index) => ({ item, index })),
+                items: calcExpenses,
+                field: 'calc_expenses',
+                headerBackground: bgExpRow,
+                headerText: c('#c53030', '#fc8181'),
+                headerBorder: borderExp,
+                accent: c('#c53030', '#fc8181'),
+                rowBackground: bg,
+              })
               )}
             </div>
             )
