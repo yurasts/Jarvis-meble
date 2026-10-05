@@ -5,6 +5,7 @@ import ProjectTasksPanel from './ProjectTasksPanel';
 import ProjectImportantPoints from './ProjectImportantPoints';
 import MobileProjectItemRow from './MobileProjectItemRow';
 import MaterialPicker from './MaterialPicker';
+import ServicePicker from './ServicePicker';
 import DesktopProjectItemsTable from './DesktopProjectItemsTable';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
@@ -96,6 +97,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const materialOptionRefs = useRef([]);
   const materialOfferButtonRefs = useRef({});
   const [searchService, setSearchService] = useState('');
+  const [serviceSearchOpen, setServiceSearchOpen] = useState(false);
+  const [highlightedServiceIndex, setHighlightedServiceIndex] = useState(0);
+  const servicePickerRef = useRef(null);
+  const serviceSearchInputRef = useRef(null);
+  const serviceOptionRefs = useRef([]);
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
@@ -146,6 +152,26 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     });
     return () => window.cancelAnimationFrame(focusFrame);
   }, [isMobileVariant, materialSearchOpen]);
+
+  useEffect(() => {
+    if (!serviceSearchOpen) return undefined;
+    const handleOutsidePointerDown = (event) => {
+      if (servicePickerRef.current?.contains(event.target)) return;
+      serviceSearchInputRef.current?.blur();
+      setServiceSearchOpen(false);
+      setHighlightedServiceIndex(0);
+    };
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
+  }, [serviceSearchOpen]);
+
+  useEffect(() => {
+    if (!serviceSearchOpen || !isMobileVariant) return undefined;
+    const focusFrame = window.requestAnimationFrame(() => {
+      serviceSearchInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [isMobileVariant, serviceSearchOpen]);
 
   // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
   // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
@@ -401,6 +427,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     return groupMaterialsForPicker(matchingMaterials);
   }, [materials, materialCategoryFilter, materialQuery, materialSupplierFilter]);
 
+  const serviceQuery = searchService.trim().toLocaleLowerCase('pl');
+  const filteredServices = useMemo(() => (
+    (servicesList || [])
+      .filter(service => String(service.name || '').toLocaleLowerCase('pl').includes(serviceQuery))
+      .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'pl'))
+  ), [serviceQuery, servicesList]);
+
   const toggleRow = (key) => setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleExpandedItem = (key) => setExpandedItemKey(prev => (prev === key ? null : key));
   const updateItems = (field, newItems) => setClient({ ...client, [field]: newItems });
@@ -458,6 +491,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         return;
       }
       finishEditing();
+    }
+    if (tab !== activeTab) {
+      setSearchTerm('');
+      setMaterialSearchOpen(false);
+      setHighlightedMaterialIndex(0);
+      setExpandedMaterialId(null);
+      setReplacingMaterialIndex(null);
+      setSearchService('');
+      setServiceSearchOpen(false);
+      setHighlightedServiceIndex(0);
     }
     setActiveTab(tab);
   };
@@ -880,6 +923,102 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       onHighlight={setHighlightedMaterialIndex}
       onToggleGroup={key => setExpandedMaterialId(previous => previous === key ? null : key)}
       onSelectMaterial={addMaterialFromPicker}
+    />
+  );
+
+  const closeServicePicker = () => {
+    serviceSearchInputRef.current?.blur();
+    setSearchService('');
+    setServiceSearchOpen(false);
+    setHighlightedServiceIndex(0);
+  };
+
+  const addServiceFromPicker = (service) => {
+    handleAddItem('calc_services', calcServices, service);
+    closeServicePicker();
+  };
+
+  const handleManualServiceAdd = () => {
+    closeServicePicker();
+    handleCustomAdd('calc_services', calcServices);
+  };
+
+  const moveServiceHighlight = (nextIndex) => {
+    const visibleCount = filteredServices.length;
+    if (!visibleCount) return;
+    const normalizedIndex = (nextIndex + visibleCount) % visibleCount;
+    setHighlightedServiceIndex(normalizedIndex);
+    requestAnimationFrame(() => serviceOptionRefs.current[normalizedIndex]?.scrollIntoView({ block: 'nearest' }));
+  };
+
+  const handleServicePickerKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      closeServicePicker();
+      event.currentTarget.blur();
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setServiceSearchOpen(true);
+      moveServiceHighlight(highlightedServiceIndex + 1);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setServiceSearchOpen(true);
+      moveServiceHighlight(highlightedServiceIndex - 1);
+      return;
+    }
+    if (event.key === 'Enter' && serviceSearchOpen) {
+      const selectedService = filteredServices[highlightedServiceIndex];
+      if (selectedService) {
+        event.preventDefault();
+        addServiceFromPicker(selectedService);
+      }
+    }
+  };
+
+  const renderServicePicker = (compact = false) => (
+    <ServicePicker
+      compact={compact}
+      isMobileVariant={isMobileVariant}
+      isOpen={serviceSearchOpen}
+      searchTerm={searchService}
+      highlightedIndex={highlightedServiceIndex}
+      services={filteredServices}
+      selectedServices={calcServices}
+      pickerRef={servicePickerRef}
+      searchInputRef={serviceSearchInputRef}
+      optionRefs={serviceOptionRefs}
+      colors={{
+        bgInput,
+        bgHeader,
+        border,
+        text,
+        textLight,
+        selectedBackground: bgSrvRow,
+        highlightBackground: c('#dcfce7', '#17452b'),
+        accent: c('#276749', '#68d391'),
+      }}
+      onClose={closeServicePicker}
+      onOpen={() => {
+        setHighlightedServiceIndex(0);
+        setServiceSearchOpen(true);
+      }}
+      onManualAdd={handleManualServiceAdd}
+      onSearchFocus={() => {
+        setServiceSearchOpen(true);
+        setHighlightedServiceIndex(0);
+      }}
+      onSearchChange={value => {
+        setSearchService(value);
+        setServiceSearchOpen(true);
+        setHighlightedServiceIndex(0);
+      }}
+      onSearchKeyDown={handleServicePickerKeyDown}
+      onHighlight={setHighlightedServiceIndex}
+      onSelectService={addServiceFromPicker}
     />
   );
 
@@ -1353,46 +1492,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 {renderSectionHeader(mobileServicesOpen, handleToggleMobileServices, totalServices)}
                 {mobileServicesOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {/* Szukaj usługi w bazie… */}
-                    <input
-                      type="text"
-                      placeholder="Szukaj usługi w bazie…"
-                      value={searchService}
-                      onChange={e => setSearchService(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Escape') setSearchService(''); }}
-                      style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: `1px solid ${border}`, borderRadius: '6px', fontSize: '12.5px', background: bgInput, color: text }}
-                    />
-                    {searchService.trim() && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '220px', overflowY: 'auto', border: `1px solid ${border}`, borderRadius: '6px', padding: '4px', background: bgInput }}>
-                        {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.trim().toLowerCase())).map(s => {
-                          const isSelected = calcServices.some(item => item.id === s.id);
-                          return (
-                            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px' }}>
-                              <span style={{ flex: 1, minWidth: 0, fontSize: '12.5px', fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                              <span style={{ flexShrink: 0, fontSize: '12px', color: c('#276749','#68d391'), fontWeight: 'bold' }}>{Number(s.price).toFixed(2)} zł</span>
-                              <button
-                                type="button"
-                                onClick={() => { handleAddItem('calc_services', calcServices, s); setSearchService(''); }}
-                                style={{ flexShrink: 0, background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' }}
-                              >
-                                {isSelected ? '+ Kol.' : '+ Dodaj'}
-                              </button>
-                            </div>
-                          );
-                        })}
-                        {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.trim().toLowerCase())).length === 0 && (
-                          <div style={{ padding: '8px', textAlign: 'center', color: textLight, fontSize: '12px' }}>Brak wyników</div>
-                        )}
-                      </div>
-                    )}
+                    {renderServicePicker(true)}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                       {calcServices.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych usług</div>
                       )}
                       {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <button type="button" onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '7px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
                     </div>
                   </div>
                 )}
