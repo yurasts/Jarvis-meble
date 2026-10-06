@@ -104,7 +104,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const serviceOptionRefs = useRef([]);
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
-  const [expandedRows, setExpandedRows] = useState({});
   // Единственная раскрытая строка среди ДОБАВЛЕННЫХ позиций (desktop-таблицы Materiały/Usługi/
   // Wydatki, а также mobile-карточки Materiały — feat/mobile-material-row-compact) — nullable-ключ
   // вместо объекта с несколькими флагами: раскрытие новой строки автоматически схлопывает
@@ -434,7 +433,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'pl'))
   ), [serviceQuery, servicesList]);
 
-  const toggleRow = (key) => setExpandedRows(prev => ({ ...prev, [key]: !prev[key] }));
   const toggleExpandedItem = (key) => setExpandedItemKey(prev => (prev === key ? null : key));
   const updateItems = (field, newItems) => setClient({ ...client, [field]: newItems });
   const authorMeta = () => ({ addedById: currentProfile?.id || null, addedByColor: currentProfile?.color || '#718096' });
@@ -1541,6 +1539,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                         </div>
                       </div>
                     ))}
+                    {renderServicePicker(true)}
                   </div>
                 ) : (
                   renderDesktopItemsTable({
@@ -1553,40 +1552,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     headerBorder: borderSrv,
                     accent: c('#276749', '#68d391'),
                     rowBackground: bg,
+                    footer: renderServicePicker(false),
                   })
                 )}
-                <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                  <button onClick={() => handleCustomAdd('calc_services', calcServices)} style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>+ Dodaj usługę ręcznie</button>
-                </div>
               </div>
 
-              {/* Baza usług */}
-              <div style={{ display: desktopServicesOpen ? 'block' : 'none', background: bgSrvRow, padding: '10px', borderRadius: '6px', border: `1px solid ${borderSrv}` }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: c('#276749','#68d391') }}>🔍 Baza usług</h3>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                  <input type="text" placeholder="Szukaj usługi..." value={searchService} onChange={e => setSearchService(e.target.value)}
-                    style={{ padding: '6px 8px', border: `1px solid ${borderSrv}`, borderRadius: '4px', fontSize: '12px', flex: 1, background: bgInput, color: text }} />
-                </div>
-                <div style={{ maxHeight: '220px', overflowY: 'auto', borderTop: `1px solid ${borderSrv}`, background: bgInput, borderRadius: '4px' }}>
-                  {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase())).map(s => {
-                    const isSelected = calcServices.some(item => item.id === s.id);
-                    return (
-                      <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '6px 10px', borderBottom: `1px solid ${border}`, fontSize: '12px', alignItems: 'center', backgroundColor: isSelected ? bgSrvRow : bgInput }}>
-                        <div onClick={() => toggleRow(`avail_srv_${s.id}`)} style={{ flex: 1, minWidth: 0, fontWeight: 'bold', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: expandedRows[`avail_srv_${s.id}`] ? 'normal' : 'nowrap', color: text }}>{s.name}</div>
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', width: '140px', flexShrink: 0 }}>
-                          <strong style={{ color: c('#276749','#68d391') }}>{Number(s.price).toFixed(2)} zł</strong>
-                          <button onClick={() => handleAddItem('calc_services', calcServices, s)} style={{ background: isSelected ? '#718096' : '#38a169', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', width: '65px' }}>
-                            {isSelected ? '+ Kol.' : '+ Dodaj'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(servicesList || []).filter(s => (s.name || '').toLowerCase().includes(searchService.toLowerCase())).length === 0 && (
-                    <div style={{ padding: '10px', textAlign: 'center', color: '#a0aec0', fontSize: '12px' }}>Brak wyników</div>
-                  )}
-                </div>
-              </div>
+
             </div>
             )
           )}
