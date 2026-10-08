@@ -4,7 +4,7 @@ const normalizeMaterialValue = (value) =>
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
     .toLowerCase()
-    .replace(/\u0142/g, 'l');
+    .replace(/[\u0141\u0142]/g, 'l');
 
 const materialPriority = (material) => {
   const name = normalizeMaterialValue(material?.name || material?.symbol);

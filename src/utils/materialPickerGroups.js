@@ -2,7 +2,7 @@ const normalizeMaterialText = (value) =>
   String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\u0142/g, 'l')
+    .replace(/[\u0141\u0142]/g, 'l')
     .trim()
     .toLowerCase();
 

@@ -1,26 +1,42 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { Suspense, lazy, useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './useAuth'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
-import KanbanBoard from './components/KanbanBoard'
-import MaterialsList from './components/MaterialsList'
-import ProjectModal from './components/ProjectModal'
-import Settings from './components/Settings'
-import AiAssistant from './components/AiAssistant';
 import GlobalSearch from './components/GlobalSearch';
 import ProjectNav from './components/ProjectNav';
 import ProjectListPanel from './components/ProjectListPanel';
 import MobileProjectsScreen from './components/MobileProjectsScreen';
 import MobileBottomNav from './components/MobileBottomNav';
-import MobileClientBalanceScreen from './components/MobileClientBalanceScreen';
-import Pro100Library from './components/Pro100Library';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
+const KanbanBoard = lazy(() => import('./components/KanbanBoard'))
+const MaterialsList = lazy(() => import('./components/MaterialsList'))
+const ProjectModal = lazy(() => import('./components/ProjectModal'))
+const Settings = lazy(() => import('./components/Settings'))
+const AiAssistant = lazy(() => import('./components/AiAssistant'))
+const MobileClientBalanceScreen = lazy(() => import('./components/MobileClientBalanceScreen'))
+const Pro100Library = lazy(() => import('./components/Pro100Library'))
+
+function ContentLoading() {
+  return (
+    <div className={s.lazyFallback} role="status" aria-live="polite">
+      {'\u0141adowanie widoku\u2026'}
+    </div>
+  )
+}
+
+function OverlayLoading() {
+  return (
+    <div className={s.lazyOverlayFallback} role="status" aria-live="polite">
+      {'\u0141adowanie projektu\u2026'}
+    </div>
+  )
+}
 // "Panel", а не "Dzisiaj" — отдельный экран "на сегодня" пока не реализован (см. ADR-002).
 const TAB_LABELS = {
   dashboard:  'Panel',
@@ -627,6 +643,7 @@ function App() {
           />
         </div>
         <div className="main-content" style={(showWorkspace || showDesktopBalance || showDesktopLibrary) ? { display: 'flex', flexDirection: 'column' } : undefined}>
+        <Suspense fallback={<ContentLoading />}>
         {showDesktopLibrary ? (
           <Pro100Library profilesById={profilesById} />
         ) : showDesktopBalance ? (
@@ -722,6 +739,7 @@ function App() {
         )}
         </>
         )}
+        </Suspense>
         </div>
       </div>
 
@@ -751,6 +769,7 @@ function App() {
       {/* ProjectModal — полноэкранный мобильный экран проекта до 767px (ADR-003, Mobile Field Mode
           faza 2; на desktop/tablet используется embedded-рабочая область выше) */}
       {!isDesktop && activeClient && (
+        <Suspense fallback={<OverlayLoading />}>
         <ProjectModal
           key={`mobile-${activeClient?.id}-${projectModalTab}`}
           variant="mobile"
@@ -773,6 +792,7 @@ function App() {
           cashStatus={cashStatus}
           onRetryCash={loadCashTransactions}
         />
+        </Suspense>
       )}
 
       {/* Модал: новый материал */}
@@ -852,6 +872,7 @@ function App() {
           (не открытие проекта — requestOpenProject здесь не вызывается); нижняя навигация скрыта
           покрытием z-index этого экрана (см. .module.css), без правок MobileBottomNav.jsx. */}
       {!isDesktop && balanceClientName && (
+        <Suspense fallback={<OverlayLoading />}>
         <MobileClientBalanceScreen
           clientName={balanceClientName}
           clients={clients}
@@ -863,6 +884,7 @@ function App() {
           onRetryCash={loadCashTransactions}
           onClose={() => setBalanceClientName(null)}
         />
+        </Suspense>
       )}
 
       {/* Нижняя мобильная навигация (ADR-003). Видимость — чисто через CSS-медиазапрос
@@ -876,7 +898,9 @@ function App() {
         onUstawienia={() => goToTab('settings')}
       />
 
-      {AI_ASSISTANT_ENABLED && <AiAssistant />}
+      {AI_ASSISTANT_ENABLED && (
+        <Suspense fallback={null}><AiAssistant /></Suspense>
+      )}
     </div>
   )
 }
