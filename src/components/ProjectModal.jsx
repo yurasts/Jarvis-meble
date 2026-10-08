@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import FilesTab from './FilesTab';
 import ProjectCashLedger from './ProjectCashLedger';
 import ProjectTasksPanel from './ProjectTasksPanel';
@@ -7,10 +7,15 @@ import MobileProjectItemRow from './MobileProjectItemRow';
 import MaterialPicker from './MaterialPicker';
 import ServicePicker from './ServicePicker';
 import DesktopProjectItemsTable from './DesktopProjectItemsTable';
+import useProjectItemEditor from './useProjectItemEditor';
+import useProjectItemPickers from './useProjectItemPickers';
+import useProjectSaveLifecycle from './useProjectSaveLifecycle';
+import useProjectCloseLifecycle from './useProjectCloseLifecycle';
+import useProjectTabLifecycle from './useProjectTabLifecycle';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
-import { groupMaterialsForPicker, materialMatchesQuery } from '../utils/materialPickerGroups';
+import { hasProjectFieldChanges } from '../utils/projectDirtyState';
 
 // Лёгкая заливка фона по статусу проекта
 const STATUS_OVERLAY = {
@@ -86,36 +91,35 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // строкой Klient/.../Zapisz); один и тот же стейт переиспользуется для mobile, т.к. варианты
   // взаимно исключают друг друга — в любой момент активен ровно один.
   const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [materialSearchOpen, setMaterialSearchOpen] = useState(false);
-  const [highlightedMaterialIndex, setHighlightedMaterialIndex] = useState(0);
-  const [materialCategoryFilter, setMaterialCategoryFilter] = useState('');
-  const [materialSupplierFilter, setMaterialSupplierFilter] = useState('');
-  const [replacingMaterialIndex, setReplacingMaterialIndex] = useState(null);
-  const materialPickerRef = useRef(null);
-  const materialSearchInputRef = useRef(null);
-  const materialOptionRefs = useRef([]);
-  const materialOfferButtonRefs = useRef({});
-  const [searchService, setSearchService] = useState('');
-  const [serviceSearchOpen, setServiceSearchOpen] = useState(false);
-  const [highlightedServiceIndex, setHighlightedServiceIndex] = useState(0);
-  const servicePickerRef = useRef(null);
-  const serviceSearchInputRef = useRef(null);
-  const serviceOptionRefs = useRef([]);
   const [clientInfoOpen, setClientInfoOpen] = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
   // Единственная раскрытая строка среди ДОБАВЛЕННЫХ позиций (desktop-таблицы Materiały/Usługi/
   // Wydatki, а также mobile-карточки Materiały — feat/mobile-material-row-compact) — nullable-ключ
   // вместо объекта с несколькими флагами: раскрытие новой строки автоматически схлопывает
   // предыдущую, повторный клик по уже раскрытой закрывает её. Ключ — стабильный item.id (есть у
   // любой добавленной позиции: и из справочника, и через handleCustomAdd) с префиксом таблицы,
   // чтобы id из разных таблиц не пересекались.
-  const [expandedItemKey, setExpandedItemKey] = useState(null);
-  const [expandedMaterialId, setExpandedMaterialId] = useState(null);
-  const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
-  const [editingPrice, setEditingPrice] = useState(null);
-  const [priceDraft, setPriceDraft] = useState('');
-  const [qtyDraft, setQtyDraft] = useState({});
+  const updateItems = useCallback((field, newItems) => {
+    setClient(current => ({ ...current, [field]: newItems }));
+  }, [setClient]);
+  const {
+    expandedItemKey,
+    setExpandedItemKey,
+    confirmDeleteKey,
+    setConfirmDeleteKey,
+    editingPrice,
+    setEditingPrice,
+    priceDraft,
+    setPriceDraft,
+    quantityDrafts: qtyDraft,
+    toggleExpandedItem,
+    closeEditor: closeMobileRowEditor,
+    finishEditing,
+    handleQuantityFocus: handleQtyFocus,
+    handleQuantityChange: handleQtyChange,
+    commitQuantity: handleQtyCommit,
+    savePrice: handlePriceSave,
+    removeItem: handleRemoveItem,
+  } = useProjectItemEditor({ updateItems });
 
   // Mobile Project Workspace v1: секции "Dodane pozycje" (Materiały) и Usługi — свёрнуты/развёрнуты
   // по статусу проекта (ленивая инициализация, тот же паттерн, что и раньше был у coefficient —
@@ -130,48 +134,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [desktopServicesOpen, setDesktopServicesOpen] = useState(true);
   const [desktopCashOpen, setDesktopCashOpen] = useState(true);
 
-  useEffect(() => {
-    if (!materialSearchOpen) return undefined;
-    const handleOutsidePointerDown = (event) => {
-      if (materialPickerRef.current?.contains(event.target)) return;
-      materialSearchInputRef.current?.blur();
-      setMaterialSearchOpen(false);
-      setHighlightedMaterialIndex(0);
-      setExpandedMaterialId(null);
-      setReplacingMaterialIndex(null);
-    };
-    document.addEventListener('pointerdown', handleOutsidePointerDown);
-    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
-  }, [materialSearchOpen]);
-
-  useEffect(() => {
-    if (!materialSearchOpen || !isMobileVariant) return undefined;
-    const focusFrame = window.requestAnimationFrame(() => {
-      materialSearchInputRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [isMobileVariant, materialSearchOpen]);
-
-  useEffect(() => {
-    if (!serviceSearchOpen) return undefined;
-    const handleOutsidePointerDown = (event) => {
-      if (servicePickerRef.current?.contains(event.target)) return;
-      serviceSearchInputRef.current?.blur();
-      setServiceSearchOpen(false);
-      setHighlightedServiceIndex(0);
-    };
-    document.addEventListener('pointerdown', handleOutsidePointerDown);
-    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
-  }, [serviceSearchOpen]);
-
-  useEffect(() => {
-    if (!serviceSearchOpen || !isMobileVariant) return undefined;
-    const focusFrame = window.requestAnimationFrame(() => {
-      serviceSearchInputRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [isMobileVariant, serviceSearchOpen]);
-
   // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
   // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
   // через onDirtyChange). Отдельная от calc_* isDirty переменная сравнения ниже — project_cash_
@@ -182,43 +144,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Смена вкладки прочь от Rozliczenia при cashDirty=true (review P1) — ждёт подтверждения вместо
   // немедленного unmount ProjectCashLedger (который иначе тихо теряет черновик). Значение — имя
   // таба, на который хотели переключиться, или null.
-  const [pendingTabChange, setPendingTabChange] = useState(null);
-  const [cashTabSaveError, setCashTabSaveError] = useState(false);
   const cashLedgerRef = useRef(null);
   const projectCashSaldo = summarizeCash(transactionsForProject(cashTransactions, client.id)).saldo;
   const formatDesktopCashMoney = (value) => Number(value || 0)
     .toFixed(2)
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-
-  const evalQty = (expr) => {
-    if (expr === '' || expr === null || expr === undefined) return null;
-    const str = String(expr).replace(',', '.').replace(/[^0-9+\-*/.()\s]/g, '');
-    try {
-      const result = Function('"use strict"; return (' + str + ')')();
-      if (typeof result === 'number' && isFinite(result) && result > 0) return parseFloat(result.toFixed(4));
-    } catch {
-      return null;
-    }
-    return null;
-  };
-
-  const handleQtyFocus = (key, currentValue) => {
-    setQtyDraft(prev => ({ ...prev, [key]: String(currentValue ?? '') }));
-  };
-  const handleQtyChange = (key, value) => {
-    setQtyDraft(prev => ({ ...prev, [key]: value }));
-  };
-  const handleQtyCommit = (field, currentItems, index, key) => {
-    const raw = qtyDraft[key];
-    if (raw === undefined) return;
-    const computed = evalQty(raw);
-    if (computed !== null) {
-      handleQuantityChange(field, currentItems, index, computed);
-      setQtyDraft(prev => ({ ...prev, [key]: String(computed) }));
-    } else {
-      setQtyDraft(prev => ({ ...prev, [key]: String(currentItems[index].quantity ?? 1) }));
-    }
-  };
 
   const calcMaterials = client.calc_materials || [];
   const sortedCalcMaterialEntries = calcMaterials
@@ -238,161 +168,39 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // это единственное поле, которое реально меняет пользователь (в т.ч. из sidebar-панели
   // ProjectListPanel через тот же setClient/activeClient — единый источник истины), и по заданию
   // изменение коэффициента обязано включать dirty-state.
-  const clientFieldsDirty = originalClient
-    ? JSON.stringify({
-        calc_materials: client.calc_materials || [],
-        calc_services:  client.calc_services  || [],
-        calc_expenses:  client.calc_expenses  || [],
-        tasks:          client.tasks          || [],
-        notes:         client.notes         || '',
-        important_points: client.important_points || [],
-        deadline:      client.deadline      || '',
-        address:       client.address       || '',
-        phone:         client.phone         || '',
-        client_name:   client.client_name   || '',
-        project_name:  client.project_name  || '',
-        budget_coefficient: Number(client.budget_coefficient) || 2.0,
-      }) !== JSON.stringify({
-        calc_materials: originalClient.calc_materials || [],
-        calc_services:  originalClient.calc_services  || [],
-        calc_expenses:  originalClient.calc_expenses  || [],
-        tasks:          originalClient.tasks          || [],
-        notes:         originalClient.notes         || '',
-        important_points: originalClient.important_points || [],
-        deadline:      originalClient.deadline      || '',
-        address:       originalClient.address       || '',
-        phone:         originalClient.phone         || '',
-        client_name:   originalClient.client_name   || '',
-        project_name:  originalClient.project_name  || '',
-        budget_coefficient: Number(originalClient.budget_coefficient) || 2.0,
-      })
-    : false;
+  const clientFieldsDirty = hasProjectFieldChanges(client, originalClient);
   // Mobile / Client Balance / Expanded v1: cashDirty (открытый несохранённый редактор денежной
   // операции в Rozliczenia) примешан в общий isDirty — "уход назад при dirty" (handleClose ниже)
   // и все существующие потребители isDirty (onDirtyChange → App.jsx workspaceDirty, confirmClose)
   // реагируют на него точно так же, как на несохранённые calc_*/поля клиента, без отдельного пути.
   const isDirty = clientFieldsDirty || cashDirty;
 
-  // Refy — zawsze aktualne wartości dla obsługi History API poniżej (efekt montuje się raz,
-  // nie może zależeć od isDirty/onClose bez re-subskrybowania popstate co każdą zmianę pola).
-  const isDirtyRef = useRef(isDirty);
-  useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-  // Czy bieżący wpis w historii przeglądarki (dodany przy otwarciu w wariancie mobile) wciąż
-  // "należy" do tego ekranu — pozwala domknąć go dokładnie raz, bez podwójnego cofania.
-  const hasPushedHistoryRef = useRef(false);
-
-  // Historia przeglądarki dla sprzętowego/przeglądarkowego przycisku "wstecz" — tylko w wariancie
-  // mobile, bez wprowadzania routera (ADR-003, Mobile Field Mode faza 2). Push raz przy otwarciu;
-  // popstate przechodzi przez tę samą ochronę niezapisanych zmian co "← Projekty" — jeśli są
-  // zmiany, cofnięcie jest "odtwarzane" (ponowny push) i pokazywany jest dialog zamiast realnego
-  // wyjścia z ekranu.
-  useEffect(() => {
-    if (!isMobileVariant) return;
-    window.history.pushState({ jarvisMobileProject: true }, '');
-    hasPushedHistoryRef.current = true;
-    const onPopState = () => {
-      if (isDirtyRef.current) {
-        window.history.pushState({ jarvisMobileProject: true }, '');
-        setConfirmClose(true);
-      } else {
-        hasPushedHistoryRef.current = false;
-        onCloseRef.current();
-      }
-    };
-    window.addEventListener('popstate', onPopState);
-    // Czyścimy tylko nasłuch (jak wymagane) — celowo NIE wołamy tu history.back(): to wywołanie
-    // jest asynchroniczne (wynikowy popstate przychodzi później), więc w React StrictMode (dev —
-    // efekt montuje się dwukrotnie: mount → cleanup → mount) spóźniony popstate z PIERWSZEGO
-    // cleanupu potrafi trafić już w DRUGI, świeży mount i błędnie go zamknąć. Ewentualny jeden
-    // "widmowy" wpis w historii przy realnie nietypowym zniknięciu ekranu (np. zmiana szerokości
-    // okna na desktop w trakcie) jest nieszkodliwy — najwyżej jedno dodatkowe wciśnięcie "wstecz"
-    // później, zanim użytkownik faktycznie opuści aplikację.
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-    };
-  }, [isMobileVariant]);
-
-  // Realne zamknięcie z poziomu UI (przycisk "← Projekty"/Wróć, dialog potwierdzenia) —
-  // w wariancie mobile domyka też wpis historii dodany przy otwarciu.
-  const finalizeClose = useCallback(() => {
-    if (isMobileVariant && hasPushedHistoryRef.current) {
-      hasPushedHistoryRef.current = false;
-      window.history.back();
-    }
-    onClose();
-  }, [isMobileVariant, onClose]);
-
-  const handleClose = useCallback(() => { isDirty ? setConfirmClose(true) : finalizeClose(); }, [isDirty, finalizeClose, setConfirmClose]);
-
-  // Escape w widoku embedded i mobile: idzie przez ten sam handleClose (z potwierdzeniem
-  // niezapisanych zmian) — nigdy nie zamyka bezpośrednio przez onClose().
-  useEffect(() => {
-    if (!isEmbedded && !isMobileVariant) return;
-    const onKeyDown = (e) => { if (e.key === 'Escape') handleClose(); };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isEmbedded, isMobileVariant, handleClose]);
-
-  // Rodzic (App.jsx) śledzi aktualny stan niezapisanych zmian, żeby zablokować
-  // natychmiastową zmianę projektu z listy/Dashboard/Kanban (ADR-002, UX-faza 2.1).
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
-  // null | 'saved' | 'error' — komunikat pod przyciskiem Zapisz w widoku embedded i mobile.
-  const [saveStatus, setSaveStatus] = useState(null);
-  const saveStatusTimerRef = useRef(null);
-  useEffect(() => () => { if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current); }, []);
-
-  // Zapisz i zamknij — zachowanie sprzed UX-fazy 2.1, używane w zwykłym modalu (isMobileVariant=false,
-  // isEmbedded=false — tam Rozliczenia to zawsze desktop calc_expenses, ProjectCashLedger nigdy nie
-  // jest zamontowany, więc cashDirty tu strukturalnie zawsze false — draft pieniężny nie dotyczy).
-  const handleSaveAndClose = async () => {
-    const result = await onSave();
-    if (result?.error) { setSaveStatus('error'); return; }
-    finalizeClose();
-  };
-
-  // Wspólny zapis obu źródeł niezapisanych zmian przed "Zapisz i wróć"/"Zapisz i przejdź dalej"
-  // (dialog potwierdzenia zamknięcia/przełączenia projektu — NIE mylić z saveAndChangeTab, który
-  // obsługuje osobny przypadek zmiany taba wewnątrz otwartego projektu). Review P1: dawniej ten
-  // dialog wołał tylko onSave() (pola client) — otwarty draft operacji pieniężnej w Rozliczenia
-  // ginął bez ostrzeżenia, bo ekran i tak się zamykał/przełączał. Kolejność (najpierw cash, potem
-  // client) i early-return przy błędzie są tu istotne — ekran nie może się zamknąć, dopóki OBA
-  // źródła nie zapiszą się poprawnie.
-  const saveAllDirty = async () => {
-    if (cashDirty) {
-      const cashResult = await cashLedgerRef.current?.saveActiveDraft();
-      if (cashResult?.error) { setSaveStatus('error'); return { error: true }; }
-    }
-    if (clientFieldsDirty) {
-      const result = await onSave();
-      if (result?.error) { setSaveStatus('error'); return { error: true }; }
-    }
-    return { error: null };
-  };
-
-  // Główny „Zapisz” w embedded/mobile zapisuje oba źródła zmian: aktywny draft operacji
-  // pieniężnej oraz pola projektu. Sprawdzamy aktywny editor przez ref, a nie wyłącznie cashDirty:
-  // onDirtyChange jest raportowany efektem i przy bardzo szybkim wpisaniu + kliknięciu mógłby jeszcze
-  // nie zdążyć dotrzeć do rodzica. Kolejność cash → client pozostaje deterministyczna; błąd nie
-  // zamyka edytora ani nie gubi wpisanych danych.
-  const handleSaveClick = async () => {
-    if (!staysOpenOnSave) { await handleSaveAndClose(); return; }
-    if (cashLedgerRef.current?.hasActiveDraft()) {
-      const cashResult = await cashLedgerRef.current.saveActiveDraft();
-      if (cashResult?.error) { setSaveStatus('error'); return; }
-    }
-    const result = await onSave();
-    if (result?.error) { setSaveStatus('error'); return; }
-    if (isMobileVariant) closeMobileRowEditor();
-    setSaveStatus('saved');
-    if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current);
-    saveStatusTimerRef.current = setTimeout(() => setSaveStatus(null), 2500);
-  };
-
+  const {
+    confirmClose,
+    setConfirmClose,
+    finalizeClose,
+    handleClose,
+  } = useProjectCloseLifecycle({
+    isDirty,
+    isMobileVariant,
+    isEmbedded,
+    onClose,
+    onDirtyChange,
+  });
+  const {
+    saveStatus,
+    saveAllDirty,
+    handleSaveClick,
+  } = useProjectSaveLifecycle({
+    cashDirty,
+    clientFieldsDirty,
+    cashLedgerRef,
+    onSave,
+    finalizeClose,
+    staysOpenOnSave,
+    isMobileVariant,
+    closeMobileRowEditor,
+  });
   // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
   // исключительно client.budget_coefficient (единый источник истины для финансовой панели в
   // sidebar — ProjectListPanel пишет туда через тот же setClient/activeClient; в mobile Workspace
@@ -408,33 +216,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   // Baza materiałów: fokus otwiera istniejące pozycje także przy pustym zapytaniu;
   // wpisany tekst filtruje po name/symbol, a widok ogranicza listę do 12 pozycji.
-  const materialQuery = searchTerm.trim();
-  const materialCategoryOptions = useMemo(() => (
-    [...new Set((materials || []).map(material => material.category).filter(Boolean))]
-      .sort((a, b) => String(a).localeCompare(String(b), 'pl'))
-  ), [materials]);
-  const materialSupplierOptions = useMemo(() => (
-    [...new Set((materials || []).map(material => material.supplier).filter(Boolean))]
-      .sort((a, b) => String(a).localeCompare(String(b), 'pl'))
-  ), [materials]);
-  const filteredMaterialGroups = useMemo(() => {
-    const matchingMaterials = (materials || []).filter(material => (
-      materialMatchesQuery(material, materialQuery)
-      && (!materialCategoryFilter || material.category === materialCategoryFilter)
-      && (!materialSupplierFilter || material.supplier === materialSupplierFilter)
-    ));
-    return groupMaterialsForPicker(matchingMaterials);
-  }, [materials, materialCategoryFilter, materialQuery, materialSupplierFilter]);
-
-  const serviceQuery = searchService.trim().toLocaleLowerCase('pl');
-  const filteredServices = useMemo(() => (
-    (servicesList || [])
-      .filter(service => String(service.name || '').toLocaleLowerCase('pl').includes(serviceQuery))
-      .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'pl'))
-  ), [serviceQuery, servicesList]);
-
-  const toggleExpandedItem = (key) => setExpandedItemKey(prev => (prev === key ? null : key));
-  const updateItems = (field, newItems) => setClient({ ...client, [field]: newItems });
   const authorMeta = () => ({ addedById: currentProfile?.id || null, addedByColor: currentProfile?.color || '#718096' });
 
   const handleAddItem = (field, currentItems, item) => {
@@ -445,87 +226,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       updateItems(field, [...currentItems, { ...item, quantity: 1, ...authorMeta() }]);
     }
   };
-
-  // Единое завершение mobile row-редактора (hotfix): очищает ТОЛЬКО UI-состояние (какая строка
-  // раскрыта/редактируется, черновики цены/количества, подтверждение удаления) — client, массивы
-  // расчётов calc_materials/calc_services/calc_expenses и Supabase здесь не трогаются вообще.
-  // Единая точка входа для Materiały/Usługi/Rozliczenia (общий renderMobileRow), для удаления
-  // позиции и для смены mobile-вкладки — везде, где редактор строки обязан закрыться.
-  const closeMobileRowEditor = () => {
-    setExpandedItemKey(null);
-    setEditingPrice(null);
-    setPriceDraft('');
-    setQtyDraft({});
-    setConfirmDeleteKey(null);
-  };
-
-  // Кнопка "Gotowe" / клик по названию раскрытой mobile-строки: сначала блюрит активный price/qty
-  // input этой же строки — это ЗАПУСКАЕТ существующие onBlur-обработчики (handlePriceSave/
-  // handleQtyCommit), т.е. те же commit/evalQty/dirty-механизмы, что и раньше, без дублирования
-  // их логики здесь, — и только потом закрывает редактор. document.activeElement достаточно без
-  // дополнительного скоупинга по строке: одновременно раскрыта/редактируется не более одной строки
-  // (expandedItemKey — синглтон), так что сфокусированный input, если он есть, точно принадлежит
-  // именно этой строке.
-  const finishEditing = () => {
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-      document.activeElement.blur();
-    }
-    closeMobileRowEditor();
-  };
-
-  // Смена таба на mobile/embedded: только при ФАКТИЧЕСКОЙ смене — сначала
-  // finishEditing() (не closeMobileRowEditor() напрямую!), чтобы активный price/qty input сначала
-  // прошёл существующий blur/commit, пока строка ещё смонтирована — переключение таба unmount'ит
-  // содержимое предыдущего таба, и полагаться на onBlur во время React-unmount нельзя (не гарантирован).
-  // draft/confirm-delete не должны "утекать" в другую вкладку — сценарий Materiały → раскрыть строку →
-  // Usługi → Materiały обязан вернуть все строки свёрнутыми, а незакоммиченное значение — сохранённым.
-  // В embedded эта же защита нужна для desktop ProjectCashLedger; modal-fallback остаётся без неё.
-  const handleTabChange = (tab) => {
-    if ((isMobileVariant || isEmbedded) && tab !== activeTab) {
-      // cashDirty=true → ProjectCashLedger ma niezapisany draft, a zmiana taba go odmontuje bez
-      // ostrzeżenia (review P1) — zamiast tego pytamy, tak jak przy zamykaniu karty projektu.
-      if (activeTab === 'expenses' && cashDirty) {
-        setPendingTabChange(tab);
-        return;
-      }
-      finishEditing();
-    }
-    if (tab !== activeTab) {
-      setSearchTerm('');
-      setMaterialSearchOpen(false);
-      setHighlightedMaterialIndex(0);
-      setExpandedMaterialId(null);
-      setReplacingMaterialIndex(null);
-      setSearchService('');
-      setServiceSearchOpen(false);
-      setHighlightedServiceIndex(0);
-    }
-    setActiveTab(tab);
-  };
-
-  const cancelTabChange = () => { setPendingTabChange(null); setCashTabSaveError(false); };
-
-  const discardTabChange = () => {
-    const tab = pendingTabChange;
-    setPendingTabChange(null);
-    setCashDirty(false);
-    finishEditing();
-    setActiveTab(tab);
-  };
-
-  const saveAndChangeTab = async () => {
-    setCashTabSaveError(false);
-    const result = await cashLedgerRef.current?.saveActiveDraft();
-    // Błąd zapisu draftu jest też widoczny wewnątrz samego edytora (editorError), ale ten dialog
-    // leży nad nim (z-index) — bez własnego komunikatu tutaj użytkownik nic by nie zobaczył.
-    if (result?.error) { setCashTabSaveError(true); return; }
-    const tab = pendingTabChange;
-    setPendingTabChange(null);
-    setCashDirty(false);
-    finishEditing();
-    setActiveTab(tab);
-  };
-
   // Сворачивание секции Materiały/Usługi (hotfix, п.3): если секция сейчас ОТКРЫТА (мы её
   // закрываем) — сначала finishEditing() (коммит активного input + полный сброс редактора), и
   // только потом toggle. При повторном раскрытии секции раскрытых строк/delete-confirm уже нет.
@@ -546,41 +246,87 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     if (desktopServicesOpen) finishEditing();
     setDesktopServicesOpen(open => !open);
   };
-
-  // editingPrice/qtyDraft используют ключ по INDEX (mat-0, mat-1…), а не по id — у legacy-позиций
-  // без id тем же индексом становится и expandedItemKey (item.id ?? index). После удаления все
-  // позиции ПОСЛЕ удалённой сдвигаются на один индекс вниз, поэтому оставшийся draft/expanded-ключ
-  // способен "унаследоваться" соседней строкой, чужой по смыслу. Безопасный сброс — очистить весь
-  // черновой UI-стейт целиком через closeMobileRowEditor (единственная раскрытая/редактируемая
-  // строка всё равно закрывается самим действием удаления).
-  const handleRemoveItem = (field, currentItems, indexToRemove) => {
-    closeMobileRowEditor();
-    updateItems(field, currentItems.filter((_, idx) => idx !== indexToRemove));
-  };
-
-  const handleQuantityChange = (field, currentItems, index, newQuantity) => {
-    const updated = [...currentItems];
-    updated[index].quantity = newQuantity;
-    updateItems(field, updated);
-  };
-
-  const handlePriceSave = (field, currentItems, index) => {
-    const val = parseFloat(priceDraft);
-    if (!isNaN(val) && val >= 0) {
-      const updated = [...currentItems];
-      updated[index] = { ...updated[index], price: val };
-      updateItems(field, updated);
-    }
-    setEditingPrice(null);
-  };
-
   const handleCustomAdd = (field, currentItems) => {
     const name = prompt('Wpisz nazwę:');
     if (!name) return;
     const price = parseFloat(prompt('Wpisz cenę za szt/usługę (zł):') || '0');
-    // eslint-disable-next-line react-hooks/purity -- ID powstaje wyłącznie po ręcznym dodaniu pozycji przez użytkownika.
     updateItems(field, [...currentItems, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak', ...authorMeta() }]);
   };
+
+  const { material: materialPicker, service: servicePicker, resetPickers } = useProjectItemPickers({
+    materials,
+    services: servicesList,
+    selectedMaterials: calcMaterials,
+    selectedServices: calcServices,
+    isMobileVariant,
+    currentProfile,
+    updateItems,
+    addItem: handleAddItem,
+    addCustomItem: handleCustomAdd,
+    finishEditing,
+    closeItemEditor: closeMobileRowEditor,
+  });
+  const {
+    searchTerm,
+    setSearchTerm,
+    isOpen: materialSearchOpen,
+    setIsOpen: setMaterialSearchOpen,
+    highlightedIndex: highlightedMaterialIndex,
+    setHighlightedIndex: setHighlightedMaterialIndex,
+    categoryFilter: materialCategoryFilter,
+    setCategoryFilter: setMaterialCategoryFilter,
+    categoryOptions: materialCategoryOptions,
+    supplierFilter: materialSupplierFilter,
+    setSupplierFilter: setMaterialSupplierFilter,
+    supplierOptions: materialSupplierOptions,
+    expandedGroupId: expandedMaterialId,
+    setExpandedGroupId: setExpandedMaterialId,
+    replacingIndex: replacingMaterialIndex,
+    groups: filteredMaterialGroups,
+    pickerRef: materialPickerRef,
+    searchInputRef: materialSearchInputRef,
+    optionRefs: materialOptionRefs,
+    offerButtonRefs: materialOfferButtonRefs,
+    close: closeMaterialPicker,
+    startReplacement: startMaterialReplacement,
+    manualAdd: handleManualMaterialAdd,
+    handleKeyDown: handleMaterialPickerKeyDown,
+    select: addMaterialFromPicker,
+  } = materialPicker;
+  const {
+    searchTerm: searchService,
+    setSearchTerm: setSearchService,
+    isOpen: serviceSearchOpen,
+    setIsOpen: setServiceSearchOpen,
+    highlightedIndex: highlightedServiceIndex,
+    setHighlightedIndex: setHighlightedServiceIndex,
+    services: filteredServices,
+    pickerRef: servicePickerRef,
+    searchInputRef: serviceSearchInputRef,
+    optionRefs: serviceOptionRefs,
+    close: closeServicePicker,
+    manualAdd: handleManualServiceAdd,
+    handleKeyDown: handleServicePickerKeyDown,
+    select: addServiceFromPicker,
+  } = servicePicker;
+  const {
+    pendingTabChange,
+    cashTabSaveError,
+    handleTabChange,
+    cancelTabChange,
+    discardTabChange,
+    saveAndChangeTab,
+  } = useProjectTabLifecycle({
+    activeTab,
+    setActiveTab,
+    isMobileVariant,
+    isEmbedded,
+    cashDirty,
+    setCashDirty,
+    cashLedgerRef,
+    finishEditing,
+    resetPickers,
+  });
 
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
@@ -755,106 +501,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     </button>
   );
 
-  const closeMaterialPicker = () => {
-    materialSearchInputRef.current?.blur();
-    setSearchTerm('');
-    setMaterialSearchOpen(false);
-    setHighlightedMaterialIndex(0);
-    setExpandedMaterialId(null);
-    setReplacingMaterialIndex(null);
-  };
-
-  const startMaterialReplacement = (index) => {
-    finishEditing();
-    setReplacingMaterialIndex(index);
-    setSearchTerm('');
-    setHighlightedMaterialIndex(0);
-    setExpandedMaterialId(null);
-    setMaterialSearchOpen(true);
-    requestAnimationFrame(() => materialSearchInputRef.current?.focus({ preventScroll: true }));
-  };
-
-  const replaceMaterialFromPicker = (material) => {
-    const current = calcMaterials[replacingMaterialIndex];
-    if (!current) return;
-
-    const quantity = Number(current.quantity) || 1;
-    const existingIndex = calcMaterials.findIndex((item, index) => (
-      index !== replacingMaterialIndex && item.id === material.id
-    ));
-
-    if (existingIndex >= 0) {
-      const merged = calcMaterials
-        .map((item, index) => index === existingIndex
-          ? { ...item, quantity: (Number(item.quantity) || 1) + quantity }
-          : item)
-        .filter((_, index) => index !== replacingMaterialIndex);
-      updateItems('calc_materials', merged);
-    } else {
-      const replacement = [...calcMaterials];
-      replacement[replacingMaterialIndex] = {
-        ...material,
-        quantity,
-        addedById: current.addedById ?? currentProfile?.id ?? null,
-        addedByColor: current.addedByColor || currentProfile?.color || '#718096',
-      };
-      updateItems('calc_materials', replacement);
-    }
-    closeMobileRowEditor();
-  };
-
-  const addMaterialFromPicker = (material) => {
-    if (replacingMaterialIndex !== null) replaceMaterialFromPicker(material);
-    else handleAddItem('calc_materials', calcMaterials, material);
-    closeMaterialPicker();
-  };
-
-  const handleManualMaterialAdd = () => {
-    closeMaterialPicker();
-    handleCustomAdd('calc_materials', calcMaterials);
-  };
-
-  const moveMaterialHighlight = (nextIndex) => {
-    const visibleCount = filteredMaterialGroups.length;
-    if (!visibleCount) return;
-    const normalizedIndex = (nextIndex + visibleCount) % visibleCount;
-    setHighlightedMaterialIndex(normalizedIndex);
-    requestAnimationFrame(() => materialOptionRefs.current[normalizedIndex]?.scrollIntoView({ block: 'nearest' }));
-  };
-
-  const handleMaterialPickerKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      closeMaterialPicker();
-      e.currentTarget.blur();
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setMaterialSearchOpen(true);
-      moveMaterialHighlight(highlightedMaterialIndex + 1);
-      return;
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setMaterialSearchOpen(true);
-      moveMaterialHighlight(highlightedMaterialIndex - 1);
-      return;
-    }
-    if (e.key === 'Enter' && materialSearchOpen) {
-      const selectedGroup = filteredMaterialGroups[highlightedMaterialIndex];
-      if (selectedGroup) {
-        e.preventDefault();
-        if (selectedGroup.offers.length === 1) {
-          addMaterialFromPicker(selectedGroup.offers[0]);
-        } else {
-          setExpandedMaterialId(selectedGroup.key);
-          requestAnimationFrame(() => materialOfferButtonRefs.current[`${selectedGroup.key}-0`]?.focus());
-        }
-      }
-    }
-  };
-
   // Jeden wspólny selektor dla desktopu i mobile. Na mobile pole w treści jest przyciskiem,
   // a prawdziwy input powstaje dopiero w portalu u góry ekranu. iOS nie zdąży więc przewinąć
   // długiej strony do dolnego pola przed przeniesieniem selektora.
@@ -923,59 +569,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       onSelectMaterial={addMaterialFromPicker}
     />
   );
-
-  const closeServicePicker = () => {
-    serviceSearchInputRef.current?.blur();
-    setSearchService('');
-    setServiceSearchOpen(false);
-    setHighlightedServiceIndex(0);
-  };
-
-  const addServiceFromPicker = (service) => {
-    handleAddItem('calc_services', calcServices, service);
-    closeServicePicker();
-  };
-
-  const handleManualServiceAdd = () => {
-    closeServicePicker();
-    handleCustomAdd('calc_services', calcServices);
-  };
-
-  const moveServiceHighlight = (nextIndex) => {
-    const visibleCount = filteredServices.length;
-    if (!visibleCount) return;
-    const normalizedIndex = (nextIndex + visibleCount) % visibleCount;
-    setHighlightedServiceIndex(normalizedIndex);
-    requestAnimationFrame(() => serviceOptionRefs.current[normalizedIndex]?.scrollIntoView({ block: 'nearest' }));
-  };
-
-  const handleServicePickerKeyDown = (event) => {
-    if (event.key === 'Escape') {
-      event.stopPropagation();
-      closeServicePicker();
-      event.currentTarget.blur();
-      return;
-    }
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setServiceSearchOpen(true);
-      moveServiceHighlight(highlightedServiceIndex + 1);
-      return;
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setServiceSearchOpen(true);
-      moveServiceHighlight(highlightedServiceIndex - 1);
-      return;
-    }
-    if (event.key === 'Enter' && serviceSearchOpen) {
-      const selectedService = filteredServices[highlightedServiceIndex];
-      if (selectedService) {
-        event.preventDefault();
-        addServiceFromPicker(selectedService);
-      }
-    }
-  };
 
   const renderServicePicker = (compact = false) => (
     <ServicePicker
@@ -1349,118 +942,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               {renderSectionHeader(desktopMaterialsOpen, handleToggleDesktopMaterials, totalMaterials)}
               <div style={{ display: desktopMaterialsOpen ? 'block' : 'none' }}>
                 {isMobile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materiałów</div>}
-                    {sortedCalcMaterialEntries.map(({ item, index }) => {
-                      // itemKey — stabilny identyfikator pozycji (item.id, nie index) używany jako
-                      // klucz React ORAZ jako klucz expandedItemKey/matKey — usuwanie pierwszej
-                      // pozycji nie powinno "przenosić" rozwinięcia/DOM-u na sąsiedni wiersz, co przy
-                      // key={index} mogłoby się zdarzyć (React dopasowałby stary DOM po pozycji, nie
-                      // po tożsamości pozycji).
-                      const itemKey = item.id ?? index;
-                      // Ten sam klucz co w desktopowej tabeli Materiały (mat-${itemKey}) —
-                      // rozwinięcie jest współdzielone przez expandedItemKey, żaden nowy stan nie
-                      // powstaje (feat/mobile-material-row-compact).
-                      const matKey = `mat-${itemKey}`;
-                      const isExpanded = expandedItemKey === matKey;
-                      const isConfirmingDelete = confirmDeleteKey === `calc_materials-${index}`;
-                      // Podczas potwierdzania usunięcia zawsze pokazujemy pełną nazwę u góry —
-                      // użytkownik musi widzieć CO usuwa, nawet jeśli karta była zwinięta.
-                      const showFullName = isExpanded || isConfirmingDelete;
-                      // Krótka nazwa, która mieści się w całości (brak realnego przycięcia), nie
-                      // powinna bezsensownie rozwijać karty — mierzymy scrollWidth/clientWidth
-                      // dopiero w momencie kliknięcia/klawisza (event.currentTarget), nie podczas
-                      // renderu ani przez osobny ref-rejestr (react-hooks/refs nie ma tu zastosowania,
-                      // bo w ogóle nie czytamy/piszemy refs — DOM mierzony jest bezpośrednio z eventu).
-                      const handleNameToggle = (e) => {
-                        // Przycisk ma disabled={isConfirmingDelete}, więc to raczej zabezpieczenie
-                        // niż realna ścieżka — ale jawnie: dopóki trwa potwierdzanie usunięcia,
-                        // kliknięcie nazwy nie może ukryć kontekstu usuwania.
-                        if (isConfirmingDelete) return;
-                        if (isExpanded) { toggleExpandedItem(matKey); return; }
-                        const el = e.currentTarget;
-                        if (el.scrollWidth > el.clientWidth) toggleExpandedItem(matKey);
-                      };
-                      const priceNode = editingPrice === `mat-${index}` ? (
-                        <input autoFocus type="number" step="0.01" value={priceDraft}
-                          onChange={e => setPriceDraft(e.target.value)}
-                          onBlur={() => handlePriceSave('calc_materials', calcMaterials, index)}
-                          onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_materials', calcMaterials, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                          style={{ width: '70px', flexShrink: 0, boxSizing: 'border-box', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                        />
-                      ) : (
-                        <span onClick={() => { setEditingPrice(`mat-${index}`); setPriceDraft(String(item.price)); }}
-                          style={{ flexShrink: 0, whiteSpace: 'nowrap', cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
-                          {Number(item.price).toFixed(2)} zł
-                        </span>
-                      );
-                      const qtyNode = (
-                        <input type="text"
-                          value={qtyDraft[`mat-${index}`] !== undefined ? qtyDraft[`mat-${index}`] : item.quantity}
-                          onFocus={() => handleQtyFocus(`mat-${index}`, item.quantity)}
-                          onChange={e => handleQtyChange(`mat-${index}`, e.target.value)}
-                          onBlur={() => handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`)}
-                          onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_materials', calcMaterials, index, `mat-${index}`); e.target.blur(); } }}
-                          style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                        />
-                      );
-                      const sumNode = (
-                        <strong style={{ flexShrink: 0, whiteSpace: 'nowrap', color: c('#2b6cb0','#63b3ed'), fontSize: '13px' }}>
-                          {(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł
-                        </strong>
-                      );
-                      return (
-                        <div key={itemKey} style={{ background: bgMatRow, borderRadius: '7px', border: `1px solid ${borderMat}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
-                          {showFullName && (
-                            <button
-                              type="button"
-                              aria-expanded={isExpanded}
-                              disabled={isConfirmingDelete}
-                              onClick={handleNameToggle}
-                              style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed'), fontSize: '13px', marginBottom: '6px', cursor: isConfirmingDelete ? 'default' : 'pointer', whiteSpace: 'normal', wordBreak: 'break-word' }}
-                            >
-                              {item.name}
-                            </button>
-                          )}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {isConfirmingDelete ? (
-                              // Potwierdzenie usunięcia zajmuje całą dostępną szerokość wiersza
-                              // metryk (cena/ilość/suma są w tym momencie ukryte), żeby "Usunąć?
-                              // Tak/Nie" nigdy nie nachodziło na dane (feat/mobile-material-row-compact).
-                              <div style={{ flex: 1, display: 'flex' }}>
-                                {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
-                              </div>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  aria-label={`Zamień materiał ${item.name}`}
-                                  title="Zamień materiał"
-                                  onClick={(event) => { event.stopPropagation(); startMaterialReplacement(index); }}
-                                  style={{ flexShrink: 0, width: '24px', height: '24px', padding: 0, border: `1px solid ${border}`, borderRadius: '4px', background: bgInput, color: c('#2b6cb0','#63b3ed'), cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
-                                >
-                                  ✎
-                                </button>
-                                {!showFullName && (
-                                  <button
-                                    type="button"
-                                    aria-expanded={isExpanded}
-                                    onClick={handleNameToggle}
-                                    style={{ flex: 1, minWidth: 0, display: 'block', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', fontWeight: 'bold', color: c('#2b6cb0','#63b3ed'), fontSize: '13px' }}
-                                  >
-                                    {item.name}
-                                  </button>
-                                )}
-                                {priceNode}
-                                {qtyNode}
-                                {sumNode}
-                                {renderDeleteBtn('calc_materials', calcMaterials, index, 'span')}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materia&#322;&#243;w</div>}
+                    {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
                     {renderMaterialPicker(true)}
                   </div>
                 ) : (
@@ -1505,40 +989,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               {renderSectionHeader(desktopServicesOpen, handleToggleDesktopServices, totalServices)}
               <div style={{ display: desktopServicesOpen ? 'block' : 'none' }}>
                 {isMobile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych usług</div>}
-                    {calcServices.map((item, index) => (
-                      <div key={index} style={{ background: bgSrvRow, borderRadius: '7px', border: `1px solid ${borderSrv}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
-                        <div style={{ fontWeight: 'bold', color: c('#276749','#68d391'), fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          {editingPrice === `srv-${index}` ? (
-                            <input autoFocus type="number" step="0.01" value={priceDraft}
-                              onChange={e => setPriceDraft(e.target.value)}
-                              onBlur={() => handlePriceSave('calc_services', calcServices, index)}
-                              onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_services', calcServices, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                              style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                            />
-                          ) : (
-                            <span onClick={() => { setEditingPrice(`srv-${index}`); setPriceDraft(String(item.price)); }}
-                              style={{ cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
-                              {Number(item.price).toFixed(2)} zł
-                            </span>
-                          )}
-                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>×</span>
-                          <input type="text"
-                            value={qtyDraft[`srv-${index}`] !== undefined ? qtyDraft[`srv-${index}`] : (item.quantity || 1)}
-                            onFocus={() => handleQtyFocus(`srv-${index}`, item.quantity || 1)}
-                            onChange={e => handleQtyChange(`srv-${index}`, e.target.value)}
-                            onBlur={() => handleQtyCommit('calc_services', calcServices, index, `srv-${index}`)}
-                            onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_services', calcServices, index, `srv-${index}`); e.target.blur(); } }}
-                            style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                          />
-                          <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
-                          <strong style={{ color: c('#276749','#68d391'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                          {renderDeleteBtn('calc_services', calcServices, index, 'span')}
-                        </div>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych us&#322;ug</div>}
+                    {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
                     {renderServicePicker(true)}
                   </div>
                 ) : (
@@ -1597,42 +1050,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
               </div>
               {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {calcExpenses.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodatkowych wydatków</div>}
-                  {calcExpenses.map((item, index) => (
-                    <div key={index} style={{ background: bgExpRow, borderRadius: '7px', border: `1px solid ${borderExp}`, borderLeft: `4px solid ${rowStripe(item)}`, padding: '8px 10px' }}>
-                      <div style={{ fontWeight: 'bold', color: c('#c53030','#fc8181'), fontSize: '13px', marginBottom: '5px' }}>{item.name}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        {editingPrice === `exp-${index}` ? (
-                          <input autoFocus type="number" step="0.01" value={priceDraft}
-                            onChange={e => setPriceDraft(e.target.value)}
-                            onBlur={() => handlePriceSave('calc_expenses', calcExpenses, index)}
-                            onKeyDown={e => { if (e.key === 'Enter') handlePriceSave('calc_expenses', calcExpenses, index); if (e.key === 'Escape') setEditingPrice(null); }}
-                            style={{ width: '70px', padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                          />
-                        ) : (
-                          <span onClick={() => { setEditingPrice(`exp-${index}`); setPriceDraft(String(item.price)); }}
-                            style={{ cursor: 'pointer', background: bgInput, border: '1px dashed #a0aec0', borderRadius: '4px', padding: '2px 7px', fontSize: '12px', color: textLight }}>
-                            {Number(item.price).toFixed(2)} zł
-                          </span>
-                        )}
-                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>×</span>
-                        <input type="text"
-                          value={qtyDraft[`exp-${index}`] !== undefined ? qtyDraft[`exp-${index}`] : (item.quantity || 1)}
-                          onFocus={() => handleQtyFocus(`exp-${index}`, item.quantity || 1)}
-                          onChange={e => handleQtyChange(`exp-${index}`, e.target.value)}
-                          onBlur={() => handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`)}
-                          onKeyDown={e => { if (e.key === 'Enter') { handleQtyCommit('calc_expenses', calcExpenses, index, `exp-${index}`); e.target.blur(); } }}
-                          style={{ width: '40px', boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${border}`, borderRadius: '4px', fontSize: '13px', background: bgInput, color: text }}
-                        />
-                        <span style={{ color: '#a0aec0', fontSize: '12px' }}>=</span>
-                        <strong style={{ color: c('#c53030','#fc8181'), fontSize: '13px', flex: 1 }}>{(Number(item.price) * Number(item.quantity || 1)).toFixed(2)} zł</strong>
-                        {renderDeleteBtn('calc_expenses', calcExpenses, index, 'span')}
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {calcExpenses.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodatkowych wydatk&#243;w</div>}
+                  {calcExpenses.map((item, index) => renderMobileRow('calc_expenses', calcExpenses, index))}
                 </div>
-              ) : (
+                ) : (
               renderDesktopItemsTable({
                 kind: 'expenses',
                 entries: calcExpenses.map((item, index) => ({ item, index })),

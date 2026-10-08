@@ -1,0 +1,42 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: var(--bg-page, #f8fafc);
+  color: var(--text-main, #1a202c);
+}
+
+.card {
+  width: min(100%, 460px);
+  padding: 28px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 12px;
+  background: var(--bg-card, #fff);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  text-align: center;
+}
+
+.card h1 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+
+.card p {
+  margin: 0 0 20px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+
+.card button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent, #2563eb);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
