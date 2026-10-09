@@ -8,6 +8,7 @@ const { mockUseProjectFiles } = vi.hoisted(() => ({
 }));
 
 vi.mock('./useProjectFiles', () => ({ default: mockUseProjectFiles }));
+vi.mock('../supabase', () => ({ supabase: {} }));
 
 const imageFile = {
   id: 'image-1',
