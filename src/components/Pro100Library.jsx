@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, FileBox, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
-import { supabase } from '../supabase';
+import { EMPTY_PRO100_FORM, filterAndSortPro100Files } from '../utils/pro100Library';
+import usePro100Library from './usePro100Library';
 import s from './Pro100Library.module.css';
-
-const BUCKET = 'pro100-library';
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
-const emptyForm = { title: '', clientName: '', categoryId: '', description: '', tags: '' };
 
 const pluralFiles = (count) => {
   if (count === 1) return 'plik';
@@ -25,116 +22,51 @@ const formatDate = (value) => value
   ? new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value))
   : '—';
 
-const safeFilename = (name) => {
-  const cleaned = String(name || 'projekt.sto').normalize('NFKD')
-    .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/_+/g, '_');
-  return cleaned.toLowerCase().endsWith('.sto') ? cleaned : `${cleaned}.sto`;
-};
-
-const storagePathFor = (file) => {
-  const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${id}/${Date.now()}_${safeFilename(file.name)}`;
-};
-
-const parseTags = (value) => String(value || '').split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 12);
-const normalizeSearchValue = (value) => String(value || '')
-  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .toLocaleLowerCase('pl-PL');
-
-const fetchLibraryData = async () => {
-  const [categoryResult, fileResult] = await Promise.all([
-    supabase.from('pro100_library_categories').select('*').eq('is_active', true).order('sort_order'),
-    supabase.from('pro100_library_files').select('*').order('updated_at', { ascending: false }),
-  ]);
-  return { categoryResult, fileResult };
-};
-
 export default function Pro100Library() {
-  const [categories, setCategories] = useState([]);
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const {
+    categories,
+    files,
+    loading,
+    loadError,
+    actionBusy,
+    actionError,
+    notice,
+    reload,
+    saveFile,
+    replaceFile: replaceLibraryFile,
+    deleteFile: deleteLibraryFile,
+    downloadFile: downloadLibraryFile,
+    clearActionError,
+  } = usePro100Library();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
   const [expandedId, setExpandedId] = useState(null);
   const [dialogMode, setDialogMode] = useState(null);
   const [editingFile, setEditingFile] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(EMPTY_PRO100_FORM);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionError, setActionError] = useState('');
-  const [notice, setNotice] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [replaceTarget, setReplaceTarget] = useState(null);
   const replaceInputRef = useRef(null);
 
-  const applyLoadResult = useCallback((categoryResult, fileResult) => {
-    if (categoryResult.error || fileResult.error) {
-      setLoadError('Nie udało się załadować biblioteki PRO100. Spróbuj ponownie.');
-    } else {
-      setCategories(categoryResult.data || []);
-      setFiles(fileResult.data || []);
-    }
-    setLoading(false);
-  }, []);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
-    const { categoryResult, fileResult } = await fetchLibraryData();
-    applyLoadResult(categoryResult, fileResult);
-  }, [applyLoadResult]);
-
-  useEffect(() => {
-    let active = true;
-    fetchLibraryData().then(({ categoryResult, fileResult }) => {
-      if (!active) return;
-      if (categoryResult.error || fileResult.error) {
-        setLoadError('Nie udało się załadować biblioteki PRO100. Spróbuj ponownie.');
-      } else {
-        setCategories(categoryResult.data || []);
-        setFiles(fileResult.data || []);
-      }
-      setLoading(false);
-    });
-    return () => { active = false; };
-  }, []);
   const categoryById = useMemo(
     () => Object.fromEntries(categories.map((category) => [category.id, category])),
     [categories],
   );
 
-  const visibleFiles = useMemo(() => {
-    const searchTerms = normalizeSearchValue(search).trim().split(/\s+/).filter(Boolean);
-    const filtered = files.filter((file) => {
-      const searchableTags = Array.isArray(file.tags)
-        ? file.tags
-        : String(file.tags || '').replace(/[{}"]/g, ' ').split(',');
-      if (searchTerms.length === 0 && activeCategory !== 'all' && file.category_id !== activeCategory) return false;
-      if (searchTerms.length === 0) return true;
-      const searchableText = normalizeSearchValue([
-        file.title,
-        file.original_filename,
-        file.client_name,
-        categoryById[file.category_id]?.name,
-        file.description,
-        ...searchableTags,
-      ].join(' '));
-      return searchTerms.every((term) => searchableText.includes(term));
-    });
-    return [...filtered].sort((a, b) => {
-      if (sortOrder === 'oldest') return new Date(a.updated_at) - new Date(b.updated_at);
-      if (sortOrder === 'title') return String(a.title).localeCompare(String(b.title), 'pl');
-      return new Date(b.updated_at) - new Date(a.updated_at);
-    });
-
-  }, [activeCategory, categoryById, files, search, sortOrder]);
+  const visibleFiles = useMemo(() => filterAndSortPro100Files({
+    files,
+    categories,
+    search,
+    activeCategory,
+    sortOrder,
+  }), [activeCategory, categories, files, search, sortOrder]);
   const openCreate = () => {
     setEditingFile(null);
     setSelectedFile(null);
-    setForm({ ...emptyForm, categoryId: categories[0]?.id || '' });
-    setActionError('');
+    setForm({ ...EMPTY_PRO100_FORM, categoryId: categories[0]?.id || '' });
+    clearActionError();
     setDialogMode('create');
   };
 
@@ -142,7 +74,7 @@ export default function Pro100Library() {
     setEditingFile(file);
     setSelectedFile(null);
     setForm({ title: file.title || '', clientName: file.client_name || '', categoryId: file.category_id || '', description: file.description || '', tags: (file.tags || []).join(', ') });
-    setActionError('');
+    clearActionError();
     setDialogMode('edit');
   };
 
@@ -151,103 +83,42 @@ export default function Pro100Library() {
     setDialogMode(null);
     setEditingFile(null);
     setSelectedFile(null);
-    setActionError('');
-  };
-
-  const validateSto = (file) => {
-    if (!file || !file.name.toLowerCase().endsWith('.sto')) return 'Wybierz plik PRO100 z rozszerzeniem .sto.';
-    if (file.size <= 0) return 'Wybrany plik jest pusty.';
-    if (file.size > MAX_FILE_SIZE) return 'Plik jest większy niż 100 MB.';
-    return '';
+    clearActionError();
   };
 
   const saveDialog = async (event) => {
     event.preventDefault();
-    setActionError('');
-    const title = form.title.trim();
-    if (!title) { setActionError('Podaj nazwę projektu.'); return; }
-    if (!form.categoryId) { setActionError('Wybierz kategorię.'); return; }
-    setActionBusy(true);
-
-    if (dialogMode === 'create') {
-      const validation = validateSto(selectedFile);
-      if (validation) { setActionError(validation); setActionBusy(false); return; }
-      const storagePath = storagePathFor(selectedFile);
-      const uploadResult = await supabase.storage.from(BUCKET).upload(storagePath, selectedFile, {
-        contentType: selectedFile.type || 'application/octet-stream', upsert: false,
-      });
-      if (uploadResult.error) { setActionError('Nie udało się wysłać pliku. Spróbuj ponownie.'); setActionBusy(false); return; }
-      const insertResult = await supabase.from('pro100_library_files').insert({
-        category_id: form.categoryId, title, client_name: form.clientName.trim() || null, description: form.description.trim() || null,
-        tags: parseTags(form.tags), storage_path: storagePath, original_filename: selectedFile.name,
-        file_size: selectedFile.size, content_type: selectedFile.type || 'application/octet-stream',
-      }).select('*').single();
-      if (insertResult.error) {
-        await supabase.storage.from(BUCKET).remove([storagePath]);
-        setActionError('Nie udało się zapisać pliku w bibliotece.'); setActionBusy(false); return;
-      }
-      setFiles((current) => [insertResult.data, ...current]);
-      setNotice('Plik został dodany do biblioteki.');
-    } else {
-      const updateResult = await supabase.from('pro100_library_files').update({
-        category_id: form.categoryId, title, client_name: form.clientName.trim() || null, description: form.description.trim() || null, tags: parseTags(form.tags),
-      }).eq('id', editingFile.id).select('*').single();
-      if (updateResult.error) { setActionError('Nie udało się zapisać zmian.'); setActionBusy(false); return; }
-      setFiles((current) => current.map((file) => file.id === updateResult.data.id ? updateResult.data : file));
-      setNotice('Opis pliku został zaktualizowany.');
-    }
-    setActionBusy(false);
+    const saved = await saveFile({
+      mode: dialogMode,
+      form,
+      selectedFile,
+      editingFile,
+    });
+    if (!saved) return;
     setDialogMode(null);
     setEditingFile(null);
     setSelectedFile(null);
   };
 
-  const downloadFile = async (file) => {
-    setNotice(''); setActionError('');
-    const result = await supabase.storage.from(BUCKET).download(file.storage_path);
-    if (result.error) { setActionError('Nie udało się pobrać pliku.'); return; }
-    const url = URL.createObjectURL(result.data);
-    const anchor = document.createElement('a');
-    anchor.href = url; anchor.download = file.original_filename;
-    document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
-  };
-
   const startReplace = (file) => {
-    setReplaceTarget(file); setActionError('');
+    setReplaceTarget(file);
+    clearActionError();
     if (replaceInputRef.current) { replaceInputRef.current.value = ''; replaceInputRef.current.click(); }
   };
 
   const replaceFile = async (event) => {
     const nextFile = event.target.files?.[0];
     if (!nextFile || !replaceTarget) return;
-    const validation = validateSto(nextFile);
-    if (validation) { setActionError(validation); return; }
-    setActionBusy(true);
-    const newPath = storagePathFor(nextFile);
-    const uploadResult = await supabase.storage.from(BUCKET).upload(newPath, nextFile, {
-      contentType: nextFile.type || 'application/octet-stream', upsert: false,
-    });
-    if (uploadResult.error) { setActionError('Nie udało się wysłać nowej wersji pliku.'); setActionBusy(false); return; }
-    const updateResult = await supabase.from('pro100_library_files').update({
-      storage_path: newPath, original_filename: nextFile.name, file_size: nextFile.size,
-      content_type: nextFile.type || 'application/octet-stream', version: (replaceTarget.version || 1) + 1,
-    }).eq('id', replaceTarget.id).select('*').single();
-    if (updateResult.error) {
-      await supabase.storage.from(BUCKET).remove([newPath]);
-      setActionError('Nie udało się zapisać nowej wersji pliku.'); setActionBusy(false); return;
-    }
-    await supabase.storage.from(BUCKET).remove([replaceTarget.storage_path]);
-    setFiles((current) => current.map((file) => file.id === updateResult.data.id ? updateResult.data : file));
-    setNotice('Plik został zastąpiony nową wersją.'); setReplaceTarget(null); setActionBusy(false);
+    const replaced = await replaceLibraryFile(replaceTarget, nextFile);
+    if (replaced) setReplaceTarget(null);
+    event.target.value = '';
   };
 
   const deleteFile = async (file) => {
-    setActionBusy(true); setActionError('');
-    const deleteResult = await supabase.from('pro100_library_files').delete().eq('id', file.id);
-    if (deleteResult.error) { setActionError('Nie udało się usunąć pliku.'); setActionBusy(false); return; }
-    await supabase.storage.from(BUCKET).remove([file.storage_path]);
-    setFiles((current) => current.filter((item) => item.id !== file.id));
-    setExpandedId(null); setDeleteId(null); setNotice('Plik został usunięty z biblioteki.'); setActionBusy(false);
+    const deleted = await deleteLibraryFile(file);
+    if (!deleted) return;
+    setExpandedId(null);
+    setDeleteId(null);
   };
 
   return (
@@ -277,7 +148,7 @@ export default function Pro100Library() {
       <div className={s.tableShell}><div className={s.tableScroller}>
         <div className={s.tableHeader} aria-hidden="true"><span>Plik</span><span>Kategoria</span><span>Zmieniono</span><span>Rozmiar</span><span>Klient</span><span>Akcje</span></div>
         {loading && <div className={s.stateBox}>Ładowanie biblioteki…</div>}
-        {!loading && loadError && <div className={s.stateBox}><FileBox size={30} /><strong>{loadError}</strong><button type="button" className={s.secondaryButton} onClick={loadData}>Spróbuj ponownie</button></div>}
+        {!loading && loadError && <div className={s.stateBox}><FileBox size={30} /><strong>{loadError}</strong><button type="button" className={s.secondaryButton} onClick={reload}>Spróbuj ponownie</button></div>}
         {!loading && !loadError && visibleFiles.length === 0 && <div className={s.stateBox}><FileBox size={30} /><strong>Brak plików w tej kategorii.</strong><span>Zmień filtr albo dodaj pierwszy plik PRO100.</span></div>}
 
         {!loading && !loadError && visibleFiles.map((file) => {
@@ -290,7 +161,7 @@ export default function Pro100Library() {
               </button>
               <span>{categoryById[file.category_id]?.name || '—'}</span><span>{formatDate(file.updated_at)}</span><span>{formatSize(file.file_size)}</span>
               <span>{file.client_name || '\u2014'}</span>
-              <button type="button" className={s.downloadButton} onClick={() => downloadFile(file)}><Download size={15} /> Pobierz</button>
+              <button type="button" className={s.downloadButton} onClick={() => downloadLibraryFile(file)}><Download size={15} /> Pobierz</button>
             </div>
             {expanded && <div className={s.expandedPanel}>
               <div className={s.descriptionBlock}><span>Opis</span><p>{file.description || 'Brak opisu. Możesz go dodać, aby łatwiej odnaleźć i wykorzystać projekt.'}</p>
