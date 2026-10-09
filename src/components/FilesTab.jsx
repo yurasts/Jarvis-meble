@@ -1,7 +1,19 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { supabase } from '../supabase';
-import { getProjectFileDisplayUrl, withProjectFileSignedUrls } from '../utils/projectFileAccess';
+import { useState, useRef, useMemo } from 'react';
+import { getProjectFileDisplayUrl } from '../utils/projectFileAccess';
+import {
+  isProjectImage as isImage,
+  isProjectPdf as isPdf,
+  shortenProjectFilename as shortenFileName,
+} from '../utils/projectFileTypes';
 import FileLightbox from './FileLightbox';
+import {
+  DesktopProjectFileCarousel,
+  FileActionError,
+  FileCategorySelect,
+  ProjectFileDetails,
+  StoFileRow,
+} from './FilesTabViews';
+import useProjectFiles from './useProjectFiles';
 import fs from './FilesTab.module.css';
 
 // Единая таблица четырёх реальных папок — общая для variant='shelf' и variant='tab' (оба
@@ -18,14 +30,7 @@ const FOLDER_CATEGORIES = [
 const DESKTOP_FOLDER_CATEGORIES = ['usterki', 'projekt', 'montaz', 'inne']
   .map(id => FOLDER_CATEGORIES.find(category => category.id === id));
 
-const isImage = (type) => type && type.startsWith('image/');
-const isPdf   = (type) => type === 'application/pdf';
 const isStoFile = (file) => /\.sto$/i.test(file?.file_name || '');
-
-const shortenFileName = (name, max = 12) => {
-  if (!name) return '';
-  return name.length > max ? name.slice(0, max - 1) + '…' : name;
-};
 
 // Польское склонение существительного "plik" по числу: 1 plik; 2-4 pliki (кроме 12-14); 5-21
 // plików (включая 12-14); и так же далее по остатку от деления на 10/100 (22-24 pliki, 25-31
@@ -45,9 +50,24 @@ const pluralPliki = (n) => {
 // files-стейт, один fetch — переключается только JSX-вывод, никакого второго монтирования/запроса.
 export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverChange, variant = 'tab', initialShelfExpanded = false, expanded: expandedProp, onExpandedChange, mobileLayout = false, mobileWorkspaceLayout = false }) {
   const isShelf = variant === 'shelf';
-  const [files,          setFiles]          = useState([]);
-  const [loading,        setLoading]        = useState(true);
-  const [uploading,      setUploading]      = useState(false);
+  const {
+    files,
+    loading,
+    uploading,
+    deletingFileId,
+    fileActionError,
+    clearFileActionError,
+    settingCover,
+    replacingSto,
+    downloadingSto,
+    stoError,
+    uploadFiles,
+    replaceSto,
+    removeFile,
+    updateComment,
+    toggleCover,
+    downloadSto,
+  } = useProjectFiles({ clientId, currentProfile, coverUrl, onCoverChange });
   // Общий дефолт для обеих вариантов — при открытии Pliki (mobile/tab) и полки (shelf)
   // изначально видна папка "usterki" (подпись "⚠ Projekt" — см. FOLDER_CATEGORIES). В обеих
   // вариантах один и тот же activeCategory одновременно фильтрует видимые файлы и служит
@@ -56,15 +76,9 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   const [editingComment, setEditingComment] = useState(null);
   const [commentDraft,   setCommentDraft]   = useState('');
   const [confirmDeleteId,setConfirmDeleteId]= useState(null);
-  const [deletingFileId, setDeletingFileId] = useState(null);
-  const [fileActionError, setFileActionError] = useState('');
   // id файла, открытого в общем FileLightbox (не url — id стабилен и однозначно находит позицию
   // в текущей отфильтрованной по категории подборке images, даже если files успел измениться).
   const [lightboxFileId, setLightboxFileId] = useState(null);
-  const [settingCover,   setSettingCover]   = useState(false); // лоадер при выборе обложки
-  const [replacingSto,   setReplacingSto]   = useState(false);
-  const [downloadingSto, setDownloadingSto] = useState(false);
-  const [stoError,       setStoError]       = useState('');
   // Полка Pliki (variant='shelf'): свёрнута по умолчанию, кроме случая, когда ProjectModal явно
   // просит открыть её развёрнутой (initialTab='files' на desktop/embedded и на mobile). Может
   // управляться снаружи (expanded/onExpandedChange — родитель меняет layout шапки/контента при
@@ -80,177 +94,44 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   };
   const fileInputRef = useRef();
   const stoInputRef = useRef();
-  // ✅ FIX: ref для категории — гарантирует актуальное значение в момент загрузки файла.
-  // Зеркалит activeCategory в обеих вариантах (единственный селектор = категория загрузки).
-  const uploadCategoryRef = useRef('usterki');
-
-  // Загрузка списка файлов проекта. Async-функция объявлена и вызвана прямо внутри эффекта
-  // (канонический паттерн React для fetch-в-эффекте: https://react.dev/learn/you-might-not-need-an-effect),
-  // а не как отдельная функция компонента — тело эффекта не делает ни одного синхронного
-  // setState до первого await. Флаг cancelled защищает от записи в state после unmount/смены clientId.
-  useEffect(() => {
-    let cancelled = false;
-    async function loadFiles() {
-      const { data } = await supabase
-        .from('project_files')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('uploaded_at', { ascending: false });
-      const signedFiles = await withProjectFileSignedUrls(data || []);
-      if (cancelled) return;
-      setFiles(signedFiles);
-      setLoading(false);
-    }
-    loadFiles();
-    return () => { cancelled = true; };
-  }, [clientId]);
 
   // Именованный (не создаваемый заново в .map()) обработчик выбора папки — используется рядом
   // кнопок-папок в mobileWorkspaceLayout ниже; тот же принцип "один select одновременно фильтрует
   // видимые файлы и служит категорией загрузки", что и у остальных вариантов.
   function selectFolder(id) {
     setConfirmDeleteId(null);
-    setFileActionError('');
+    clearFileActionError();
     setActiveCategory(id);
-    uploadCategoryRef.current = id;
   }
 
   async function handleUpload(e) {
     const selected = Array.from(e.target.files);
     if (!selected.length) return;
-    setUploading(true);
-    for (const file of selected) {
-      const path = `${clientId}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const { error: upErr } = await supabase.storage
-        .from('project-files').upload(path, file, { upsert: false });
-      if (upErr) { console.error(upErr); continue; }
-      const { data: { publicUrl } } = supabase.storage
-        .from('project-files').getPublicUrl(path);
-      const { data: row } = await supabase.from('project_files').insert([{
-        client_id:         clientId,
-        category:          uploadCategoryRef.current, // ✅ берём из ref — всегда актуально
-        file_name:         file.name,
-        file_path:         path,
-        file_url:          publicUrl,
-        file_type:         file.type,
-        comment:           '',
-        uploaded_by:       currentProfile?.id    || null,
-        uploaded_by_color: currentProfile?.color || '#718096',
-      }]).select().single();
-      if (row) {
-        const [signedRow] = await withProjectFileSignedUrls([row]);
-        setFiles(prev => [signedRow, ...prev]);
-      }
-    }
-    setUploading(false);
-    fileInputRef.current.value = '';
+    await uploadFiles(selected, activeCategory);
+    e.target.value = '';
   }
 
   async function handleStoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!/\.sto$/i.test(file.name)) {
-      setStoError('Wybierz plik z rozszerzeniem .sto.');
-      e.target.value = '';
-      return;
-    }
-
-    setReplacingSto(true);
-    setStoError('');
-    const uploadedAt = new Date().toISOString();
-    const path = clientId + '/sto/' + uploadedAt.replace(/[^0-9]/g, '') + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from('project-files')
-        .upload(path, file, { upsert: false });
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('project-files')
-        .getPublicUrl(path);
-      const payload = {
-        client_id: clientId,
-        category: 'sto',
-        file_name: file.name,
-        file_path: path,
-        file_url: publicUrl,
-        file_type: file.type || 'application/octet-stream',
-        comment: '',
-        uploaded_at: uploadedAt,
-        uploaded_by: currentProfile?.id || null,
-        uploaded_by_color: currentProfile?.color || '#718096',
-      };
-
-      const oldPath = stoFile?.file_path;
-      const query = stoFile
-        ? supabase.from('project_files').update(payload).eq('id', stoFile.id)
-        : supabase.from('project_files').insert([payload]);
-      const { data: savedFile, error: saveError } = await query.select().single();
-
-      if (saveError) {
-        await supabase.storage.from('project-files').remove([path]);
-        throw saveError;
-      }
-
-      setFiles(prev => [savedFile, ...prev.filter(item => item.id !== savedFile.id)]);
-      if (oldPath && oldPath !== path) {
-        const { error: cleanupError } = await supabase.storage.from('project-files').remove([oldPath]);
-        if (cleanupError) console.error(cleanupError);
-      }
-    } catch (error) {
-      console.error(error);
-      setStoError('Nie udało się zapisać pliku .sto. Spróbuj ponownie.');
-    } finally {
-      setReplacingSto(false);
-      e.target.value = '';
-    }
+    await replaceSto(file, stoFile);
+    e.target.value = '';
   }
 
   async function handleDeleteFile(file) {
-    if (deletingFileId !== null) return;
-    setDeletingFileId(file.id);
-    setFileActionError('');
-    try {
-      // Najpierw usuwamy rekord. Gdy RLS/DB odrzuci operację, plik w Storage pozostaje nietknięty.
-      const { error: deleteError } = await supabase.from('project_files').delete().eq('id', file.id);
-      if (deleteError) throw deleteError;
+    const removed = await removeFile(file);
+    if (removed && lightboxFileId === file.id) setLightboxFileId(null);
+    setConfirmDeleteId(null);
+  }
 
-      setFiles(prev => prev.filter(f => f.id !== file.id));
-      if (lightboxFileId === file.id) setLightboxFileId(null);
-
-      if (file.file_url === coverUrl) {
-        const { error: coverError } = await supabase.from('clients').update({ cover_url: null }).eq('id', clientId);
-        if (coverError) console.error(coverError);
-        onCoverChange?.(null);
-      }
-
-      // Błąd sprzątania Storage nie przywraca usuniętego rekordu — zostawia co najwyżej osierocony
-      // obiekt, ale nie blokuje użytkownikowi poprawnie zakończonego usunięcia z projektu.
-      const { error: storageError } = await supabase.storage.from('project-files').remove([file.file_path]);
-      if (storageError) console.error(storageError);
-    } catch (error) {
-      console.error(error);
-      setFileActionError('Nie udało się usunąć pliku. Spróbuj ponownie.');
-    } finally {
-      setDeletingFileId(null);
-      setConfirmDeleteId(null);
-    }
+  function beginDelete(fileId) {
+    clearFileActionError();
+    setConfirmDeleteId(fileId);
   }
 
   async function saveComment(file) {
-    await supabase.from('project_files').update({ comment: commentDraft }).eq('id', file.id);
-    setFiles(prev => prev.map(f => f.id === file.id ? { ...f, comment: commentDraft } : f));
-    setEditingComment(null);
-  }
-
-  // ⭐ Установить/снять обложку
-  async function handleSetCover(file) {
-    setSettingCover(file.id);
-    const newUrl = coverUrl === file.file_url ? null : file.file_url; // повторный клик — снимает
-    await supabase.from('clients').update({ cover_url: newUrl }).eq('id', clientId);
-    onCoverChange?.(newUrl);
-    setSettingCover(false);
+    const saved = await updateComment(file, commentDraft);
+    if (saved) setEditingComment(null);
   }
 
   // Ни один из двух вариантов больше не предлагает "Wszystkie" в селекторе — activeCategory
@@ -265,31 +146,6 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   const visible = useMemo(() => ordinaryFiles.filter(f => f.category === activeCategory), [ordinaryFiles, activeCategory]);
   const images = useMemo(() => visible.filter(f => isImage(f.file_type)), [visible]);
   const docs   = visible.filter(f => !isImage(f.file_type));
-
-  async function handleDownloadSto() {
-    if (!stoFile || downloadingSto) return;
-    setDownloadingSto(true);
-    setStoError('');
-    try {
-      const { data: fileBlob, error: downloadError } = await supabase.storage
-        .from('project-files')
-        .download(stoFile.file_path);
-      if (downloadError) throw downloadError;
-      const blobUrl = URL.createObjectURL(fileBlob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = stoFile.file_name || 'projekt.sto';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error(error);
-      setStoError('Nie udało się pobrać pliku .sto.');
-    } finally {
-      setDownloadingSto(false);
-    }
-  }
 
   // Общий FileLightbox (перенос из бывшей внутренней renderLightbox — теперь используется тот
   // же компонент, что и в Dashboard.jsx). files — только изображения ТЕКУЩЕЙ отфильтрованной
@@ -316,144 +172,28 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // разворота variant='shelf' (без второго Supabase-запроса, тот же files/visible/images/docs).
   function renderDetailedList() {
     return (
-      <>
-        {loading && <div style={{ color: '#a0aec0', fontSize: '13px' }}>Ładowanie...</div>}
-
-        {/* ФОТО */}
-        {images.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
-            {images.map(file => {
-              const isCover = coverUrl === file.file_url;
-              return (
-                <div key={file.id} style={{
-                  borderRadius: '6px', overflow: 'hidden', position: 'relative',
-                  border: isCover
-                    ? '2px solid #f6ad55'                          // золотая рамка = обложка
-                    : `2px solid ${file.uploaded_by_color || '#e2e8f0'}`,
-                  background: '#fff',
-                  boxShadow: isCover ? '0 0 0 2px #f6ad5566' : 'none',
-                }}>
-
-                  {/* Миниатюра — клик = лайтбокс */}
-                  <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setLightboxFileId(file.id)}>
-                    <img
-                      src={getProjectFileDisplayUrl(file)} alt={file.file_name}
-                      style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }}
-                    />
-                    {/* Иконка категории */}
-                    <div style={{ position: 'absolute', top: '4px', left: '4px', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: '10px', padding: '1px 5px', borderRadius: '3px' }}>
-                      {FOLDER_CATEGORIES.find(c => c.id === file.category)?.icon}
-                    </div>
-                    {/* Бейдж "обложка" */}
-                    {isCover && (
-                      <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: '#f6ad55', color: '#744210', fontSize: '10px', fontWeight: 'bold', padding: '1px 5px', borderRadius: '3px' }}>
-                        okładka
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Комментарий */}
-                  <div style={{ padding: '4px 6px', borderTop: `2px solid ${file.uploaded_by_color || '#e2e8f0'}` }}>
-                    {editingComment === file.id ? (
-                      <input
-                        autoFocus
-                        value={commentDraft}
-                        onChange={e => setCommentDraft(e.target.value)}
-                        onBlur={() => saveComment(file)}
-                        onKeyDown={e => e.key === 'Enter' && saveComment(file)}
-                        style={{ width: '100%', fontSize: '11px', border: 'none', outline: 'none', background: 'transparent', boxSizing: 'border-box' }}
-                      />
-                    ) : (
-                      <div
-                        onClick={() => { setEditingComment(file.id); setCommentDraft(file.comment || ''); }}
-                        style={{ fontSize: '11px', color: file.comment ? '#2d3748' : '#a0aec0', cursor: 'text', minHeight: '16px' }}
-                      >
-                        {file.comment || '+ komentarz'}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ⭐ Кнопка обложки — внизу справа */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleSetCover(file); }}
-                    disabled={settingCover === file.id}
-                    title={isCover ? 'Usuń okładkę' : 'Ustaw jako okładkę projektu'}
-                    style={{
-                      position: 'absolute', bottom: '28px', right: '4px',
-                      background: isCover ? '#f6ad55' : 'rgba(0,0,0,0.45)',
-                      border: 'none', borderRadius: '50%',
-                      width: '22px', height: '22px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'pointer', fontSize: '12px', lineHeight: 1,
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    {settingCover === file.id ? '⏳' : isCover ? '⭐' : '☆'}
-                  </button>
-
-                  {/* ✖ Удаление — вверху справа */}
-                  <div style={{ position: 'absolute', top: '4px', right: '4px' }}>
-                    {confirmDeleteId === file.id ? (
-                      <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: '4px', padding: '3px 5px', display: 'flex', gap: '3px' }}>
-                        <button onClick={() => handleDeleteFile(file)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}>Tak</button>
-                        <button onClick={() => setConfirmDeleteId(null)} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}>Nie</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setConfirmDeleteId(file.id)} style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none', width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>✖</button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* PDF и другие документы */}
-        {docs.length > 0 && (
-          <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-            {docs.map((file, idx) => (
-              <div key={file.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderBottom: idx < docs.length - 1 ? '1px solid #e2e8f0' : 'none', background: '#fff', borderLeft: `3px solid ${file.uploaded_by_color || '#e2e8f0'}` }}>
-                <span style={{ fontSize: '18px', flexShrink: 0 }}>{isPdf(file.file_type) ? '📄' : '📁'}</span>
-                <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#2b6cb0', fontWeight: 'bold', textDecoration: 'none', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.file_name}>
-                  {file.file_name}
-                </a>
-                {editingComment === file.id ? (
-                  <input autoFocus value={commentDraft} onChange={e => setCommentDraft(e.target.value)}
-                    onBlur={() => saveComment(file)} onKeyDown={e => e.key === 'Enter' && saveComment(file)}
-                    placeholder="Komentarz..."
-                    style={{ fontSize: '11px', border: '1px solid #cbd5e0', borderRadius: '4px', padding: '2px 6px', width: '140px' }}
-                  />
-                ) : (
-                  <span onClick={() => { setEditingComment(file.id); setCommentDraft(file.comment || ''); }}
-                    style={{ fontSize: '11px', color: file.comment ? '#4a5568' : '#a0aec0', cursor: 'text', minWidth: '60px' }}>
-                    {file.comment || '+ komentarz'}
-                  </span>
-                )}
-                <span style={{ fontSize: '10px', color: '#a0aec0', flexShrink: 0 }}>
-                  {FOLDER_CATEGORIES.find(c => c.id === file.category)?.icon}
-                </span>
-                {confirmDeleteId === file.id ? (
-                  <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                    <button onClick={() => handleDeleteFile(file)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Tak</button>
-                    <button onClick={() => setConfirmDeleteId(null)} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setConfirmDeleteId(file.id)}
-                    style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', flexShrink: 0, lineHeight: 1 }}
-                    onMouseEnter={e => e.target.style.color='#e53e3e'}
-                    onMouseLeave={e => e.target.style.color='#cbd5e0'}>✖</button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!loading && visible.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '30px', color: '#a0aec0', fontSize: '13px', border: '2px dashed #e2e8f0', borderRadius: '8px' }}>
-            {isShelf ? 'Brak plików w tym folderze.' : 'Brak plików w tej kategorii.'}
-          </div>
-        )}
-      </>
+      <ProjectFileDetails
+        loading={loading}
+        isShelf={isShelf}
+        images={images}
+        documents={docs}
+        categories={FOLDER_CATEGORIES}
+        coverUrl={coverUrl}
+        editingComment={editingComment}
+        commentDraft={commentDraft}
+        settingCover={settingCover}
+        deletingFileId={deletingFileId}
+        confirmDeleteId={confirmDeleteId}
+        fileActionError={fileActionError}
+        onOpenImage={setLightboxFileId}
+        onCommentDraftChange={setCommentDraft}
+        onStartComment={file => { setEditingComment(file.id); setCommentDraft(file.comment || ''); }}
+        onSaveComment={saveComment}
+        onToggleCover={toggleCover}
+        onConfirmDelete={beginDelete}
+        onCancelDelete={() => setConfirmDeleteId(null)}
+        onDelete={handleDeleteFile}
+      />
     );
   }
 
@@ -492,95 +232,30 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
           </div>
         </div>
 
-        {loading ? (
-          <div className={fs.desktopEmpty}>Ładowanie...</div>
-        ) : visible.length === 0 ? (
-          <div className={fs.desktopEmpty}>Brak plików w tym folderze.</div>
-        ) : (
-          <div className={fs.desktopCarousel}>
-            {visible.map(file => (
-              <div key={file.id} className={fs.desktopCarouselItem}>
-                {isImage(file.file_type) ? (
-                  <img
-                    src={getProjectFileDisplayUrl(file)}
-                    alt={file.file_name}
-                    draggable={false}
-                    onClick={() => setLightboxFileId(file.id)}
-                    className={fs.desktopCarouselImg}
-                    style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
-                  />
-                ) : (
-                  <a
-                    href={getProjectFileDisplayUrl(file)}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={file.file_name}
-                    className={fs.desktopCarouselDoc}
-                  >
-                    <span className={fs.desktopCarouselDocIcon}>{isPdf(file.file_type) ? 'PDF' : 'PLIK'}</span>
-                    <span className={fs.desktopCarouselDocName}>{shortenFileName(file.file_name, 18)}</span>
-                  </a>
-                )}
-                <button
-                  type="button"
-                  className={fs.desktopDeleteBtn}
-                  disabled={deletingFileId !== null}
-                  aria-label={`Usuń plik ${file.file_name}`}
-                  title="Usuń plik"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setFileActionError('');
-                    setConfirmDeleteId(file.id);
-                  }}
-                >
-                  ×
-                </button>
-                {confirmDeleteId === file.id && (
-                  <div className={fs.desktopDeleteConfirm} role="dialog" aria-label={`Usunąć plik ${file.file_name}?`}>
-                    <span>Usunąć?</span>
-                    <div className={fs.desktopDeleteActions}>
-                      <button type="button" disabled={deletingFileId === file.id} onClick={() => handleDeleteFile(file)}>
-                        {deletingFileId === file.id ? '…' : 'Tak'}
-                      </button>
-                      <button type="button" disabled={deletingFileId === file.id} onClick={() => setConfirmDeleteId(null)}>
-                        Nie
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <DesktopProjectFileCarousel
+          files={visible}
+          loading={loading}
+          coverUrl={coverUrl}
+          deletingFileId={deletingFileId}
+          confirmDeleteId={confirmDeleteId}
+          onOpenImage={setLightboxFileId}
+          onConfirmDelete={beginDelete}
+          onCancelDelete={() => setConfirmDeleteId(null)}
+          onDelete={handleDeleteFile}
+        />
 
-        {fileActionError && <div className={fs.desktopFileError} role="alert">{fileActionError}</div>}
+        <FileActionError message={fileActionError} />
 
-        <div className={fs.stoRow}>
-          <span className={fs.stoLabel}>Plik PRO100 (.sto):</span>
-          {loading ? (
-            <span className={fs.stoMissing}>Ładowanie...</span>
-          ) : stoFile ? (
-            <>
-              <span className={fs.stoFilename} title={stoFile.file_name}>{stoFile.file_name}</span>
-              <button type="button" className={fs.stoDownloadBtn} disabled={downloadingSto || replacingSto} onClick={handleDownloadSto}>
-                {downloadingSto ? 'Pobieranie…' : 'Pobierz'}
-              </button>
-              <button type="button" className={fs.stoReplaceBtn} disabled={replacingSto} onClick={() => stoInputRef.current?.click()}>
-                {replacingSto ? 'Wgrywanie…' : 'Zamień'}
-              </button>
-            </>
-          ) : (
-            <>
-              <span className={fs.stoMissing}>Brak pliku .sto</span>
-              <button type="button" className={fs.stoDownloadBtn} disabled={replacingSto} onClick={() => stoInputRef.current?.click()}>
-                {replacingSto ? 'Wgrywanie…' : 'Dodaj'}
-              </button>
-            </>
-          )}
-          <input ref={stoInputRef} type="file" accept=".sto" hidden onChange={handleStoUpload} />
-        </div>
-        {stoError && <div className={fs.stoError} role="alert">{stoError}</div>}
+        <StoFileRow
+          loading={loading}
+          file={stoFile}
+          replacing={replacingSto}
+          downloading={downloadingSto}
+          error={stoError}
+          inputRef={stoInputRef}
+          onDownload={() => downloadSto(stoFile)}
+          onSelectFile={handleStoUpload}
+        />
 
         {renderLightbox()}
       </section>
@@ -620,6 +295,8 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
           </button>
           <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
         </div>
+
+        <FileActionError message={fileActionError} />
 
         {loading ? (
           <div className={fs.emptyHint}>Ładowanie...</div>
@@ -667,21 +344,16 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         {/* Компактная строка — всегда видна */}
         {mobileLayout ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
-            <select
+            <FileCategorySelect
+              categories={FOLDER_CATEGORIES}
+              files={files}
               value={activeCategory}
               disabled={uploading}
-              onChange={e => {
-                setActiveCategory(e.target.value);
-                uploadCategoryRef.current = e.target.value; // категория загрузки = выбранная папка
-              }}
-              aria-label="Folder plików projektu"
+              onChange={setActiveCategory}
+              showCounts
+              ariaLabel="Folder plików projektu"
               style={{ flex: 1, minWidth: 0, minHeight: '40px', boxSizing: 'border-box', padding: '9px 8px', borderRadius: '8px', border: '1px solid var(--input-border)', fontSize: '13px', background: 'var(--input-bg)', color: 'var(--text-main)' }}
-            >
-              {FOLDER_CATEGORIES.map(c => {
-                const count = files.filter(f => f.category === c.id).length;
-                return <option key={c.id} value={c.id}>{c.icon} {c.label} ({count})</option>;
-              })}
-            </select>
+            />
             <button
               onClick={() => fileInputRef.current.click()}
               disabled={uploading}
@@ -704,19 +376,14 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', minWidth: 0 }}>
             <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-main)', whiteSpace: 'nowrap', flexShrink: 0 }}>📎 Pliki</span>
-            <select
+            <FileCategorySelect
+              categories={FOLDER_CATEGORIES}
+              files={files}
               value={activeCategory}
               disabled={uploading}
-              onChange={e => {
-                setActiveCategory(e.target.value);
-                uploadCategoryRef.current = e.target.value; // категория загрузки = выбранная папка
-              }}
+              onChange={setActiveCategory}
               style={{ padding: '3px 5px', borderRadius: '6px', border: '1px solid var(--input-border)', fontSize: '11px', background: 'var(--input-bg)', color: 'var(--text-main)', flexShrink: 1, minWidth: 0 }}
-            >
-              {FOLDER_CATEGORIES.map(c => (
-                <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
-              ))}
-            </select>
+            />
             <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
               {loading ? '…' : `${visible.length} ${pluralPliki(visible.length)}`}
             </span>
@@ -736,6 +403,8 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
             <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
           </div>
         )}
+
+        {!shelfExpanded && <FileActionError message={fileActionError} />}
 
         {/* Горизонтальная лента миниатюр — только в свёрнутом состоянии, свой overflow-x (весь
             остальной экран горизонтальный scroll не получает). Пока идёт первичная загрузка
@@ -812,20 +481,16 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
 
       {/* Компактная верхняя строка: [ ⚠ Projekt (2) ▾ ][ + Dodaj plik / zdjęcie ] */}
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-        <select
+        <FileCategorySelect
+          categories={FOLDER_CATEGORIES}
+          files={files}
           value={activeCategory}
           disabled={uploading}
-          onChange={e => {
-            setActiveCategory(e.target.value);
-            uploadCategoryRef.current = e.target.value; // ✅ синхронно обновляем ref
-          }}
+          onChange={setActiveCategory}
+          showCounts
+          ariaLabel="Folder plików projektu"
           style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '12px' }}
-        >
-          {FOLDER_CATEGORIES.map(c => {
-            const count = files.filter(f => f.category === c.id).length;
-            return <option key={c.id} value={c.id}>{c.icon} {c.label} ({count})</option>;
-          })}
-        </select>
+        />
         <button
           onClick={() => fileInputRef.current.click()}
           disabled={uploading}
