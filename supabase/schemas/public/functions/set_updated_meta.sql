@@ -2,6 +2,7 @@ CREATE OR REPLACE FUNCTION public.set_updated_meta()
   RETURNS TRIGGER
   LANGUAGE plpgsql
   SECURITY DEFINER
+  SET search_path = ''
   AS $function$
 begin
   new.updated_by = auth.uid();

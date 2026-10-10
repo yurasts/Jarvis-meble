@@ -18,15 +18,17 @@ CREATE TABLE "public"."project_files" (
 ALTER TABLE "public"."project_files"
   ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "project_files_all_staff" ON "public"."project_files"
+CREATE POLICY "project_files_visible_project_access" ON "public"."project_files"
   FOR ALL
-  TO PUBLIC
-  USING ((public.current_role_name() IS NOT NULL))
-  WITH CHECK ((public.current_role_name() IS NOT NULL));
+  TO "authenticated"
+  USING ((EXISTS ( SELECT 1
+   FROM public.clients visible_client
+  WHERE (visible_client.id = project_files.client_id))))
+  WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.clients visible_client
+  WHERE (visible_client.id = project_files.client_id))));
 
 REVOKE ALL ON SEQUENCE "public"."project_files_id_seq" FROM "anon";
-
-GRANT SELECT, UPDATE, USAGE ON SEQUENCE "public"."project_files_id_seq" TO "anon";
 
 REVOKE ALL ON SEQUENCE "public"."project_files_id_seq" FROM "authenticated";
 
@@ -40,7 +42,9 @@ REVOKE ALL ON SEQUENCE "public"."project_files_id_seq" FROM "service_role";
 
 GRANT SELECT, UPDATE, USAGE ON SEQUENCE "public"."project_files_id_seq" TO "service_role";
 
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."project_files" TO "anon", "authenticated";
+REVOKE ALL ON TABLE "public"."project_files" FROM "anon";
+
+GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."project_files" TO "authenticated";
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."project_files" TO "service_role";
 

@@ -2,10 +2,11 @@ CREATE OR REPLACE FUNCTION public.protect_role_column()
   RETURNS TRIGGER
   LANGUAGE plpgsql
   SECURITY DEFINER
+  SET search_path = ''
   AS $function$
 begin
   if new.role is distinct from old.role then
-    if not exists (select 1 from profiles where id = auth.uid() and role = 'owner') then
+    if not exists (select 1 from public.profiles where id = auth.uid() and role = 'owner') then
       raise exception 'Tylko właściciel (owner) może zmienić rolę użytkownika.';
     end if;
   end if;
