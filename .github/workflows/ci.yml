@@ -12,7 +12,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -38,3 +38,13 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Prepare isolated database test migrations
+        shell: bash
+        run: bash scripts/prepare-supabase-db-test.sh
+
+      - name: Start isolated Supabase database
+        run: npx supabase db start
+
+      - name: Test database access policies
+        run: npx supabase test db
