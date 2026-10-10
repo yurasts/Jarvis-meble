@@ -12,7 +12,7 @@ import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
 import clientsRepository from './data/clientsRepository';
-import projectCashTransactionsRepository from './data/projectCashTransactionsRepository';
+import useCashTransactions from './components/useCashTransactions';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -122,16 +122,21 @@ function App() {
   const [materials, setMaterials]   = useState([])
   const [servicesList, setServicesList] = useState([])
   // Mobile / Client Balance / Expanded v1 — единый массив реальных денежных операций всех
-  // доступных проектов, один Supabase-запрос (см. fetchData ниже), общий для Bilans klienta
+  // доступных проектов загружается hook-ом и используется совместно в Bilans klienta
   // (MobileClientBalanceScreen) и вкладки Rozliczenia (mobile ProjectModal) — без копирования
   // данных между экранами и без отдельного запроса на карточку.
-  const [cashTransactions, setCashTransactions] = useState([])
   // 'loading' | 'error' | 'ready' — источник правды для Bilans klienta/Rozliczenia о том, можно ли
   // доверять cashTransactions. Без этого сбой запроса (нет таблицы, RLS, сеть) молча оставлял бы
   // cashTransactions=[] и оба экрана показывали бы 0.00 zł/"Brak operacji", будто это настоящий
   // ноль (review P1) — вместо этого экраны обязаны показать "не удалось загрузить" и не показывать
   // никаких сумм, пока статус не 'ready'.
-  const [cashStatus, setCashStatus] = useState('loading')
+  const {
+    cashTransactions,
+    cashStatus,
+    loadCashTransactions,
+    saveCashTransaction,
+    deleteCashTransaction,
+  } = useCashTransactions({ scopeKey: session?.user?.id || null })
   // client_name, для которого сейчас открыт Bilans klienta — null, когда экран закрыт.
   const [balanceClientName, setBalanceClientName] = useState(null)
 
@@ -187,23 +192,6 @@ function App() {
     }
   }, [menuOpen])
 
-  // Один запрос на ВСЕ доступные операции (не по проекту) — Bilans klienta агрегирует несколько
-  // проектов клиента разом, а Rozliczenia фильтрует тот же массив на activeClient.id, без
-  // отдельного fetch на каждую карточку. RLS на project_cash_transactions ограничивает то, что
-  // реально вернётся, тем же способом, что и видимость строк clients (см. подготовленную, но
-  // не применённую миграцию — supabase/migrations/…create_project_cash_transactions.sql).
-  // Отдельная функция (не только внутри fetchData) — переиспользуется кнопкой "Spróbuj ponownie"
-  // в Bilans klienta/Rozliczenia при cashStatus==='error' (review P1).
-  const loadCashTransactions = useCallback(async () => {
-    setCashStatus('loading')
-    try {
-      setCashTransactions(await projectCashTransactionsRepository.list())
-      setCashStatus('ready')
-    } catch {
-      setCashStatus('error')
-    }
-  }, [])
-
   useEffect(() => {
     if (!session) return
     async function fetchData() {
@@ -216,10 +204,9 @@ function App() {
       if (materialsData) setMaterials(sortMaterialsByWorkflow(materialsData))
       const { data: servicesData }  = await supabase.from('services').select('*')
       if (servicesData)  setServicesList(servicesData)
-      loadCashTransactions()
     }
     fetchData()
-  }, [session, loadCashTransactions])
+  }, [session])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
 
@@ -421,32 +408,6 @@ function App() {
       await clientsRepository.update(id, { status: newStatus })
     } catch {
       // Preserve the existing optimistic UI; the next reload reconciles remote state.
-    }
-  }
-
-  // Mobile / Client Balance / Expanded v1 — "операции сохранения" для единого cashTransactions,
-  // общие для Bilans klienta (MobileClientBalanceScreen) и Rozliczenia (mobile ProjectModal).
-  // draft.id присутствует → UPDATE существующей операции; иначе → INSERT новой. created_by/
-  // created_at/updated_at не передаются — берутся дефолтами колонок на стороне БД (см. миграцию).
-  async function saveCashTransaction(projectId, draft) {
-    try {
-      const saved = await projectCashTransactionsRepository.save(projectId, draft)
-      setCashTransactions(prev => draft.id
-        ? prev.map(transaction => transaction.id === saved.id ? saved : transaction)
-        : [saved, ...prev])
-      return { error: null }
-    } catch (error) {
-      return { error }
-    }
-  }
-
-  async function deleteCashTransaction(id) {
-    try {
-      await projectCashTransactionsRepository.remove(id)
-      setCashTransactions(prev => prev.filter(t => t.id !== id))
-      return { error: null }
-    } catch (error) {
-      return { error }
     }
   }
 
