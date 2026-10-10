@@ -2,6 +2,7 @@ BEGIN;
 
 -- Project metadata and Storage objects must follow the same visibility rules as clients.
 DROP POLICY IF EXISTS "project_files_all_staff" ON public.project_files;
+DROP POLICY IF EXISTS "project_files_visible_project_access" ON public.project_files;
 
 CREATE POLICY "project_files_visible_project_access"
   ON public.project_files
@@ -34,6 +35,7 @@ DROP POLICY IF EXISTS "staff_full_access vmqls3_0" ON storage.objects;
 DROP POLICY IF EXISTS "staff_full_access vmqls3_1" ON storage.objects;
 DROP POLICY IF EXISTS "staff_full_access vmqls3_2" ON storage.objects;
 DROP POLICY IF EXISTS "staff_full_access vmqls3_3" ON storage.objects;
+DROP POLICY IF EXISTS "project_files_storage_visible_project_access" ON storage.objects;
 
 CREATE POLICY "project_files_storage_visible_project_access"
   ON storage.objects
