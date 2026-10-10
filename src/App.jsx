@@ -11,6 +11,8 @@ import MobileBottomNav from './components/MobileBottomNav';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
+import clientsRepository from './data/clientsRepository';
+import useCashTransactions from './components/useCashTransactions';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -120,16 +122,21 @@ function App() {
   const [materials, setMaterials]   = useState([])
   const [servicesList, setServicesList] = useState([])
   // Mobile / Client Balance / Expanded v1 — единый массив реальных денежных операций всех
-  // доступных проектов, один Supabase-запрос (см. fetchData ниже), общий для Bilans klienta
+  // доступных проектов загружается hook-ом и используется совместно в Bilans klienta
   // (MobileClientBalanceScreen) и вкладки Rozliczenia (mobile ProjectModal) — без копирования
   // данных между экранами и без отдельного запроса на карточку.
-  const [cashTransactions, setCashTransactions] = useState([])
   // 'loading' | 'error' | 'ready' — источник правды для Bilans klienta/Rozliczenia о том, можно ли
   // доверять cashTransactions. Без этого сбой запроса (нет таблицы, RLS, сеть) молча оставлял бы
   // cashTransactions=[] и оба экрана показывали бы 0.00 zł/"Brak operacji", будто это настоящий
   // ноль (review P1) — вместо этого экраны обязаны показать "не удалось загрузить" и не показывать
   // никаких сумм, пока статус не 'ready'.
-  const [cashStatus, setCashStatus] = useState('loading')
+  const {
+    cashTransactions,
+    cashStatus,
+    loadCashTransactions,
+    saveCashTransaction,
+    deleteCashTransaction,
+  } = useCashTransactions({ scopeKey: session?.user?.id || null })
   // client_name, для которого сейчас открыт Bilans klienta — null, когда экран закрыт.
   const [balanceClientName, setBalanceClientName] = useState(null)
 
@@ -185,34 +192,21 @@ function App() {
     }
   }, [menuOpen])
 
-  // Один запрос на ВСЕ доступные операции (не по проекту) — Bilans klienta агрегирует несколько
-  // проектов клиента разом, а Rozliczenia фильтрует тот же массив на activeClient.id, без
-  // отдельного fetch на каждую карточку. RLS на project_cash_transactions ограничивает то, что
-  // реально вернётся, тем же способом, что и видимость строк clients (см. подготовленную, но
-  // не применённую миграцию — supabase/migrations/…create_project_cash_transactions.sql).
-  // Отдельная функция (не только внутри fetchData) — переиспользуется кнопкой "Spróbuj ponownie"
-  // в Bilans klienta/Rozliczenia при cashStatus==='error' (review P1).
-  const loadCashTransactions = useCallback(async () => {
-    setCashStatus('loading')
-    const { data, error } = await supabase.from('project_cash_transactions').select('*')
-    if (error) { setCashStatus('error'); return }
-    setCashTransactions(data || [])
-    setCashStatus('ready')
-  }, [])
-
   useEffect(() => {
     if (!session) return
     async function fetchData() {
-      const { data: clientsData }   = await supabase.from('clients').select('*')
-      if (clientsData)   setClients(clientsData)
+      try {
+        setClients(await clientsRepository.list())
+      } catch {
+        // Keep the existing empty state when the project list cannot be loaded.
+      }
       const { data: materialsData } = await supabase.from('materials').select('*')
       if (materialsData) setMaterials(sortMaterialsByWorkflow(materialsData))
       const { data: servicesData }  = await supabase.from('services').select('*')
       if (servicesData)  setServicesList(servicesData)
-      loadCashTransactions()
     }
     fetchData()
-  }, [session, loadCashTransactions])
+  }, [session])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
 
@@ -290,19 +284,20 @@ function App() {
   }
 
   async function updateClientFields(clientId, updatedFields) {
-    setClients(clients.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
-    await supabase.from('clients').update(updatedFields).eq('id', clientId)
+    setClients(current => current.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
+    try {
+      await clientsRepository.update(clientId, updatedFields)
+    } catch {
+      // Preserve the existing optimistic UI; the next reload reconciles remote state.
+    }
   }
 
   async function saveProjectCoefficient(projectId, coefficient, calculatedBudget) {
     try {
-      const { data, error } = await supabase.from('clients')
-        .update({ budget_coefficient: coefficient, budget: calculatedBudget })
-        .eq('id', projectId)
-        .select()
-        .single()
-
-      if (error) return { error }
+      const data = await clientsRepository.updateAndGet(projectId, {
+        budget_coefficient: coefficient,
+        budget: calculatedBudget,
+      })
 
       setClients(prev => prev.map(c => c.id === projectId ? data : c))
       setActiveClient(prev => prev?.id === projectId ? data : prev)
@@ -315,21 +310,23 @@ function App() {
 
   async function handleAddClient(e) {
     e.preventDefault()
-    const { data, error } = await supabase.from('clients').insert([{
-      full_name: name, client_name: name, project_name: projectName, phone, budget: Number(budget) || 0,
-      deadline: deadline || null, address, status: 'new', project_scope: effectiveScope
-    }]).select()
-    if (!error && data) {
-      setClients([...clients, data[0]])
+    try {
+      const saved = await clientsRepository.create({
+        full_name: name, client_name: name, project_name: projectName, phone, budget: Number(budget) || 0,
+        deadline: deadline || null, address, status: 'new', project_scope: effectiveScope
+      })
+      setClients(current => [...current, saved])
       setName(''); setProjectName(''); setPhone(''); setBudget(''); setDeadline(''); setAddress('')
       setIsModalOpen(false)
+    } catch {
+      // Keep the form open so the user can retry.
     }
   }
 
   async function handleUpdateClient(e) {
     if (e && e.preventDefault) e.preventDefault()
-    const { data, error } = await supabase.from('clients')
-      .update({
+    try {
+      const saved = await clientsRepository.updateAndGet(activeClient.id, {
         client_name:        activeClient.client_name,
         project_name:       activeClient.project_name,
         project_scope:      activeClient.project_scope || 'firma',
@@ -345,12 +342,12 @@ function App() {
         budget:             activeClient.budget            || 0,
         budget_coefficient: activeClient.budget_coefficient || 2.0,
       })
-      .eq('id', activeClient.id).select()
-    if (!error && data) {
-      setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
-      setOriginalClient(JSON.parse(JSON.stringify(data[0])))
+      setClients(current => current.map(c => c.id === activeClient.id ? saved : c))
+      setOriginalClient(JSON.parse(JSON.stringify(saved)))
+      return { error: null }
+    } catch (error) {
+      return { error }
     }
-    return { error }
   }
 
   async function handleAddMaterial(e) {
@@ -406,53 +403,12 @@ function App() {
   const handleDragOver  = (e)     => e.preventDefault()
   const handleDrop      = async (e, newStatus) => {
     const id = e.dataTransfer.getData('clientId')
-    setClients(clients.map(c => c.id.toString() === id ? { ...c, status: newStatus } : c))
-    await supabase.from('clients').update({ status: newStatus }).eq('id', id)
-  }
-
-  // Mobile / Client Balance / Expanded v1 — "операции сохранения" для единого cashTransactions,
-  // общие для Bilans klienta (MobileClientBalanceScreen) и Rozliczenia (mobile ProjectModal).
-  // draft.id присутствует → UPDATE существующей операции; иначе → INSERT новой. created_by/
-  // created_at/updated_at не передаются — берутся дефолтами колонок на стороне БД (см. миграцию).
-  async function saveCashTransaction(projectId, draft) {
-    if (draft.id) {
-      const { data, error } = await supabase.from('project_cash_transactions')
-        .update({
-          direction:    draft.direction,
-          amount:       draft.amount,
-          occurred_on:  draft.occurred_on,
-          description:  draft.description,
-        })
-        .eq('id', draft.id)
-        .select()
-        .single()
-      if (!error && data) {
-        setCashTransactions(prev => prev.map(t => t.id === data.id ? data : t))
-      }
-      return { error }
+    setClients(current => current.map(c => c.id.toString() === id ? { ...c, status: newStatus } : c))
+    try {
+      await clientsRepository.update(id, { status: newStatus })
+    } catch {
+      // Preserve the existing optimistic UI; the next reload reconciles remote state.
     }
-    const { data, error } = await supabase.from('project_cash_transactions')
-      .insert([{
-        project_id:   projectId,
-        direction:    draft.direction,
-        amount:       draft.amount,
-        occurred_on:  draft.occurred_on,
-        description:  draft.description,
-      }])
-      .select()
-      .single()
-    if (!error && data) {
-      setCashTransactions(prev => [data, ...prev])
-    }
-    return { error }
-  }
-
-  async function deleteCashTransaction(id) {
-    const { error } = await supabase.from('project_cash_transactions').delete().eq('id', id)
-    if (!error) {
-      setCashTransactions(prev => prev.filter(t => t.id !== id))
-    }
-    return { error }
   }
 
   // --- Экраны загрузки / доступа ---
