@@ -1,0 +1,2 @@
+-- Add deterministic, non-production development fixtures here.
+-- Never copy customer data or production credentials into this file.
