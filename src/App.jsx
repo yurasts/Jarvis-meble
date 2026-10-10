@@ -11,6 +11,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
+import projectCashTransactionsRepository from './data/projectCashTransactionsRepository';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -194,10 +195,12 @@ function App() {
   // в Bilans klienta/Rozliczenia при cashStatus==='error' (review P1).
   const loadCashTransactions = useCallback(async () => {
     setCashStatus('loading')
-    const { data, error } = await supabase.from('project_cash_transactions').select('*')
-    if (error) { setCashStatus('error'); return }
-    setCashTransactions(data || [])
-    setCashStatus('ready')
+    try {
+      setCashTransactions(await projectCashTransactionsRepository.list())
+      setCashStatus('ready')
+    } catch {
+      setCashStatus('error')
+    }
   }, [])
 
   useEffect(() => {
@@ -415,44 +418,25 @@ function App() {
   // draft.id присутствует → UPDATE существующей операции; иначе → INSERT новой. created_by/
   // created_at/updated_at не передаются — берутся дефолтами колонок на стороне БД (см. миграцию).
   async function saveCashTransaction(projectId, draft) {
-    if (draft.id) {
-      const { data, error } = await supabase.from('project_cash_transactions')
-        .update({
-          direction:    draft.direction,
-          amount:       draft.amount,
-          occurred_on:  draft.occurred_on,
-          description:  draft.description,
-        })
-        .eq('id', draft.id)
-        .select()
-        .single()
-      if (!error && data) {
-        setCashTransactions(prev => prev.map(t => t.id === data.id ? data : t))
-      }
+    try {
+      const saved = await projectCashTransactionsRepository.save(projectId, draft)
+      setCashTransactions(prev => draft.id
+        ? prev.map(transaction => transaction.id === saved.id ? saved : transaction)
+        : [saved, ...prev])
+      return { error: null }
+    } catch (error) {
       return { error }
     }
-    const { data, error } = await supabase.from('project_cash_transactions')
-      .insert([{
-        project_id:   projectId,
-        direction:    draft.direction,
-        amount:       draft.amount,
-        occurred_on:  draft.occurred_on,
-        description:  draft.description,
-      }])
-      .select()
-      .single()
-    if (!error && data) {
-      setCashTransactions(prev => [data, ...prev])
-    }
-    return { error }
   }
 
   async function deleteCashTransaction(id) {
-    const { error } = await supabase.from('project_cash_transactions').delete().eq('id', id)
-    if (!error) {
+    try {
+      await projectCashTransactionsRepository.remove(id)
       setCashTransactions(prev => prev.filter(t => t.id !== id))
+      return { error: null }
+    } catch (error) {
+      return { error }
     }
-    return { error }
   }
 
   // --- Экраны загрузки / доступа ---
