@@ -11,6 +11,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
+import clientsRepository from './data/clientsRepository';
 import projectCashTransactionsRepository from './data/projectCashTransactionsRepository';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -206,8 +207,11 @@ function App() {
   useEffect(() => {
     if (!session) return
     async function fetchData() {
-      const { data: clientsData }   = await supabase.from('clients').select('*')
-      if (clientsData)   setClients(clientsData)
+      try {
+        setClients(await clientsRepository.list())
+      } catch {
+        // Keep the existing empty state when the project list cannot be loaded.
+      }
       const { data: materialsData } = await supabase.from('materials').select('*')
       if (materialsData) setMaterials(sortMaterialsByWorkflow(materialsData))
       const { data: servicesData }  = await supabase.from('services').select('*')
@@ -293,19 +297,20 @@ function App() {
   }
 
   async function updateClientFields(clientId, updatedFields) {
-    setClients(clients.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
-    await supabase.from('clients').update(updatedFields).eq('id', clientId)
+    setClients(current => current.map(c => c.id === clientId ? { ...c, ...updatedFields } : c))
+    try {
+      await clientsRepository.update(clientId, updatedFields)
+    } catch {
+      // Preserve the existing optimistic UI; the next reload reconciles remote state.
+    }
   }
 
   async function saveProjectCoefficient(projectId, coefficient, calculatedBudget) {
     try {
-      const { data, error } = await supabase.from('clients')
-        .update({ budget_coefficient: coefficient, budget: calculatedBudget })
-        .eq('id', projectId)
-        .select()
-        .single()
-
-      if (error) return { error }
+      const data = await clientsRepository.updateAndGet(projectId, {
+        budget_coefficient: coefficient,
+        budget: calculatedBudget,
+      })
 
       setClients(prev => prev.map(c => c.id === projectId ? data : c))
       setActiveClient(prev => prev?.id === projectId ? data : prev)
@@ -318,21 +323,23 @@ function App() {
 
   async function handleAddClient(e) {
     e.preventDefault()
-    const { data, error } = await supabase.from('clients').insert([{
-      full_name: name, client_name: name, project_name: projectName, phone, budget: Number(budget) || 0,
-      deadline: deadline || null, address, status: 'new', project_scope: effectiveScope
-    }]).select()
-    if (!error && data) {
-      setClients([...clients, data[0]])
+    try {
+      const saved = await clientsRepository.create({
+        full_name: name, client_name: name, project_name: projectName, phone, budget: Number(budget) || 0,
+        deadline: deadline || null, address, status: 'new', project_scope: effectiveScope
+      })
+      setClients(current => [...current, saved])
       setName(''); setProjectName(''); setPhone(''); setBudget(''); setDeadline(''); setAddress('')
       setIsModalOpen(false)
+    } catch {
+      // Keep the form open so the user can retry.
     }
   }
 
   async function handleUpdateClient(e) {
     if (e && e.preventDefault) e.preventDefault()
-    const { data, error } = await supabase.from('clients')
-      .update({
+    try {
+      const saved = await clientsRepository.updateAndGet(activeClient.id, {
         client_name:        activeClient.client_name,
         project_name:       activeClient.project_name,
         project_scope:      activeClient.project_scope || 'firma',
@@ -348,12 +355,12 @@ function App() {
         budget:             activeClient.budget            || 0,
         budget_coefficient: activeClient.budget_coefficient || 2.0,
       })
-      .eq('id', activeClient.id).select()
-    if (!error && data) {
-      setClients(clients.map(c => c.id === activeClient.id ? data[0] : c))
-      setOriginalClient(JSON.parse(JSON.stringify(data[0])))
+      setClients(current => current.map(c => c.id === activeClient.id ? saved : c))
+      setOriginalClient(JSON.parse(JSON.stringify(saved)))
+      return { error: null }
+    } catch (error) {
+      return { error }
     }
-    return { error }
   }
 
   async function handleAddMaterial(e) {
@@ -409,8 +416,12 @@ function App() {
   const handleDragOver  = (e)     => e.preventDefault()
   const handleDrop      = async (e, newStatus) => {
     const id = e.dataTransfer.getData('clientId')
-    setClients(clients.map(c => c.id.toString() === id ? { ...c, status: newStatus } : c))
-    await supabase.from('clients').update({ status: newStatus }).eq('id', id)
+    setClients(current => current.map(c => c.id.toString() === id ? { ...c, status: newStatus } : c))
+    try {
+      await clientsRepository.update(id, { status: newStatus })
+    } catch {
+      // Preserve the existing optimistic UI; the next reload reconciles remote state.
+    }
   }
 
   // Mobile / Client Balance / Expanded v1 — "операции сохранения" для единого cashTransactions,
