@@ -1,22 +1,12 @@
-CREATE POLICY "staff_full_access vmqls3_0" ON "storage"."objects"
-  FOR SELECT
+CREATE POLICY "project_files_storage_visible_project_access" ON "storage"."objects"
+  FOR ALL
   TO "authenticated"
-  USING ((bucket_id = 'project-files'::text));
-
-CREATE POLICY "staff_full_access vmqls3_1" ON "storage"."objects"
-  FOR INSERT
-  TO "authenticated"
-  WITH CHECK ((bucket_id = 'project-files'::text));
-
-CREATE POLICY "staff_full_access vmqls3_2" ON "storage"."objects"
-  FOR UPDATE
-  TO "authenticated"
-  USING ((bucket_id = 'project-files'::text));
-
-CREATE POLICY "staff_full_access vmqls3_3" ON "storage"."objects"
-  FOR DELETE
-  TO "authenticated"
-  USING ((bucket_id = 'project-files'::text));
+  USING (((bucket_id = 'project-files'::text) AND (EXISTS ( SELECT 1
+   FROM public.clients visible_client
+  WHERE ((visible_client.id)::text = (storage.foldername(objects.name))[1])))))
+  WITH CHECK (((bucket_id = 'project-files'::text) AND (EXISTS ( SELECT 1
+   FROM public.clients visible_client
+  WHERE ((visible_client.id)::text = (storage.foldername(objects.name))[1])))));
 
 CREATE POLICY "pro100_library_storage_delete_authenticated" ON "storage"."objects"
   FOR DELETE
@@ -38,9 +28,3 @@ CREATE POLICY "pro100_library_storage_update_authenticated" ON "storage"."object
   TO "authenticated"
   USING ((bucket_id = 'pro100-library'::text))
   WITH CHECK ((bucket_id = 'pro100-library'::text));
-
-CREATE POLICY "staff_full_access" ON "storage"."objects"
-  FOR ALL
-  TO "authenticated"
-  USING ((bucket_id = 'project-files'::text))
-  WITH CHECK ((bucket_id = 'project-files'::text));

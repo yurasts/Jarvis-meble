@@ -3,8 +3,9 @@ CREATE OR REPLACE FUNCTION public.current_role_name()
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
+  SET search_path = ''
   AS $function$
-  select role from profiles where id = auth.uid();
+  select role from public.profiles where id = auth.uid();
 $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."current_role_name"() TO PUBLIC, "anon", "authenticated";

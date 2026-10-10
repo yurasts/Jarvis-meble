@@ -11,6 +11,7 @@ CREATE OR REPLACE FUNCTION public.get_portal_data (
   LANGUAGE sql
   STABLE
   SECURITY DEFINER
+  SET search_path = ''
   AS $function$
   select
     full_name::text,
@@ -18,7 +19,7 @@ CREATE OR REPLACE FUNCTION public.get_portal_data (
     status::text,
     calc_materials::jsonb,
     calc_services::jsonb
-  from clients
+  from public.clients
   where portal_token = p_token;
 $function$;
 
