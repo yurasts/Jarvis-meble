@@ -12,7 +12,7 @@ import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
 import clientsRepository from './data/clientsRepository';
 import catalogRepository from './data/catalogRepository';
-import { loadBootstrapData } from './data/bootstrapData';
+import { BOOTSTRAP_RESOURCES, loadBootstrapData } from './data/bootstrapData';
 import useCashTransactions from './components/useCashTransactions';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -55,6 +55,12 @@ const TABS = [
   { id: 'materials',  label: 'Materiały',          Icon: Package         },
   { id: 'settings',   label: 'Ustawienia',         Icon: SettingsIcon    },
 ]
+
+const BOOTSTRAP_RESOURCE_LABELS = {
+  clients: 'projekty',
+  materials: 'materia\u0142y',
+  services: 'us\u0142ugi',
+}
 
 const initials = (name) =>
   (name || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -122,6 +128,8 @@ function App() {
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
   const [servicesList, setServicesList] = useState([])
+  const [bootstrapErrors, setBootstrapErrors] = useState({})
+  const [bootstrapLoading, setBootstrapLoading] = useState(false)
   // Mobile / Client Balance / Expanded v1 — единый массив реальных денежных операций всех
   // доступных проектов загружается hook-ом и используется совместно в Bilans klienta
   // (MobileClientBalanceScreen) и вкладки Rozliczenia (mobile ProjectModal) — без копирования
@@ -194,24 +202,38 @@ function App() {
     }
   }, [menuOpen])
 
-  useEffect(() => {
-    if (!authUserId) return
+  const fetchBootstrapData = useCallback(async (resources = BOOTSTRAP_RESOURCES) => {
+    if (!authUserId || resources.length === 0) return
     const requestId = ++bootstrapRequestRef.current
 
-    async function fetchData() {
-      const data = await loadBootstrapData()
+    const data = await loadBootstrapData({ resources })
 
-      if (bootstrapRequestRef.current !== requestId) return
-      if (data.clients) setClients(data.clients)
-      if (data.materials) setMaterials(sortMaterialsByWorkflow(data.materials))
-      if (data.services) setServicesList(data.services)
-    }
-
-    fetchData()
-    return () => {
-      if (bootstrapRequestRef.current === requestId) bootstrapRequestRef.current += 1
-    }
+    if (bootstrapRequestRef.current !== requestId) return
+    if (data.clients) setClients(data.clients)
+    if (data.materials) setMaterials(sortMaterialsByWorkflow(data.materials))
+    if (data.services) setServicesList(data.services)
+    setBootstrapErrors(current => {
+      const next = { ...current }
+      resources.forEach((resource) => {
+        if (data.errors[resource]) next[resource] = data.errors[resource]
+        else delete next[resource]
+      })
+      return next
+    })
+    setBootstrapLoading(false)
   }, [authUserId])
+
+  useEffect(() => {
+    if (!authUserId) return
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) fetchBootstrapData()
+    })
+    return () => {
+      cancelled = true
+      bootstrapRequestRef.current += 1
+    }
+  }, [authUserId, fetchBootstrapData])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
 
@@ -441,6 +463,11 @@ function App() {
   const profile   = authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
+  const failedBootstrapResources = BOOTSTRAP_RESOURCES.filter(resource => bootstrapErrors[resource])
+  const retryFailedBootstrapResources = () => {
+    setBootstrapLoading(true)
+    fetchBootstrapData(failedBootstrapResources)
+  }
   // При каждом новом входе стартовая группа вычисляется заново: Yury/Yuryshab/Alex → Moje,
   // остальные → GGS. Ручной выбор из Ustawienia действует только в текущей auth-сессии.
   const defaultScope = defaultProjectScope(authProfile, session)
@@ -608,6 +635,22 @@ function App() {
             }}
           />
         </div>
+        {failedBootstrapResources.length > 0 && (
+          <div className={s.bootstrapNotice} role="alert">
+            <span>
+              {'Nie uda\u0142o si\u0119 za\u0142adowa\u0107: '}
+              {failedBootstrapResources.map(resource => BOOTSTRAP_RESOURCE_LABELS[resource]).join(', ')}.
+              {' Pozosta\u0142a cz\u0119\u015b\u0107 aplikacji nadal dzia\u0142a.'}
+            </span>
+            <button
+              type="button"
+              onClick={retryFailedBootstrapResources}
+              disabled={bootstrapLoading}
+            >
+              {bootstrapLoading ? 'Ponawianie\u2026' : 'Spr\u00f3buj ponownie'}
+            </button>
+          </div>
+        )}
         <div className="main-content" style={(showWorkspace || showDesktopBalance || showDesktopLibrary) ? { display: 'flex', flexDirection: 'column' } : undefined}>
         <Suspense fallback={<ContentLoading />}>
         {showDesktopLibrary ? (
