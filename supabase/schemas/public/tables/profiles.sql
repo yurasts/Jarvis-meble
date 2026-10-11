@@ -30,9 +30,7 @@ CREATE POLICY "profiles_select_authenticated" ON "public"."profiles"
 CREATE POLICY "profiles_update_self_or_owner" ON "public"."profiles"
   FOR UPDATE
   TO PUBLIC
-  USING (((auth.uid() = id) OR (EXISTS ( SELECT 1
-   FROM public.profiles p
-  WHERE ((p.id = auth.uid()) AND (p.role = 'owner'::text))))));
+  USING (((auth.uid() = id) OR (public.current_role_name() = 'owner'::text)));
 
 GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE "public"."profiles" TO "anon", "authenticated";
 
