@@ -1,6 +1,7 @@
 
 import { useState, useRef } from 'react';
 import { supabase } from '../supabase';
+import catalogRepository from '../data/catalogRepository';
 
 export default function InvoiceScanner({ materials, onPricesUpdated, isDark = false, compact = false }) {
   const c = (light, dark) => isDark ? dark : light;
@@ -10,9 +11,17 @@ export default function InvoiceScanner({ materials, onPricesUpdated, isDark = fa
   const [results, setResults] = useState(null);   // [{material_id, material_name, old_price, new_price}]
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
+  const [updateError, setUpdateError] = useState(null);
+  const [pricesPersisted, setPricesPersisted] = useState(false);
   const fileInputRef = useRef();
 
-  const reset = () => { setImage(null); setResults(null); setError(null); };
+  const reset = () => {
+    setImage(null);
+    setResults(null);
+    setError(null);
+    setUpdateError(null);
+    setPricesPersisted(false);
+  };
   const close  = () => { setIsOpen(false); reset(); };
 
   const handleImageSelect = (e) => {
@@ -48,18 +57,36 @@ export default function InvoiceScanner({ materials, onPricesUpdated, isDark = fa
   const handleConfirmUpdate = async () => {
     if (!results?.length) return;
     setUpdating(true);
-    const today = new Date().toISOString().split('T')[0];
-    for (const item of results) {
-      const mat = materials.find(m => m.id === item.material_id);
-      if (!mat) continue;
-      const history = [...(mat.price_history || []), { price: Number(mat.price), date: today }];
-      await supabase.from('materials')
-        .update({ price: Number(item.new_price), price_history: history })
-        .eq('id', item.material_id);
+    setUpdateError(null);
+    let persisted = pricesPersisted;
+
+    try {
+      if (!persisted) {
+        const updates = results.map((item) => {
+          const material = materials.find(({ id }) => id === item.material_id);
+          if (!material) throw new Error(`Nie znaleziono materiału: ${item.material_name}`);
+
+          return {
+            materialId: item.material_id,
+            expectedPrice: Number(material.price),
+            newPrice: Number(item.new_price),
+          };
+        });
+
+        await catalogRepository.updateMaterialPrices(updates);
+        persisted = true;
+        setPricesPersisted(true);
+      }
+
+      await onPricesUpdated();
+      close();
+    } catch (err) {
+      setUpdateError(persisted
+        ? 'Ceny zapisano, ale nie udało się odświeżyć danych. Spróbuj ponownie.'
+        : (err.message || 'Nie udało się zaktualizować cen. Żadna cena nie została zmieniona.'));
+    } finally {
+      setUpdating(false);
     }
-    await onPricesUpdated();
-    setUpdating(false);
-    close();
   };
 
   return (
@@ -187,6 +214,12 @@ export default function InvoiceScanner({ materials, onPricesUpdated, isDark = fa
                         </tbody>
                       </table>
                     </div>
+
+                    {updateError && (
+                      <div role="alert" style={{ background: '#fff5f5', border: '1px solid #feb2b2', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '13px', color: '#c53030' }}>
+                        {updateError}
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                       <button onClick={() => { setResults(null); }} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
