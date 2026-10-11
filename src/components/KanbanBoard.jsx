@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import projectFileCountsRepository from '../data/projectFileCountsRepository';
 import { nextTaskId } from './dashboardHelpers';
 import s from './KanbanBoard.module.css';
 
@@ -48,14 +48,19 @@ export default function KanbanBoard({
   const scopedClients = clients.filter(c => (c.project_scope || 'firma') === effectiveScope);
 
   useEffect(() => {
+    let active = true;
+
     const loadFileCounts = async () => {
-      const { data } = await supabase.from('project_files').select('client_id');
-      if (!data) return;
-      const counts = {};
-      data.forEach(f => { counts[f.client_id] = (counts[f.client_id] || 0) + 1; });
-      setFileCounts(counts);
+      try {
+        const counts = await projectFileCountsRepository.list();
+        if (active) setFileCounts(counts);
+      } catch {
+        // File badges are supplementary; keep the board usable if the count request fails.
+      }
     };
+
     loadFileCounts();
+    return () => { active = false; };
   }, []);
 
   const getByStatus = (status) => scopedClients.filter(c => c.status === status);

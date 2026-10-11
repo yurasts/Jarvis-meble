@@ -15,6 +15,8 @@ CREATE TABLE "public"."project_files" (
   CONSTRAINT "project_files_uploaded_by_fkey" FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id)
 );
 
+CREATE INDEX project_files_client_id_idx ON public.project_files USING btree (client_id);
+
 ALTER TABLE "public"."project_files"
   ENABLE ROW LEVEL SECURITY;
 

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(17);
 
 insert into auth.users (id, email)
 values
@@ -59,6 +59,18 @@ select ok(
   'anon has no project_files table privilege'
 );
 
+select has_index(
+  'public',
+  'project_files',
+  'project_files_client_id_idx',
+  'project_files has an index for grouped client counts'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.get_project_file_counts()', 'execute'),
+  'anon cannot execute project file counts RPC'
+);
+
 select is(
   (select public from storage.buckets where id = 'project-files'),
   false,
@@ -69,18 +81,33 @@ set local request.jwt.claims = '{"role":"authenticated","sub":"11111111-1111-111
 set local role authenticated;
 select is((select count(*) from public.project_files), 2::bigint, 'owner sees all project files');
 select is((select count(*) from storage.objects where bucket_id = 'project-files'), 2::bigint, 'owner sees all project storage objects');
+select results_eq(
+  'select client_id, file_count from public.get_project_file_counts() order by client_id',
+  'values (1001::bigint, 1::bigint), (1002::bigint, 1::bigint)',
+  'owner receives counts for all visible projects'
+);
 reset role;
 
 set local request.jwt.claims = '{"role":"authenticated","sub":"22222222-2222-2222-2222-222222222222"}';
 set local role authenticated;
 select is((select count(*) from public.project_files), 1::bigint, 'designer sees assigned project files only');
 select is((select count(*) from storage.objects where bucket_id = 'project-files'), 1::bigint, 'designer sees assigned project storage only');
+select results_eq(
+  'select client_id, file_count from public.get_project_file_counts() order by client_id',
+  'values (1001::bigint, 1::bigint)',
+  'designer receives counts for assigned projects only'
+);
 reset role;
 
 set local request.jwt.claims = '{"role":"authenticated","sub":"33333333-3333-3333-3333-333333333333"}';
 set local role authenticated;
 select is((select count(*) from public.project_files), 1::bigint, 'installer sees assigned project files only');
 select is((select count(*) from storage.objects where bucket_id = 'project-files'), 1::bigint, 'installer sees assigned project storage only');
+select results_eq(
+  'select client_id, file_count from public.get_project_file_counts() order by client_id',
+  'values (1002::bigint, 1::bigint)',
+  'installer receives counts for assigned projects only'
+);
 reset role;
 
 set local request.jwt.claims = '{"role":"anon"}';
