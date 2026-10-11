@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(45);
 
 insert into auth.users (id, email)
 values
@@ -331,11 +331,16 @@ select is(
       + (select count(*) from public.services)
       + (select count(*) from public.suppliers)
       + (select count(*) from public.knowledge_base)
-      + (select count(*) from public.project_cash_transactions)
       + (select count(*) from public.audit_log)
   ),
   0::bigint,
   'anonymous sees no protected business data'
+);
+select throws_ok(
+  'select * from public.project_cash_transactions',
+  '42501',
+  null,
+  'anonymous cash access is rejected because clients are private'
 );
 select ok(
   not has_table_privilege('anon', 'public.pro100_library_categories', 'select')
