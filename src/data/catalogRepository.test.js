@@ -55,4 +55,26 @@ describe('catalogRepository', () => {
     expect(eq).toHaveBeenCalledWith('id', 7);
     expect(select).toHaveBeenCalledWith(MATERIAL_COLUMNS);
   });
+
+  it('updates material prices through one atomic RPC call', async () => {
+    const saved = [{ id: 7, price: 75, price_history: [{ price: 50, date: '2026-10-11' }] }];
+    const rpc = vi.fn(async () => ({ data: saved, error: null }));
+    const client = { rpc };
+
+    const updates = [{ materialId: 7, expectedPrice: 50, newPrice: 75 }];
+
+    await expect(createCatalogRepository({ client }).updateMaterialPrices(updates)).resolves.toEqual(saved);
+    expect(rpc).toHaveBeenCalledWith('update_material_prices', {
+      p_updates: [{ material_id: 7, expected_price: 50, new_price: 75 }],
+    });
+  });
+
+  it('propagates atomic price update errors', async () => {
+    const databaseError = new Error('Material price update rejected for id 7');
+    const client = { rpc: vi.fn(async () => ({ data: null, error: databaseError })) };
+
+    await expect(createCatalogRepository({ client }).updateMaterialPrices([
+      { materialId: 7, expectedPrice: 50, newPrice: 75 },
+    ])).rejects.toBe(databaseError);
+  });
 });

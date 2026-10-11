@@ -34,6 +34,16 @@ export const createCatalogRepository = ({ client = supabase } = {}) => ({
   async updateMaterial(id, fields) {
     return unwrap(await client.from('materials').update(fields).eq('id', id).select(MATERIAL_COLUMNS).single());
   },
+
+  async updateMaterialPrices(updates) {
+    const payload = updates.map(({ materialId, expectedPrice, newPrice }) => ({
+      material_id: materialId,
+      expected_price: expectedPrice,
+      new_price: newPrice,
+    }));
+
+    return unwrap(await client.rpc('update_material_prices', { p_updates: payload })) || [];
+  },
 });
 
 const catalogRepository = createCatalogRepository();
