@@ -182,9 +182,9 @@ select lives_ok(
   $$insert into public.clients (id, full_name) values (2191, 'Temporary assembler project')$$,
   'assembler can create a client'
 );
-select is(
-  (with deleted as (delete from public.clients where id = 2191 returning 1) select count(*) from deleted),
-  0::bigint,
+select results_eq(
+  'delete from public.clients where id = 2191 returning id',
+  'select null::bigint where false',
   'assembler cannot delete a client'
 );
 reset role;
@@ -197,14 +197,14 @@ select results_eq(
   'values (2101::bigint)',
   'designer sees cash only for the assigned client'
 );
-select is(
-  (with updated as (update public.clients set status = 'design' where id = 2101 returning 1) select count(*) from updated),
-  1::bigint,
+select results_eq(
+  $$update public.clients set status = 'design' where id = 2101 returning id$$,
+  'values (2101::bigint)',
   'designer can update the assigned client'
 );
-select is(
-  (with updated as (update public.clients set status = 'blocked' where id = 2102 returning 1) select count(*) from updated),
-  0::bigint,
+select results_eq(
+  $$update public.clients set status = 'blocked' where id = 2102 returning id$$,
+  'select null::bigint where false',
   'designer cannot update a hidden client'
 );
 select throws_ok(
@@ -213,9 +213,9 @@ select throws_ok(
   null,
   'designer cannot create a client'
 );
-select is(
-  (with deleted as (delete from public.clients where id = 2101 returning 1) select count(*) from deleted),
-  0::bigint,
+select results_eq(
+  'delete from public.clients where id = 2101 returning id',
+  'select null::bigint where false',
   'designer cannot delete the assigned client'
 );
 select lives_ok(
@@ -273,30 +273,24 @@ select results_eq(
   'values (2102::bigint)',
   'installer sees cash only for the assigned client'
 );
-select is(
-  (
-    with updated as (
-      update public.project_cash_transactions
-      set description = 'Updated by installer'
-      where project_id = 2102
-      returning 1
-    )
-    select count(*) from updated
-  ),
-  1::bigint,
+select results_eq(
+  $$
+    update public.project_cash_transactions
+    set description = 'Updated by installer'
+    where project_id = 2102
+    returning project_id
+  $$,
+  'values (2102::bigint)',
   'installer can update cash for the assigned client'
 );
-select is(
-  (
-    with updated as (
-      update public.project_cash_transactions
-      set description = 'Forbidden update'
-      where project_id = 2101
-      returning 1
-    )
-    select count(*) from updated
-  ),
-  0::bigint,
+select results_eq(
+  $$
+    update public.project_cash_transactions
+    set description = 'Forbidden update'
+    where project_id = 2101
+    returning project_id
+  $$,
+  'select null::bigint where false',
   'installer cannot update cash for a hidden client'
 );
 select is((select count(*) from public.audit_log), 0::bigint, 'installer cannot read the audit log');
