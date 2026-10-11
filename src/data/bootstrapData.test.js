@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { loadBootstrapData } from './bootstrapData';
+import { BOOTSTRAP_RESOURCES, loadBootstrapData } from './bootstrapData';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
 
@@ -25,11 +25,13 @@ describe('loadBootstrapData', () => {
       clients: [{ id: 'client' }],
       materials: [{ id: 'material' }],
       services: [{ id: 'service' }],
+      errors: {},
     });
   });
 
   it('keeps successful resources when another request fails', async () => {
-    const clientSource = { list: vi.fn(async () => { throw new Error('network'); }) };
+    const networkError = new Error('network');
+    const clientSource = { list: vi.fn(async () => { throw networkError; }) };
     const catalogSource = {
       listMaterials: vi.fn(async () => [{ id: 'material' }]),
       listServices: vi.fn(async () => [{ id: 'service' }]),
@@ -39,6 +41,30 @@ describe('loadBootstrapData', () => {
       clients: null,
       materials: [{ id: 'material' }],
       services: [{ id: 'service' }],
+      errors: { clients: networkError },
     });
+  });
+
+  it('retries only selected failed resources', async () => {
+    const clientSource = { list: vi.fn(async () => [{ id: 'client' }]) };
+    const catalogSource = {
+      listMaterials: vi.fn(async () => [{ id: 'material' }]),
+      listServices: vi.fn(async () => [{ id: 'service' }]),
+    };
+
+    await expect(loadBootstrapData({
+      clientSource,
+      catalogSource,
+      resources: ['materials'],
+    })).resolves.toEqual({
+      materials: [{ id: 'material' }],
+      errors: {},
+    });
+    expect(clientSource.list).not.toHaveBeenCalled();
+    expect(catalogSource.listServices).not.toHaveBeenCalled();
+  });
+
+  it('exports the complete resource list used by initial loading', () => {
+    expect(BOOTSTRAP_RESOURCES).toEqual(['clients', 'materials', 'services']);
   });
 });

@@ -25,9 +25,39 @@
   background: var(--bg-card);
 }
 
+.bootstrapNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 24px;
+  flex-shrink: 0;
+  color: var(--text-main);
+  background: color-mix(in srgb, #d97706 12%, var(--bg-card));
+  border-bottom: 1px solid #d97706;
+  font-size: 13px;
+}
+
+.bootstrapNotice button {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid #d97706;
+  border-radius: 6px;
+  color: var(--text-main);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.bootstrapNotice button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 @media (max-width: 767px), (max-width: 1024px) and (max-height: 500px) and (pointer: coarse) {
   .topHeader { display: none; }
   .contentWrapper { height: auto; min-height: 100vh; }
+  .bootstrapNotice { align-items: flex-start; padding: 10px 14px; }
 }
 
 /* .sidebarAvatar используется в мобильном dropdown (аватар пользователя внизу) */
