@@ -1,5 +1,4 @@
 import { Suspense, lazy, useEffect, useState, useRef, useCallback } from 'react'
-import { supabase } from './supabase'
 import { useAuth } from './useAuth'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
@@ -12,6 +11,8 @@ import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
 import clientsRepository from './data/clientsRepository';
+import catalogRepository from './data/catalogRepository';
+import { loadBootstrapData } from './data/bootstrapData';
 import useCashTransactions from './components/useCashTransactions';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -173,6 +174,7 @@ function App() {
 
   const topbarRef = useRef(null)
   const bottomNavRef = useRef(null)
+  const bootstrapRequestRef = useRef(0)
 
   // Закрываем dropdown при тапе вне него (топбара и мобильной нижней навигации)
   useEffect(() => {
@@ -193,20 +195,23 @@ function App() {
   }, [menuOpen])
 
   useEffect(() => {
-    if (!session) return
+    if (!authUserId) return
+    const requestId = ++bootstrapRequestRef.current
+
     async function fetchData() {
-      try {
-        setClients(await clientsRepository.list())
-      } catch {
-        // Keep the existing empty state when the project list cannot be loaded.
-      }
-      const { data: materialsData } = await supabase.from('materials').select('*')
-      if (materialsData) setMaterials(sortMaterialsByWorkflow(materialsData))
-      const { data: servicesData }  = await supabase.from('services').select('*')
-      if (servicesData)  setServicesList(servicesData)
+      const data = await loadBootstrapData()
+
+      if (bootstrapRequestRef.current !== requestId) return
+      if (data.clients) setClients(data.clients)
+      if (data.materials) setMaterials(sortMaterialsByWorkflow(data.materials))
+      if (data.services) setServicesList(data.services)
     }
+
     fetchData()
-  }, [session])
+    return () => {
+      if (bootstrapRequestRef.current === requestId) bootstrapRequestRef.current += 1
+    }
+  }, [authUserId])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
 
@@ -368,14 +373,13 @@ function App() {
       })
       return
     }
-    const { data, error } = await supabase
-      .from('materials')
-      .insert([{ ...candidate, price_history: [] }])
-      .select()
-    if (!error && data) {
-      setMaterials(sortMaterialsByWorkflow([...materials, data[0]]))
+    try {
+      const saved = await catalogRepository.createMaterial({ ...candidate, price_history: [] })
+      setMaterials(current => sortMaterialsByWorkflow([...current, saved]))
       setMatName(''); setMatSymbol(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
+    } catch {
+      // Keep the form open so the user can retry.
     }
   }
 
@@ -383,20 +387,26 @@ function App() {
     const { existing, newPrice } = duplicateFound
     const today   = new Date().toISOString().split('T')[0]
     const history = [...(existing.price_history || []), { price: existing.price, date: today }]
-    const { data, error } = await supabase
-      .from('materials').update({ price: newPrice, price_history: history })
-      .eq('id', existing.id).select()
-    if (!error && data) {
-      setMaterials(sortMaterialsByWorkflow(materials.map(m => m.id === existing.id ? data[0] : m)))
+    try {
+      const saved = await catalogRepository.updateMaterial(existing.id, {
+        price: newPrice,
+        price_history: history,
+      })
+      setMaterials(current => sortMaterialsByWorkflow(current.map(m => m.id === existing.id ? saved : m)))
       setDuplicateFound(null)
       setMatName(''); setMatSymbol(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
       setIsMaterialModalOpen(false)
+    } catch {
+      // Keep the confirmation open so the user can retry.
     }
   }
 
   async function reloadMaterials() {
-    const { data } = await supabase.from('materials').select('*')
-    if (data) setMaterials(sortMaterialsByWorkflow(data))
+    try {
+      setMaterials(sortMaterialsByWorkflow(await catalogRepository.listMaterials()))
+    } catch {
+      // Keep the last successful catalog when refresh fails.
+    }
   }
 
   const handleDragStart = (e, id) => e.dataTransfer.setData('clientId', id)

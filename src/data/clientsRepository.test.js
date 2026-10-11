@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createClientsRepository } from './clientsRepository';
+import { CLIENT_COLUMNS, createClientsRepository } from './clientsRepository';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
 
@@ -11,7 +11,7 @@ describe('clientsRepository', () => {
 
     await expect(createClientsRepository({ client }).list()).resolves.toEqual(rows);
     expect(client.from).toHaveBeenCalledWith('clients');
-    expect(select).toHaveBeenCalledWith('*');
+    expect(select).toHaveBeenCalledWith(CLIENT_COLUMNS);
   });
 
   it('creates and returns one client', async () => {
