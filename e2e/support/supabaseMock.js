@@ -171,6 +171,24 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
         await jsonResponse(route, saved, 201);
         return;
       }
+
+      if (request.method() === 'PATCH') {
+        const id = idFilter(url);
+        const index = state.transactions.findIndex(transaction => transaction.id === id);
+        state.transactions[index] = { ...state.transactions[index], ...requestBody(request) };
+        await jsonResponse(route, state.transactions[index]);
+        return;
+      }
+
+      if (request.method() === 'DELETE') {
+        const id = idFilter(url);
+        state.transactions = state.transactions.filter(transaction => transaction.id !== id);
+        await route.fulfill({
+          status: 204,
+          headers: { 'access-control-allow-origin': '*' },
+        });
+        return;
+      }
     }
 
     if (resource === 'materials' || resource === 'services' || resource === 'project_files') {
