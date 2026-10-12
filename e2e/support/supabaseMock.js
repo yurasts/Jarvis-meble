@@ -70,10 +70,16 @@ const requestBody = (request) => {
 
 const idFilter = (url) => url.searchParams.get('id')?.replace(/^eq\./, '');
 
-export async function installAuthenticatedSupabaseMock(page, initialProjects = []) {
+export async function installAuthenticatedSupabaseMock(page, initialProjects = [], {
+  role = 'owner',
+  failures = {},
+} = {}) {
+  const remainingFailures = { ...failures };
   const state = {
+    failures: remainingFailures,
     projects: initialProjects.map(project => ({ ...emptyProject, ...project })),
     transactions: [],
+    requests: {},
   };
 
   await page.addInitScript(({ session }) => {
@@ -96,12 +102,24 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
 
     const url = new URL(request.url());
     const resource = url.pathname.split('/').pop();
+    state.requests[resource] = (state.requests[resource] || 0) + 1;
+
+    if (remainingFailures[resource] > 0) {
+      remainingFailures[resource] -= 1;
+      await jsonResponse(route, {
+        code: 'E2E_RESOURCE_FAILURE',
+        details: null,
+        hint: null,
+        message: `Temporary E2E failure for ${resource}`,
+      }, 400);
+      return;
+    }
 
     if (resource === 'profiles') {
       await jsonResponse(route, [{
         id: USER_ID,
         full_name: 'Właściciel E2E',
-        role: 'owner',
+        role,
         color: '#3182ce',
         theme: 'light',
         default_scope: 'firma',
