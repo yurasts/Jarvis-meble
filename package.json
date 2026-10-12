@@ -13,6 +13,7 @@
     "check:edge-functions": "node --experimental-strip-types --check supabase/functions/scan-invoice/index.ts && node --experimental-strip-types --check supabase/functions/super-service/scan-invoice.ts && node --experimental-strip-types --check supabase/functions/generate-embeddings/index.ts && node --experimental-strip-types --check supabase/functions/backfill-materials-embeddings/index.ts && node --experimental-strip-types --check supabase/functions/ask-jarvis/index.ts && node --experimental-strip-types --check supabase/functions/create-employee/index.ts",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:watch": "vitest",
     "verify": "npm run lint && npm test && npm run check:edge-functions && npm run build",
     "supabase:start": "supabase start",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
