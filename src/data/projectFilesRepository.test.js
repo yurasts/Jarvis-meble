@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createProjectFilesRepository } from './projectFilesRepository';
+import { PROJECT_FILE_COLUMNS, createProjectFilesRepository } from './projectFilesRepository';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
 vi.mock('../utils/projectFileAccess', () => ({
@@ -49,6 +49,7 @@ describe('projectFilesRepository', () => {
       file_path: expectedPath,
       uploaded_by: 'user-1',
     })]);
+    expect(select).toHaveBeenCalledWith(PROJECT_FILE_COLUMNS);
   });
 
   it('does not touch Storage when deleting the database row is rejected', async () => {

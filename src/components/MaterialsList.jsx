@@ -4,6 +4,8 @@ import { supabase } from '../supabase';
 import { useIsDesktop } from '../utils/useIsDesktop';
 import MobileMaterialsCatalog from './MobileMaterialsCatalog';
 
+const SUPPLIER_COLUMNS = ['id', 'name', 'category', 'phone', 'hours', 'address', 'notes'].join(',');
+
 // Стрелка тренда цены
 const PriceTrend = ({ mat }) => {
   const [showHistory, setShowHistory] = useState(false);
@@ -77,7 +79,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
   useEffect(() => {
     let cancelled = false;
     async function loadSuppliers() {
-      const { data } = await supabase.from('suppliers').select('*').order('name');
+      const { data } = await supabase.from('suppliers').select(SUPPLIER_COLUMNS).order('name');
       if (cancelled) return;
       if (data) setSuppliers(data);
     }
@@ -100,11 +102,11 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
   const handleSaveSupplier = async (e) => {
     e.preventDefault();
     if (editingSupplierId) {
-      const { data, error } = await supabase.from('suppliers').update(supForm).eq('id', editingSupplierId).select();
+      const { data, error } = await supabase.from('suppliers').update(supForm).eq('id', editingSupplierId).select(SUPPLIER_COLUMNS);
       if (error) { alert("Błąd aktualizacji: " + error.message); return; }
       if (data) setSuppliers(suppliers.map(s => s.id === editingSupplierId ? data[0] : s));
     } else {
-      const { data, error } = await supabase.from('suppliers').insert([supForm]).select();
+      const { data, error } = await supabase.from('suppliers').insert([supForm]).select(SUPPLIER_COLUMNS);
       if (error) { alert("Błąd zapisu: " + error.message); return; }
       if (data) setSuppliers([...suppliers, data[0]]);
     }

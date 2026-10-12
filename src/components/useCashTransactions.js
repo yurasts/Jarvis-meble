@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import projectCashTransactionsRepository from '../data/projectCashTransactionsRepository';
 
-const useCashTransactions = ({ scopeKey, repository = projectCashTransactionsRepository }) => {
+const useCashTransactions = ({
+  scopeKey,
+  projectScope,
+  repository = projectCashTransactionsRepository,
+}) => {
   const [resource, setResource] = useState({
     scopeKey: null,
     transactions: [],
@@ -26,7 +30,7 @@ const useCashTransactions = ({ scopeKey, repository = projectCashTransactionsRep
     }));
 
     try {
-      const transactions = await repository.list();
+      const transactions = await repository.list(projectScope);
       if (activeScopeRef.current !== scopeKey || loadRequestRef.current !== requestId
         || mutationVersionRef.current !== mutationVersion) return false;
       setResource({ scopeKey, transactions, status: 'ready' });
@@ -38,14 +42,14 @@ const useCashTransactions = ({ scopeKey, repository = projectCashTransactionsRep
       }
       return false;
     }
-  }, [repository, scopeKey]);
+  }, [projectScope, repository, scopeKey]);
 
   useEffect(() => {
     if (!scopeKey) return undefined;
     let active = true;
     const requestId = ++loadRequestRef.current;
     const mutationVersion = mutationVersionRef.current;
-    repository.list()
+    repository.list(projectScope)
       .then(transactions => {
         if (!active || loadRequestRef.current !== requestId
           || mutationVersionRef.current !== mutationVersion) return;
@@ -57,7 +61,7 @@ const useCashTransactions = ({ scopeKey, repository = projectCashTransactionsRep
         setResource({ scopeKey, transactions: [], status: 'error' });
       });
     return () => { active = false; };
-  }, [repository, scopeKey]);
+  }, [projectScope, repository, scopeKey]);
 
   const updateCurrent = useCallback((operationScope, update) => {
     if (activeScopeRef.current !== operationScope) return;
