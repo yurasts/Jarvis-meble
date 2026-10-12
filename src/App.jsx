@@ -124,6 +124,10 @@ function App() {
     setScopeSelectionUserId(authUserId)
     setScopeSelection(null)
   }
+  const defaultScope = defaultProjectScope(authProfile, session)
+  const effectiveScope = scopeSelection?.userId === authUserId
+    ? scopeSelection.scope
+    : defaultScope
   const [menuOpen,  setMenuOpen]    = useState(false)
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
@@ -145,7 +149,10 @@ function App() {
     loadCashTransactions,
     saveCashTransaction,
     deleteCashTransaction,
-  } = useCashTransactions({ scopeKey: session?.user?.id || null })
+  } = useCashTransactions({
+    scopeKey: authUserId && authProfile ? `${authUserId}:${effectiveScope}` : null,
+    projectScope: effectiveScope,
+  })
   // client_name, для которого сейчас открыт Bilans klienta — null, когда экран закрыт.
   const [balanceClientName, setBalanceClientName] = useState(null)
 
@@ -470,10 +477,6 @@ function App() {
   }
   // При каждом новом входе стартовая группа вычисляется заново: Yury/Yuryshab/Alex → Moje,
   // остальные → GGS. Ручной выбор из Ustawienia действует только в текущей auth-сессии.
-  const defaultScope = defaultProjectScope(authProfile, session)
-  const effectiveScope = scopeSelection?.userId === authUserId
-    ? scopeSelection.scope
-    : defaultScope
   const setScopeView = (scope) => {
     const nextScope = typeof scope === 'function' ? scope(effectiveScope) : scope
     setScopeSelection({

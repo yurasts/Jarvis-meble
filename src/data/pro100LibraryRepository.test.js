@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPro100LibraryRepository } from './pro100LibraryRepository';
+import {
+  PRO100_FILE_COLUMNS,
+  createPro100LibraryRepository,
+} from './pro100LibraryRepository';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
 
@@ -17,9 +20,9 @@ describe('pro100LibraryRepository', () => {
   it('cleans up a new Storage object when creating the database row fails', async () => {
     const bucket = createBucket();
     const databaseError = new Error('insert failed');
-    const insert = vi.fn(() => ({
-      select: () => ({ single: async () => ({ data: null, error: databaseError }) }),
-    }));
+    const single = vi.fn(async () => ({ data: null, error: databaseError }));
+    const select = vi.fn(() => ({ single }));
+    const insert = vi.fn(() => ({ select }));
     const client = {
       storage: { from: vi.fn(() => bucket) },
       from: vi.fn(() => ({ insert })),
@@ -38,6 +41,7 @@ describe('pro100LibraryRepository', () => {
       upsert: false,
     });
     expect(bucket.remove).toHaveBeenCalledWith(['new/project.sto']);
+    expect(select).toHaveBeenCalledWith(PRO100_FILE_COLUMNS);
   });
 
   it('commits a replacement before removing the previous Storage object', async () => {

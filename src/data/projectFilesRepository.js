@@ -5,6 +5,19 @@ import { createStorageBucket } from './storageBucket';
 const PROJECT_FILES_BUCKET = 'project-files';
 const DEFAULT_PROFILE_COLOR = '#718096';
 
+export const PROJECT_FILE_COLUMNS = [
+  'id',
+  'client_id',
+  'category',
+  'file_name',
+  'file_path',
+  'file_url',
+  'file_type',
+  'comment',
+  'uploaded_by_color',
+  'uploaded_at',
+].join(',');
+
 const safeFilename = (name) => String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
 
 const publicUrlFor = (storage, path) => {
@@ -52,7 +65,7 @@ export const createProjectFilesRepository = ({
     async list(clientId) {
       const result = await client
         .from('project_files')
-        .select('*')
+        .select(PROJECT_FILE_COLUMNS)
         .eq('client_id', clientId)
         .order('uploaded_at', { ascending: false });
       throwIfError(result);
@@ -75,7 +88,7 @@ export const createProjectFilesRepository = ({
           publicUrl: publicUrlFor(storage, path),
           profile,
         });
-        const saveResult = await client.from('project_files').insert([payload]).select().single();
+        const saveResult = await client.from('project_files').insert([payload]).select(PROJECT_FILE_COLUMNS).single();
         throwIfError(saveResult);
         savedFile = saveResult.data;
       } catch (error) {
@@ -105,7 +118,7 @@ export const createProjectFilesRepository = ({
         const query = currentFile
           ? client.from('project_files').update(payload).eq('id', currentFile.id)
           : client.from('project_files').insert([payload]);
-        const saveResult = await query.select().single();
+        const saveResult = await query.select(PROJECT_FILE_COLUMNS).single();
         throwIfError(saveResult);
         savedFile = saveResult.data;
       } catch (error) {

@@ -21,8 +21,8 @@ const createRepository = (overrides = {}) => ({
   ...overrides,
 });
 
-const setup = (repository, scopeKey = 'user-1') => {
-  const props = { scopeKey, repository };
+const setup = (repository, scopeKey = 'user-1', projectScope = 'firma') => {
+  const props = { scopeKey, projectScope, repository };
   return {
     ...renderHook(currentProps => useCashTransactions(currentProps), { initialProps: props }),
     props,
@@ -38,6 +38,7 @@ describe('useCashTransactions', () => {
     expect(hook.result.current.cashStatus).toBe('loading');
     await waitFor(() => expect(hook.result.current.cashStatus).toBe('ready'));
     expect(hook.result.current.cashTransactions).toEqual(transactions);
+    expect(repository.list).toHaveBeenCalledWith('firma');
   });
 
   it('does not expose a response from the previous authenticated scope', async () => {
@@ -50,7 +51,7 @@ describe('useCashTransactions', () => {
     });
     const hook = setup(repository);
 
-    hook.rerender({ ...hook.props, scopeKey: 'user-2' });
+    hook.rerender({ ...hook.props, scopeKey: 'user-2:personal', projectScope: 'personal' });
     await act(async () => first.resolve([{ id: 'old-cash' }]));
 
     expect(hook.result.current.cashStatus).toBe('loading');
@@ -59,6 +60,7 @@ describe('useCashTransactions', () => {
     await act(async () => second.resolve([{ id: 'new-cash' }]));
     expect(hook.result.current.cashStatus).toBe('ready');
     expect(hook.result.current.cashTransactions).toEqual([{ id: 'new-cash' }]);
+    expect(repository.list).toHaveBeenNthCalledWith(2, 'personal');
   });
 
   it('does not let an older list response overwrite a completed mutation', async () => {

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createProjectCashTransactionsRepository } from './projectCashTransactionsRepository';
+import {
+  CASH_TRANSACTION_COLUMNS,
+  createProjectCashTransactionsRepository,
+} from './projectCashTransactionsRepository';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
 
@@ -16,26 +19,32 @@ const mutationClient = (method, result) => {
   const eq = vi.fn(() => ({ select }));
   const mutation = vi.fn(() => method === 'update' ? { eq } : { select });
   const table = { [method]: mutation };
-  return { client: { from: vi.fn(() => table) }, mutation, eq };
+  return { client: { from: vi.fn(() => table) }, mutation, eq, select };
 };
 
 describe('projectCashTransactionsRepository', () => {
-  it('returns visible transactions from the shared ledger', async () => {
+  it('returns only transactions from the requested project scope', async () => {
     const rows = [{ id: 'cash-1' }];
-    const select = vi.fn(async () => ({ data: rows, error: null }));
+    const scopedRows = [{ ...rows[0], clients: { project_scope: 'firma' } }];
+    const eq = vi.fn(async () => ({ data: scopedRows, error: null }));
+    const select = vi.fn(() => ({ eq }));
     const client = { from: vi.fn(() => ({ select })) };
 
-    await expect(createProjectCashTransactionsRepository({ client }).list()).resolves.toEqual(rows);
+    await expect(createProjectCashTransactionsRepository({ client }).list('firma')).resolves.toEqual(rows);
     expect(client.from).toHaveBeenCalledWith('project_cash_transactions');
-    expect(select).toHaveBeenCalledWith('*');
+    expect(select).toHaveBeenCalledWith(
+      `${CASH_TRANSACTION_COLUMNS},clients!inner(project_scope)`,
+    );
+    expect(eq).toHaveBeenCalledWith('clients.project_scope', 'firma');
   });
 
   it('inserts a new transaction with its project id', async () => {
     const saved = { id: 'cash-1', project_id: 42, ...draft };
-    const { client, mutation: insert } = mutationClient('insert', { data: saved, error: null });
+    const { client, mutation: insert, select } = mutationClient('insert', { data: saved, error: null });
 
     await expect(createProjectCashTransactionsRepository({ client }).save(42, draft)).resolves.toEqual(saved);
     expect(insert).toHaveBeenCalledWith([{ project_id: 42, ...draft }]);
+    expect(select).toHaveBeenCalledWith(CASH_TRANSACTION_COLUMNS);
   });
 
   it('updates only editable fields of an existing transaction', async () => {

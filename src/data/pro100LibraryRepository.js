@@ -3,6 +3,22 @@ import { createStorageBucket } from './storageBucket';
 
 const BUCKET = 'pro100-library';
 
+export const PRO100_CATEGORY_COLUMNS = ['id', 'slug', 'name', 'sort_order'].join(',');
+export const PRO100_FILE_COLUMNS = [
+  'id',
+  'category_id',
+  'title',
+  'description',
+  'tags',
+  'storage_path',
+  'original_filename',
+  'file_size',
+  'content_type',
+  'version',
+  'updated_at',
+  'client_name',
+].join(',');
+
 const safeFilename = (name) => {
   const cleaned = String(name || 'projekt.sto').normalize('NFKD')
     .replace(/[^a-zA-Z0-9._-]+/g, '_')
@@ -30,8 +46,8 @@ export const createPro100LibraryRepository = ({
   return {
     async load() {
       const [categoryResult, fileResult] = await Promise.all([
-        client.from('pro100_library_categories').select('*').eq('is_active', true).order('sort_order'),
-        client.from('pro100_library_files').select('*').order('updated_at', { ascending: false }),
+        client.from('pro100_library_categories').select(PRO100_CATEGORY_COLUMNS).eq('is_active', true).order('sort_order'),
+        client.from('pro100_library_files').select(PRO100_FILE_COLUMNS).order('updated_at', { ascending: false }),
       ]);
       if (categoryResult.error) throw stagedError('load', categoryResult.error);
       if (fileResult.error) throw stagedError('load', fileResult.error);
@@ -55,7 +71,7 @@ export const createPro100LibraryRepository = ({
         original_filename: file.name,
         file_size: file.size,
         content_type: file.type || 'application/octet-stream',
-      }).select('*').single();
+      }).select(PRO100_FILE_COLUMNS).single();
       if (saveResult.error) {
         await storage.remove(storagePath);
         throw stagedError('create-save', saveResult.error);
@@ -67,7 +83,7 @@ export const createPro100LibraryRepository = ({
       const result = await client.from('pro100_library_files')
         .update(metadata)
         .eq('id', fileId)
-        .select('*')
+        .select(PRO100_FILE_COLUMNS)
         .single();
       if (result.error) throw stagedError('metadata-save', result.error);
       return result.data;
@@ -87,7 +103,7 @@ export const createPro100LibraryRepository = ({
         file_size: nextFile.size,
         content_type: nextFile.type || 'application/octet-stream',
         version: (currentFile.version || 1) + 1,
-      }).eq('id', currentFile.id).select('*').single();
+      }).eq('id', currentFile.id).select(PRO100_FILE_COLUMNS).single();
       if (updateResult.error) {
         await storage.remove(newPath);
         throw stagedError('replace-save', updateResult.error);

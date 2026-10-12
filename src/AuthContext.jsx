@@ -2,6 +2,15 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from './supabase'
 import { AuthContext } from './authContextCore'
 
+const PROFILE_COLUMNS = [
+  'id',
+  'full_name',
+  'role',
+  'color',
+  'theme',
+  'default_scope',
+].join(',')
+
 export function AuthProvider({ children }) {
   const [session,        setSession]        = useState(undefined)
   const [profile,        setProfile]        = useState(null)
@@ -33,7 +42,7 @@ export function AuthProvider({ children }) {
   const refreshProfiles = useCallback(async () => {
     if (!sessionUserId) return { error: null }
 
-    const { data, error } = await supabase.from('profiles').select('*')
+    const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS)
     if (!error && data) {
       setProfilesById(Object.fromEntries(data.map(p => [p.id, p])))
       setProfile(data.find(p => p.id === sessionUserId) || null)
@@ -120,7 +129,7 @@ export function AuthProvider({ children }) {
   async function updateTheme(newTheme) {
     if (!profile) return
     const { data } = await supabase.from('profiles')
-      .update({ theme: newTheme }).eq('id', profile.id).select().single()
+      .update({ theme: newTheme }).eq('id', profile.id).select(PROFILE_COLUMNS).single()
     if (data) {
       setProfile(data)
       setProfilesById(prev => ({ ...prev, [data.id]: data }))
