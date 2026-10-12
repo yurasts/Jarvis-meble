@@ -35,6 +35,17 @@ function isRateLimitError(error) {
   );
 }
 
+function isNetworkError(error) {
+  const name = error?.name || '';
+  const message = (error?.message || '').toLowerCase();
+  return (
+    name === 'AuthRetryableFetchError' ||
+    error?.status === 0 ||
+    message.includes('failed to fetch') ||
+    message.includes('network request failed')
+  );
+}
+
 function mapAuthError(error, { context }) {
   if (!error) return '';
   if (isRateLimitError(error)) {
@@ -79,6 +90,10 @@ export default function Login() {
     try {
       const { error } = await supabase.auth.signInWithOtp({ email });
       if (error) {
+        if (isNetworkError(error)) {
+          setErrorMsg(NETWORK_ERROR_MESSAGE);
+          return;
+        }
         // Rate limit z Supabase — mimo że wysyłka się nie powiodła, trzeba i tak uruchomić
         // cooldown, inaczej przycisk zostaje od razu aktywny i użytkownik może dalej bić
         // w rate limit (który sam w sobie nie ustawia żadnego czasu oczekiwania po stronie klienta).
@@ -133,7 +148,9 @@ export default function Login() {
         type: 'email',
       });
       if (error) {
-        setErrorMsg(mapAuthError(error, { context: 'verify' }));
+        setErrorMsg(isNetworkError(error)
+          ? NETWORK_ERROR_MESSAGE
+          : mapAuthError(error, { context: 'verify' }));
         return;
       }
       // Sukces: AuthContext już nasłuchuje supabase.auth.onAuthStateChange i sam podejmie

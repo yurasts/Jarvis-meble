@@ -39,6 +39,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test critical browser flows
+        run: npm run test:e2e
+
       - name: Prepare isolated database test migrations
         shell: bash
         run: bash scripts/prepare-supabase-db-test.sh
