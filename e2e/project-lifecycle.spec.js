@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { existingProject, installAuthenticatedSupabaseMock } from './support/supabaseMock';
 
-test('owner creates and edits a project without losing changes, then records a payment', async ({ page }) => {
+test('owner saves a protected project draft and completes the cash transaction lifecycle', async ({ page }) => {
   const state = await installAuthenticatedSupabaseMock(page, [existingProject]);
 
   await page.goto('/');
@@ -51,4 +51,22 @@ test('owner creates and edits a project without losing changes, then records a p
     amount: 1250,
     description: 'Zaliczka E2E',
   });
+
+  await page.getByRole('button', { name: /Zaliczka E2E/ }).click();
+  await page.getByLabel('Nazwa operacji').fill('Zaliczka poprawiona');
+  await page.getByLabel('Kwota operacji').fill('1500');
+  await page.getByRole('button', { name: /Zapisz operacj/ }).click();
+
+  await expect(page.getByText('Zaliczka poprawiona')).toBeVisible();
+  expect(state.transactions[0]).toMatchObject({
+    amount: 1500,
+    description: 'Zaliczka poprawiona',
+  });
+
+  await page.getByRole('button', { name: /Zaliczka poprawiona/ }).click();
+  await page.getByRole('button', { name: /Usu/ }).click();
+  await page.getByRole('button', { name: 'Tak' }).click();
+
+  await expect(page.getByText('Zaliczka poprawiona')).toHaveCount(0);
+  expect(state.transactions).toHaveLength(0);
 });
