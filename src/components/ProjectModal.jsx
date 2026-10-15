@@ -16,36 +16,20 @@ import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
 import { hasProjectFieldChanges } from '../utils/projectDirtyState';
+import { statusBgVar, statusColorVar, statusLabel } from '../utils/projectStatuses';
+import ms from './ProjectModal.module.css';
 
-// Лёгкая заливка фона по статусу проекта
-const STATUS_OVERLAY = {
-  new:        { light: 'rgba(229,62,62,0.04)',   dark: 'rgba(229,62,62,0.08)'   },
-  design:     { light: 'rgba(221,107,32,0.04)',  dark: 'rgba(221,107,32,0.08)'  },
-  production: { light: 'rgba(214,158,46,0.04)',  dark: 'rgba(214,158,46,0.08)'  },
-  done:       { light: 'rgba(56,161,105,0.04)',  dark: 'rgba(56,161,105,0.08)'  },
-};
-
-const STATUS_BORDER_COLOR = {
-  new:        '#e53e3e',
-  design:     '#dd6b20',
-  production: '#d69e2e',
-  done:       '#38a169',
-};
-
-// Krótkie polskie etykiety statusu dla kompaktowej pigułki w nagłówku mobilnym (ADR-003,
-// Mobile Field Mode faza 2) — skrócone wersje tych samych statusów co w Settings.jsx
-// ("Legenda statusów projektów"), bez nowej logiki.
-const STATUS_LABEL = {
-  new:        'Nowy',
-  design:     'Projektowanie',
-  production: 'Produkcja',
-  done:       'Gotowe',
-};
+// Статусы (подписи и цвета) — utils/projectStatuses.js + токены --status-* в src/index.css.
+const cx = (...classNames) => classNames.filter(Boolean).join(' ');
 
 const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch,
   // Единый project_cash_transactions используется в Rozliczenia на mobile и embedded desktop;
   // modal-fallback сохраняет прежний calc_expenses для обратной совместимости.
   cashTransactions = [], onSaveCashTransaction, onDeleteCashTransaction, cashStatus = 'ready', onRetryCash,
+  // Desktop workspace 2026-10 (только variant='embedded'): выбранная папка файлов и "+" живут в
+  // левой панели (ProjectListPanel), окно редактирования клиента открывается карандашом там же.
+  fileCategory, onFileCategoryChange, fileUploadTriggerRef, onFilesUploadingChange,
+  clientInfoOpen: clientInfoOpenProp, onClientInfoOpenChange,
 }) => {
   const isMobile = window.innerWidth < 640;
   // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
@@ -91,7 +75,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // строкой Klient/.../Zapisz); один и тот же стейт переиспользуется для mobile, т.к. варианты
   // взаимно исключают друг друга — в любой момент активен ровно один.
   const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
-  const [clientInfoOpen, setClientInfoOpen] = useState(false);
+  // Окно «Klient i projekt»: в embedded управляется из App (карандаш в левой панели), в
+  // mobile/modal — локально (кнопка с именем клиента / ℹ️ в шапке).
+  const [localClientInfoOpen, setLocalClientInfoOpen] = useState(false);
+  const isClientInfoControlled = isEmbedded && clientInfoOpenProp !== undefined;
+  const clientInfoOpen = isClientInfoControlled ? clientInfoOpenProp : localClientInfoOpen;
+  const setClientInfoOpen = (open) => {
+    if (isClientInfoControlled) onClientInfoOpenChange?.(open);
+    else setLocalClientInfoOpen(open);
+  };
   // Единственная раскрытая строка среди ДОБАВЛЕННЫХ позиций (desktop-таблицы Materiały/Usługi/
   // Wydatki, а также mobile-карточки Materiały — feat/mobile-material-row-compact) — nullable-ключ
   // вместо объекта с несколькими флагами: раскрытие новой строки автоматически схлопывает
@@ -351,47 +343,41 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     );
   };
 
-  // Стиль таба
-  const tabBtn = (tab, activeColor, activeBorder, activeBg) => ({
-    padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
-    borderBottom: activeTab === tab ? `3px solid ${activeBorder}` : '3px solid transparent',
-    background: activeTab === tab ? (isDark ? activeBg.dark : activeBg.light) : 'transparent',
-    color: activeTab === tab ? activeColor : textLight,
-  });
+  // Класс вкладки: цвета активной вкладки задаются токенами раздела (--section-*) в
+  // ProjectModal.module.css, тёмные значения — в src/index.css, без isDark в JS.
+  const tabClassName = (tab, sectionClass) => cx(
+    ms.tab,
+    sectionClass,
+    activeTab === tab && ms.tabActive,
+    isMobileVariant && ms.tabMobile,
+  );
 
   // variant='mobile' (ADR-003, Mobile Field Mode faza 2): pełnoekranowy widok do 767px, zastępuje
   // dotychczasowy modal-fallback. Układ to przewidywalna kolumna flex (bez ujemnych marginesów):
-  // outerStyle → sztywna wysokość viewportu; innerStyle → kolumna [nagłówek][obszar przewijania
-  // flex:1][pasek Zapisz]; przewija się WYŁĄCZNIE środkowy obszar (contentAreaStyle) — nagłówek
+  // ms.shellMobile → sztywna wysokość viewportu; ms.panelMobile → kolumna [nagłówek][obszar przewijania
+  // flex:1][pasek Zapisz]; przewija się WYŁĄCZNIE środkowy obszar (ms.contentMobile) — nagłówek
   // i pasek Zapisz są zwykłymi elementami flex (flexShrink:0), nie sticky.
-  const outerStyle = isEmbedded
-    ? { position: 'relative', width: '100%', height: '100%' }
+  const shellClassName = isEmbedded
+    ? ms.shellEmbedded
     : isMobileVariant
-      // height/maxHeight: 100dvh — устойчиво к динамическому viewport Safari (адресная строка);
-      // overscrollBehavior: contain — доскролл содержимого не должен "протаскивать" документ под
-      // экраном (rubber-band не открывает нижележащую страницу); background непрозрачен (var(--modal-bg))
-      // и inset:0 полностью покрывает viewport — под экраном ничего не видно и не двигается.
-      ? { position: 'fixed', inset: 0, left: 'var(--mobile-landscape-nav-width, 0px)', height: '100dvh', maxHeight: '100dvh', zIndex: 1000, background: bg, display: 'flex', flexDirection: 'column', overflow: 'hidden', overscrollBehavior: 'contain' }
-      : { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: isMobile ? 0 : '30px', paddingBottom: isMobile ? 0 : '30px', overflowY: 'auto' };
+      // 100dvh / overscroll-behavior / непрозрачный фон — см. .shellMobile в ProjectModal.module.css.
+      ? ms.shellMobile
+      : cx(ms.shellModal, isMobile && ms.shellModalCompact);
 
-  const innerStyle = {
-    background: bg,
-    backgroundImage: `linear-gradient(${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']}, ${(STATUS_OVERLAY[client.status] || STATUS_OVERLAY.new)[isDark ? 'dark' : 'light']})`,
-    borderRadius: isEmbedded ? '10px' : isMobileVariant ? 0 : (isMobile ? 0 : '10px'),
-    width: (isEmbedded || isMobileVariant) ? '100%' : '95%',
-    maxWidth: isEmbedded ? '1400px' : isMobileVariant ? 'none' : '1100px',
-    padding: isMobileVariant ? 0 : '15px',
-    boxShadow: (isEmbedded || isMobileVariant) ? 'none' : '0 10px 25px rgba(0,0,0,0.3)',
-    position: 'relative',
-    borderTop: isMobileVariant ? 'none' : `3px solid ${STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new}`,
-    ...(isMobileVariant ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' } : {}),
+  const panelClassName = cx(
+    ms.panel,
+    isEmbedded ? ms.panelEmbedded : isMobileVariant ? ms.panelMobile : ms.panelModal,
+    !isEmbedded && !isMobileVariant && isMobile && ms.panelModalCompact,
+  );
+
+  // Цвет и лёгкая заливка по статусу проекта — единственные значения из данных, остальное в CSS.
+  const statusStyle = {
+    '--project-status-color': statusColorVar(client.status),
+    '--project-status-bg': statusBgVar(client.status),
   };
 
   // Jedyny przewijany obszar ekranu mobilnego (między sztywnym nagłówkiem a paskiem Zapisz) —
-  // zawiera polkę plików, taby i treść tabów (Mobile Project Workspace v1).
-  const contentAreaStyle = isMobileVariant
-    ? { flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '10px 15px 16px' }
-    : undefined;
+  // zawiera polkę plików, taby i treść tabów (Mobile Project Workspace v1): .contentMobile.
 
   // Etykiety/komunikat dialogu potwierdzenia — wyliczone raz, bez IIFE w JSX (ostatnie powodowało
   // fałszywy błąd react-hooks/refs, bo finalizeClose zamyka się nad refem historii).
@@ -481,23 +467,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', background: bgHeader, border: `1px solid ${border}`, borderRadius: '8px', padding: '9px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
+      className={ms.sectionHeader}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold', color: text }}>
+      <span className={ms.sectionHeaderLabel}>
         {/* Зелёный checkbox/✓ — визуальный индикатор раскрытия секции (по Figma), а не отдельный
             интерактивный элемент: клик обрабатывает вся кнопка-заголовок, aria-expanded на ней же. */}
-        <span aria-hidden="true" style={{
-          width: '16px', height: '16px', flexShrink: 0, boxSizing: 'border-box',
-          borderRadius: '4px', border: `1.5px solid ${open ? '#38a169' : border}`,
-          background: open ? '#38a169' : 'transparent',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: '11px', fontWeight: 'bold', lineHeight: 1,
-        }}>
+        <span aria-hidden="true" className={cx(ms.sectionCheck, open && ms.sectionCheckOn)}>
           {open ? '✓' : ''}
         </span>
         {label}
       </span>
-      <strong style={{ fontSize: '13px', color: text }}>{totalPrefix}{totalPrefix ? formatDesktopCashMoney(total) : total.toFixed(2)} zł</strong>
+      <strong className={ms.sectionTotal}>{totalPrefix}{totalPrefix ? formatDesktopCashMoney(total) : total.toFixed(2)} zł</strong>
     </button>
   );
 
@@ -653,75 +633,101 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     />
   );
 
+  // Firma/Moje + Zapisz (+ статус сохранения) — общий блок для modal-fallback (справа в шапке
+  // Klient/Projekt) и embedded (справа от полки файлов, без отдельной строки шапки).
+  const renderScopeAndSaveActions = () => {
+    const isFirma = (client.project_scope || 'firma') === 'firma';
+    const isPersonal = client.project_scope === 'personal';
     return (
-    <div style={outerStyle} onClick={isEmbedded ? undefined : handleClose}>
-      <div style={innerStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
+      <div className={ms.actions}>
+        <div className={ms.actionsRow}>
+          <div className={ms.scopeToggle} role="group" aria-label="Grupa projektu">
+            <button
+              type="button"
+              onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
+              title="Projekt firmowy"
+              aria-label="Projekt firmowy"
+              aria-pressed={isFirma}
+              className={cx(ms.scopeBtn, isFirma && ms.scopeBtnActive)}
+            >
+              🏢
+            </button>
+            <button
+              type="button"
+              onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
+              title="Mój projekt"
+              aria-label="Mój projekt"
+              aria-pressed={isPersonal}
+              className={cx(ms.scopeBtn, isPersonal && ms.scopeBtnActive)}
+            >
+              👤
+            </button>
+          </div>
+          <button type="button" onClick={handleSaveClick} className={ms.saveBtn}>💾 Zapisz</button>
+        </div>
+        {isEmbedded && saveStatus && (
+          <div role="status" className={cx(ms.saveStatus, saveStatus !== 'saved' && ms.saveStatusError)}>
+            {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+    return (
+    <div className={shellClassName} onClick={isEmbedded ? undefined : handleClose}>
+      <div className={panelClassName} style={statusStyle} onClick={isEmbedded ? undefined : (e => e.stopPropagation())}>
 
         {/* "← Wróć" usunięty z desktop/embedded (compact-project-workspace) — powrót do listy
             projektów na desktop odbywa się przez sam sidebar (ProjectNav), nie przez osobny
             przycisk w karcie; "← Projekty" na mobile (niżej) zostaje bez zmian. */}
 
         {/* Nagłówek mobile (ADR-003, Mobile Field Mode faza 2): sztywny element kolumny flex
-            (innerStyle), nie sticky i bez ujemnych marginesów — leży nad przewijanym
-            contentAreaStyle, więc zawsze widoczny i nigdy nie zasłania ostatniego wiersza treści. */}
+            (ms.panelMobile), nie sticky i bez ujemnych marginesów — leży nad przewijanym
+            ms.contentMobile, więc zawsze widoczny i nigdy nie zasłania ostatniego wiersza treści. */}
         {isMobileVariant && (
-          <div style={{
-            flexShrink: 0, background: bg, boxSizing: 'border-box',
-            padding: '10px 15px 8px', paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
-            borderBottom: `2px solid ${border}`,
-          }}>
-            <button
-              onClick={handleClose}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: textLight, fontSize: '13px', fontWeight: 'bold', padding: '4px 2px',
-              }}
-            >
+          <div className={ms.mobileHeader}>
+            <button onClick={handleClose} className={ms.mobileBackBtn}>
               ← Projekty
             </button>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', color: textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className={ms.mobileTitleRow}>
+              <div className={ms.mobileTitleText}>
+                <div className={ms.mobileClientRow}>
+                  <span className={ms.mobileClientName}>
                     {client.client_name || 'Klient'}
                   </span>
                   <button
                     onClick={() => setClientInfoOpen(true)}
                     title="Informacje o kliencie"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', padding: 0, flexShrink: 0 }}
+                    className={ms.infoIconBtn}
                   >
                     ℹ️
                   </button>
                 </div>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className={ms.mobileProjectName}>
                   {client.project_name || 'Projekt'}
                 </div>
               </div>
-              <span style={{
-                flexShrink: 0, fontSize: '10.5px', fontWeight: 'bold', color: '#fff',
-                background: STATUS_BORDER_COLOR[client.status] || STATUS_BORDER_COLOR.new,
-                padding: '3px 9px', borderRadius: '999px', whiteSpace: 'nowrap', marginTop: '1px',
-              }}>
-                {STATUS_LABEL[client.status] || STATUS_LABEL.new}
+              <span className={ms.statusPill}>
+                {statusLabel(client.status)}
               </span>
             </div>
           </div>
         )}
 
         {/* Jedyny przewijany obszar treści na mobile (polka plików + taby + treść taba) — dla innych
-            wariantów contentAreaStyle jest undefined, więc to zwykły, niestylowany div bez wpływu
+            wariantów className jest undefined, więc to zwykły, niestylowany div bez wpływu
             na desktop/embedded (ADR-003, faza 2: usunięcie ujemnych marginesów). */}
-        <div style={contentAreaStyle}>
+        <div className={isMobileVariant ? ms.contentMobile : undefined}>
 
         {/* Polka plików (Mobile Project Workspace v1): ten sam <FilesTab variant="shelf"> co
             w desktop/embedded header, tylko mobileWorkspaceLayout=true (rząd przycisków folderów +
             stała karuzela 132×132px zamiast select+Rozwiń/Zwiń — p.3 zadania). Leży wewnątrz
-            jedynego przewijanego obszaru (contentAreaStyle), zaraz po nagłówku, przed tabami — jako
+            jedynego przewijanego obszaru (ms.contentMobile), zaraz po nagłówku, przed tabami — jako
             zwykły element flow, bez position:fixed/sticky, więc przewija się razem z resztą treści.
             Jeden zamontowany FilesTab i jeden fetch — dokładnie jak na desktop/embedded. */}
         {isMobileVariant && (
-          <div style={{ marginBottom: '14px' }}>
+          <div className={ms.mobileShelf}>
             <FilesTab
               variant="shelf"
               mobileWorkspaceLayout
@@ -738,180 +744,201 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             tu ich już nie ma. Prawy blok (Firma/Moje + Zapisz) zawija się pod spód na wąskiej
             szerokości (flexWrap), ale sam Klient/Projekt nigdy nie dostaje poziomego scrolla —
             oba pola też mogą się zawinąć każde na swój wiersz (patrz flexWrap na ich kontenerze). */}
-        {!isMobileVariant && (
-        <div style={{ borderBottom: `2px solid ${border}`, paddingBottom: '10px', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        {!isMobileVariant && !isEmbedded && (
+        <div className={ms.modalHeader}>
+          <div className={ms.modalHeaderRow}>
 
             {/* ЛЕВО: Klient + Projekt — одна горизонтальная строка, оба поля редактируемые */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', flex: '1 1 260px', minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 140px', minWidth: 0 }}>
-                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Klient:</span>
+            <div className={ms.modalHeaderFields}>
+              <div className={cx(ms.modalHeaderField, ms.modalHeaderFieldClient)}>
+                <span className={ms.fieldLabel}>Klient:</span>
                 <input
                   value={client.client_name || ''}
                   onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
                   placeholder="Imię klienta"
-                  style={{ fontSize: isMobile ? '15px' : '16px', fontWeight: 'bold', color: '#4da6ff', background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '60px', width: '100%', boxSizing: 'border-box' }}
+                  className={cx(ms.headerInput, ms.headerInputClient, isMobile && ms.headerInputClientCompact)}
                 />
                 <button
                   onClick={() => setClientInfoOpen(true)}
                   title="Informacje o kliencie"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0, flexShrink: 0 }}
+                  className={cx(ms.infoIconBtn, ms.infoIconBtnLarge)}
                 >
                   ℹ️
                 </button>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1 1 160px', minWidth: 0 }}>
-                <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0 }}>Projekt:</span>
+              <div className={cx(ms.modalHeaderField, ms.modalHeaderFieldProject)}>
+                <span className={ms.fieldLabel}>Projekt:</span>
                 <input
                   value={client.project_name || ''}
                   onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
                   placeholder="Nazwa projektu (szafa, kuchnia...)"
-                  style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: 'bold', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', minWidth: '60px', width: '100%', boxSizing: 'border-box' }}
+                  className={cx(ms.headerInput, ms.headerInputProject, isMobile && ms.headerInputProjectCompact)}
                 />
               </div>
             </div>
 
             {/* ПРАВО: Firma/Moje + Zapisz — переносится под Klient/Projekt на узкой ширине */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <div style={{ display: 'flex', border: `1px solid ${border}`, borderRadius: '6px', overflow: 'hidden' }}>
-                  <button
-                    onClick={() => setClient(prev => ({ ...prev, project_scope: 'firma' }))}
-                    title="Projekt firmowy"
-                    style={{
-                      padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
-                      background: (client.project_scope || 'firma') === 'firma' ? '#3182ce' : bg,
-                      color: (client.project_scope || 'firma') === 'firma' ? '#fff' : textLight,
-                    }}
-                  >
-                    🏢
-                  </button>
-                  <button
-                    onClick={() => setClient(prev => ({ ...prev, project_scope: 'personal' }))}
-                    title="Mój projekt"
-                    style={{
-                      padding: '6px 10px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold',
-                      background: client.project_scope === 'personal' ? '#3182ce' : bg,
-                      color: client.project_scope === 'personal' ? '#fff' : textLight,
-                    }}
-                  >
-                    👤
-                  </button>
-                </div>
-                <button onClick={handleSaveClick} style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>💾 Zapisz</button>
-              </div>
-              {isEmbedded && saveStatus && (
-                <div style={{ fontSize: '11px', fontWeight: 'bold', color: saveStatus === 'saved' ? '#38a169' : '#e53e3e', maxWidth: '220px', textAlign: 'right' }}>
-                  {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
-                </div>
-              )}
-            </div>
+            {renderScopeAndSaveActions()}
           </div>
         </div>
         )}
 
-        {/* Polka plików — zawsze osobnym rzędem BEZPOŚREDNIO pod kompaktową szapką (nie na
-            poziomie Klient/Projekt) — tylko desktop/embedded. Jeden i ten sam zamontowany
-            FilesTab i w stanie zwiniętym, i rozwiniętym (variant="shelf", jeden files-state,
-            jeden fetch) — rozwinięcie nie wywołuje ponownego fetch. Bez sztuczek order/flexBasis:
-            skoro polka nie dzieli już wiersza z Klient/Projekt/Zapisz, to zwykły blokowy element
-            na pełną szerokość. */}
+        {/* Desktop workspace 2026-10: строки Klient/Projekt больше нет (клиент и проект видны в
+            дереве слева, редактирование — карандашом там же); папки файлов тоже переключаются
+            слева. Здесь — лента файлов выбранной папки + строка .sto, а справа от неё компактные
+            Firma/Moje и Zapisz, чтобы не тратить отдельную строку по высоте. */}
         {isEmbedded && (
-          <div style={{ marginBottom: '10px' }}>
-            <FilesTab
-              variant="shelf"
-              clientId={client.id}
-              currentProfile={currentProfile}
-              coverUrl={client.cover_url}
-              onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
-              expanded={filesShelfExpanded}
-              onExpandedChange={setFilesShelfExpanded}
-            />
+          <div className={ms.workspaceShelfRow}>
+            <div className={ms.workspaceShelfMain}>
+              <FilesTab
+                variant="shelf"
+                clientId={client.id}
+                currentProfile={currentProfile}
+                coverUrl={client.cover_url}
+                onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
+                expanded={filesShelfExpanded}
+                onExpandedChange={setFilesShelfExpanded}
+                externalFolderControls={fileCategory !== undefined}
+                category={fileCategory}
+                onCategoryChange={onFileCategoryChange}
+                uploadTriggerRef={fileUploadTriggerRef}
+                onUploadingChange={onFilesUploadingChange}
+              />
+            </div>
+            {renderScopeAndSaveActions()}
           </div>
         )}
 
         {/* Модалка редактируемой информации о клиенте */}
         {clientInfoOpen && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => setClientInfoOpen(false)}>
-            <div style={{ background: bg, color: text, width: '100%', maxWidth: '380px', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: `1px solid ${border}`, fontSize: '13px', fontWeight: 'bold' }}>
-                <span>👤 Informacje o kliencie</span>
-                <button onClick={() => setClientInfoOpen(false)} style={{ background: 'none', border: 'none', color: text, fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          <div className={ms.dialogBackdrop} onClick={() => setClientInfoOpen(false)}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="client-info-title"
+              className={ms.dialog}
+              onClick={e => e.stopPropagation()}
+              onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setClientInfoOpen(false); } }}
+            >
+              <div className={ms.dialogHeader}>
+                <span id="client-info-title">{isEmbedded ? '✏️ Klient i projekt' : '👤 Informacje o kliencie'}</span>
+                <button type="button" aria-label="Zamknij" onClick={() => setClientInfoOpen(false)} className={ms.dialogClose}>✕</button>
               </div>
-              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>📍 Adres:</span>
+              <div className={ms.dialogBody}>
+                {/* В embedded строки Klient/Projekt в шапке больше нет — имена редактируются здесь. */}
+                {isEmbedded && (
+                  <>
+                    <div className={ms.dialogField}>
+                      <span className={ms.dialogLabel}>Klient:</span>
+                      <input
+                        autoFocus
+                        aria-label="Imię klienta"
+                        value={client.client_name || ''}
+                        onChange={e => setClient(prev => ({ ...prev, client_name: e.target.value }))}
+                        placeholder="Imię klienta"
+                        className={cx(ms.dialogInput, ms.dialogInputStrong)}
+                      />
+                    </div>
+                    <div className={ms.dialogField}>
+                      <span className={ms.dialogLabel}>Projekt:</span>
+                      <input
+                        aria-label="Nazwa projektu"
+                        value={client.project_name || ''}
+                        onChange={e => setClient(prev => ({ ...prev, project_name: e.target.value }))}
+                        placeholder="Nazwa projektu (szafa, kuchnia...)"
+                        className={cx(ms.dialogInput, ms.dialogInputStrong)}
+                      />
+                    </div>
+                  </>
+                )}
+                <div className={ms.dialogField}>
+                  <span className={ms.dialogLabel}>📍 Adres:</span>
                   <input
                     value={client.address || ''}
                     onChange={e => setClient(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="Adres montażu"
-                    style={{ flex: 1, fontSize: '13px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
+                    className={ms.dialogInput}
                   />
                   {client.address && (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.address)}`}
                       target="_blank" rel="noreferrer"
                       title="Otwórz w Mapach Google"
-                      style={{ flexShrink: 0, fontSize: '14px' }}
+                      className={ms.dialogLink}
                     >
                       🗺️
                     </a>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>📞 Tel:</span>
+                <div className={ms.dialogField}>
+                  <span className={ms.dialogLabel}>📞 Tel:</span>
                   <input
                     value={client.phone || ''}
                     onChange={e => setClient(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="Telefon (opcjonalnie)"
-                    style={{ flex: 1, fontSize: '13px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
+                    className={ms.dialogInput}
                   />
                   {client.phone && (
-                    <a href={`tel:${client.phone}`} title="Zadzwoń" style={{ flexShrink: 0, fontSize: '14px' }}>📲</a>
+                    <a href={`tel:${client.phone}`} title="Zadzwoń" className={ms.dialogLink}>📲</a>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>📅 Termin:</span>
+                <div className={ms.dialogField}>
+                  <span className={ms.dialogLabel}>📅 Termin:</span>
                   <input
                     type="date"
                     value={client.deadline || ''}
                     onChange={e => setClient(prev => ({ ...prev, deadline: e.target.value }))}
-                    style={{ flex: 1, fontSize: '13px', color: text, background: bgInput, border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
+                    className={cx(ms.dialogInput, ms.dialogInputDate)}
                   />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#a0aec0', flexShrink: 0, width: '60px' }}>💬 Uwagi:</span>
+                <div className={ms.dialogField}>
+                  <span className={ms.dialogLabel}>💬 Uwagi:</span>
                   <input
                     value={client.notes || ''}
                     onChange={e => setClient(prev => ({ ...prev, notes: e.target.value }))}
                     placeholder="Dodatkowe informacje..."
-                    style={{ flex: 1, fontSize: '13px', color: text, background: 'transparent', border: 'none', borderBottom: `1px dashed ${border}`, outline: 'none', padding: '2px 0' }}
+                    className={ms.dialogInput}
                   />
                 </div>
+                {isEmbedded && (
+                  <div className={ms.dialogFooter}>
+                    <span className={ms.dialogHint}>Zmiany zapisz przyciskiem „Zapisz”.</span>
+                    <button
+                      type="button"
+                      onClick={() => setClientInfoOpen(false)}
+                      className={ms.saveBtn}
+                    >
+                      Gotowe
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
         {/* Табы — тёмная тема. На mobile (Mobile Project Workspace v1, p.4) — три РАВНЫЕ по ширине
-            вкладки без emoji и без сумм в названиях (flex:1 через tabBtnMobile, поверх общего
-            tabBtn); третья вкладка сохраняет внутренний id 'expenses' (данные/схема не трогаются),
+            вкладки без emoji и без сумм в названиях (flex:1 через ms.tabMobile поверх общего
+            ms.tab); третья вкладка сохраняет внутренний id 'expenses' (данные/схема не трогаются),
             меняется только подпись — "Rozliczenia" вместо "Wydatki". desktop/embedded сохраняют
             emoji и суммы в названиях без изменений. */}
-        <div style={{ display: 'flex', borderBottom: `2px solid ${border}`, marginBottom: '15px', overflowX: isMobileVariant ? 'hidden' : 'auto', whiteSpace: 'nowrap', gap: '2px' }}>
-          <button onClick={() => handleTabChange('materials')} style={{ ...tabBtn('materials', c('#2b6cb0','#63b3ed'), '#3182ce', { light: '#ebf8ff', dark: '#0f2236' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+        <div className={cx(ms.tabBar, isMobileVariant && ms.tabBarMobile)}>
+          <button onClick={() => handleTabChange('materials')} className={tabClassName('materials', ms.tabMaterials)}>
+
             {(isMobileVariant || isEmbedded) ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
           </button>
-          <button onClick={() => handleTabChange('services')} style={{ ...tabBtn('services', c('#276749','#68d391'), '#38a169', { light: '#f0fff4', dark: '#0f2a1a' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+          <button onClick={() => handleTabChange('services')} className={tabClassName('services', ms.tabServices)}>
+
             {(isMobileVariant || isEmbedded) ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
           </button>
-          <button onClick={() => handleTabChange('expenses')} style={{ ...tabBtn('expenses', c('#c53030','#fc8181'), '#e53e3e', { light: '#fff5f5', dark: '#2d1515' }), ...(isMobileVariant ? { flex: 1, textAlign: 'center' } : {}) }}>
+          <button onClick={() => handleTabChange('expenses')} className={tabClassName('expenses', ms.tabExpenses)}>
+
             {(isMobileVariant || isEmbedded) ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
           </button>
           {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
               (полка в контенте, feat/mobile-files-zoom) — только у настоящего modal-fallback
               (variant='modal', вне embedded/mobile), где полки нет вовсе. */}
           {!isEmbedded && !isMobileVariant && (
-            <button onClick={() => setActiveTab('files')} style={tabBtn('files', c('#553c9a','#b794f4'), '#805ad5', { light: '#faf5ff', dark: '#1a102e' })}>
+            <button onClick={() => setActiveTab('files')} className={tabClassName('files', ms.tabFiles)}>
               📎 Pliki
             </button>
           )}
@@ -1096,25 +1123,22 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         </div>
 
         </div>
-        {/* /contentAreaStyle — koniec jedynego przewijanego obszaru mobile */}
+        {/* /ms.contentMobile — koniec jedynego przewijanego obszaru mobile */}
 
         {/* Zawsze widoczna zona działań na dole (ADR-003, Mobile Field Mode faza 2) — zwykły
-            element kolumny flex (innerStyle), nie sticky, więc fizycznie nigdy nie nachodzi na
+            element kolumny flex (ms.panelMobile), nie sticky, więc fizycznie nigdy nie nachodzi na
             ostatni wiersz przewijanej treści; env(safe-area-inset-bottom) dodaje margines na
             strefę bezpieczną telefonu (np. pasek gestów iOS) zamiast na sztywny padding. */}
         {isMobileVariant && (
-          <div style={{
-            flexShrink: 0, background: bgHeader, borderTop: `2px solid ${border}`,
-            padding: '10px 15px calc(10px + env(safe-area-inset-bottom))',
-          }}>
+          <div className={ms.saveBar}>
             <button
               onClick={handleSaveClick}
-              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
+              className={ms.saveBarBtn}
             >
               💾 Zapisz
             </button>
             {saveStatus && (
-              <div style={{ marginTop: '6px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold', color: saveStatus === 'saved' ? '#38a169' : '#e53e3e' }}>
+              <div className={cx(ms.saveBarStatus, saveStatus !== 'saved' && ms.saveBarStatusError)}>
                 {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
               </div>
             )}
@@ -1124,25 +1148,25 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         {/* Подтверждение закрытия / переключения на другой проект / возврата к списку на mobile
             (тот же диалог, ADR-002 UX-faza 2.1 + ADR-003 faza 2 — не дублируется). */}
         {(confirmClose || pendingProjectLabel || pendingTabChange) && (
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', borderRadius: isMobileVariant ? 0 : '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-            <div style={{ background: bg, borderRadius: '10px', padding: '28px 32px', boxShadow: '0 8px 30px rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: '360px', border: `1px solid ${border}` }}>
-              <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
-              <h3 style={{ margin: '0 0 8px 0', color: text, fontSize: '16px' }}>Masz niezapisane zmiany</h3>
-              <p style={{ margin: '0 0 8px 0', color: textLight, fontSize: '13px' }}>{closeMessage}</p>
+          <div className={cx(ms.confirmOverlay, isMobileVariant && ms.confirmOverlayMobile)}>
+            <div className={ms.confirmCard}>
+              <div className={ms.confirmIcon}>⚠️</div>
+              <h3 className={ms.confirmTitle}>Masz niezapisane zmiany</h3>
+              <p className={ms.confirmText}>{closeMessage}</p>
               {saveStatus === 'error' && !pendingTabChange && (
-                <p style={{ margin: '0 0 12px 0', color: '#e53e3e', fontSize: '12px', fontWeight: 'bold' }}>
+                <p className={ms.confirmError}>
                   Nie udało się zapisać zmian. Spróbuj ponownie.
                 </p>
               )}
               {pendingTabChange && cashTabSaveError && (
-                <p style={{ margin: '0 0 12px 0', color: '#e53e3e', fontSize: '12px', fontWeight: 'bold' }}>
+                <p className={ms.confirmError}>
                   Nie udało się zapisać operacji. Spróbuj ponownie.
                 </p>
               )}
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+              <div className={ms.confirmActions}>
                 <button
                   onClick={() => { if (pendingTabChange) { discardTabChange(); } else if (pendingProjectLabel) { onConfirmSwitch?.({ saved: false }); } else { finalizeClose(); } }}
-                  style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                  className={ms.confirmDiscard}
                 >
                   {closeLabels.discard}
                 </button>
@@ -1154,13 +1178,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     setConfirmClose(false);
                     pendingProjectLabel ? onConfirmSwitch?.({ saved: true }) : finalizeClose();
                   }}
-                  style={{ background: '#38a169', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                  className={ms.confirmSave}
                 >
                   {closeLabels.save}
                 </button>
                 <button
                   onClick={() => { if (pendingTabChange) { cancelTabChange(); } else if (pendingProjectLabel) { onCancelSwitch?.(); } else { setConfirmClose(false); } }}
-                  style={{ background: bgHeader, color: text, border: `1px solid ${border}`, padding: '9px 14px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                  className={ms.confirmCancel}
                 >
                   {closeLabels.cancel}
                 </button>

@@ -14,7 +14,7 @@ export const FILE_CATEGORIES = [
   { key: 'projekt', icon: '📐', label: 'Projekt' },
   { key: 'usterki', icon: '⚠️', label: 'Uwagi' },
   { key: 'montaz',  icon: '✅', label: 'Montaż'  },
-  { key: 'inne',    icon: '📄', label: 'Inne'    },
+  { key: 'inne',    icon: '📏', label: 'Krój'    },
 ];
 
 // Следующий числовой id задачи внутри конкретного проекта: max(существующие числовые id) + 1

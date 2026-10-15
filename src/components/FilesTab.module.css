@@ -136,6 +136,15 @@
   background: var(--bg-card);
 }
 
+/* Desktop workspace 2026-10: папки и "+" — в левой панели, здесь только лента и строка .sto. */
+.desktopShelfCompact {
+  padding: 8px 10px;
+}
+
+.desktopShelfCompact .desktopEmpty {
+  min-height: 72px;
+}
+
 .desktopControls {
   display: flex;
   flex-direction: column;
@@ -421,4 +430,270 @@
   color: #e53e3e;
   font-size: 11px;
   font-weight: 600;
+}
+
+/* Обложка в ленте desktop (раньше inline style). Должна идти после .desktopCarouselImg. */
+.desktopCarouselImgCover {
+  border-color: var(--tone-highlight);
+  border-width: 2px;
+}
+
+/* ================================================
+   Подробный вид файлов (ProjectFileDetails в FilesTabViews.jsx): сетка фото + список
+   документов. Перенесено из inline-стилей 2026-10; цвета — токены из src/index.css,
+   из данных приходит только цвет автора файла (--file-uploader-color).
+   ================================================ */
+.detailsLoading {
+  color: var(--ink-faint);
+  font-size: var(--font-size-md);
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.imageCard {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--file-uploader-color, var(--line-subtle));
+  background: var(--surface-paper);
+  box-shadow: none;
+}
+
+.imageCardCover {
+  border-color: var(--tone-highlight);
+  box-shadow: 0 0 0 2px var(--tone-highlight-ring);
+}
+
+.imagePreview {
+  position: relative;
+  cursor: zoom-in;
+}
+
+.imagePreviewImg {
+  display: block;
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+}
+
+.imageCategoryBadge,
+.imageCoverBadge {
+  position: absolute;
+  left: 4px;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-2xs);
+}
+
+.imageCategoryBadge {
+  top: 4px;
+  background: var(--scrim-medium);
+  color: var(--ink-on-accent);
+}
+
+.imageCoverBadge {
+  bottom: 4px;
+  background: var(--tone-highlight);
+  color: var(--tone-highlight-ink);
+  font-weight: 700;
+}
+
+.imageCommentArea {
+  padding: 4px 6px;
+  border-top: 2px solid var(--file-uploader-color, var(--line-subtle));
+}
+
+.imageCommentInput {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-xs);
+}
+
+.imageComment {
+  min-height: 16px;
+  color: var(--ink-faint);
+  font-size: var(--font-size-xs);
+  cursor: text;
+}
+
+.imageCommentFilled {
+  color: var(--ink-strong);
+}
+
+.coverToggle {
+  position: absolute;
+  right: 4px;
+  bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--scrim-soft);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.coverToggleActive {
+  background: var(--tone-highlight);
+}
+
+.imageDeleteSlot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.imageDeleteConfirm {
+  display: flex;
+  gap: 3px;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--scrim-strong);
+}
+
+.imageConfirmYes,
+.imageConfirmNo,
+.docConfirmYes,
+.docConfirmNo {
+  border: none;
+  border-radius: var(--radius-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.imageConfirmYes,
+.imageConfirmNo {
+  padding: 2px 5px;
+  font-size: var(--font-size-2xs);
+}
+
+.docConfirmYes,
+.docConfirmNo {
+  padding: 2px 6px;
+  font-size: var(--font-size-xs);
+}
+
+.imageConfirmYes,
+.docConfirmYes {
+  background: var(--tone-danger);
+  color: var(--ink-on-accent);
+}
+
+.imageConfirmNo,
+.docConfirmNo {
+  background: var(--line-subtle);
+  color: var(--ink-strong);
+}
+
+.imageDeleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: var(--scrim-soft);
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.docList {
+  overflow: hidden;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-md);
+}
+
+.docRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-left: 3px solid var(--file-uploader-color, var(--line-subtle));
+  background: var(--surface-paper);
+}
+
+.docRow:not(:last-child) {
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.docIcon {
+  flex-shrink: 0;
+  font-size: var(--font-size-icon);
+}
+
+.docLink {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-link);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docCommentInput {
+  width: 140px;
+  padding: 2px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.docComment {
+  min-width: 60px;
+  color: var(--ink-faint);
+  font-size: var(--font-size-xs);
+  cursor: text;
+}
+
+.docCommentFilled {
+  color: var(--ink-soft);
+}
+
+.docCategory {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+  font-size: var(--font-size-2xs);
+}
+
+.docDeleteConfirm {
+  display: flex;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+.docDeleteBtn {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--line-strong);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.detailsEmpty {
+  padding: 30px;
+  border: 2px dashed var(--line-subtle);
+  border-radius: var(--radius-lg);
+  color: var(--ink-faint);
+  font-size: var(--font-size-md);
+  text-align: center;
 }

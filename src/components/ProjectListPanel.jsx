@@ -1,18 +1,13 @@
 import { useMemo, useState } from 'react';
+import { ChevronRight, Folder, FolderOpen, Pencil, Plus } from 'lucide-react';
 import { groupByClient } from './dashboardHelpers';
+import { PROJECT_FILE_CATEGORIES } from '../utils/projectFileCategories';
+import { COMPLETED_STATUSES, resolveDisplayStatus, statusColorVar } from '../utils/projectStatuses';
 import s from './ProjectListPanel.module.css';
 
-// Тот же канонический набор цветов статусов, что и в Settings.jsx («Legenda statusów projektów»).
-const STATUS_COLOR = {
-  new:        '#e53e3e',
-  design:     '#dd6b20',
-  production: '#d69e2e',
-  done:       '#38a169',
-};
-
-// Устаревшие польские значения статуса, встречающиеся в части данных наравне с 'done' —
-// трактуем их как «завершён», не трогая сами данные.
-const COMPLETED_STATUSES = new Set(['done', 'Zrealizowane', 'Zakończone']);
+// Цвета статусов — CSS-переменные из src/index.css через utils/projectStatuses.js (тот же набор,
+// что в «Legenda statusów projektów»). Устаревшие «завершённые» значения ('Zrealizowane',
+// 'Zakończone') — COMPLETED_STATUSES оттуда же.
 
 function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
   const projectName = client.project_name || client.full_name || '—';
@@ -24,9 +19,7 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
     // устаревших "завершённых" значений вроде 'Zrealizowane' попадает в STATUS_COLOR.new/красный) —
     // требование "status dot зелёный" для завершённых проектов на mobile обязано выполняться для
     // ЛЮБОГО значения из COMPLETED_STATUSES, не только 'done'. Desktop-ветка ниже не тронута.
-    const mobileColor = COMPLETED_STATUSES.has(client.status)
-      ? STATUS_COLOR.done
-      : (STATUS_COLOR[client.status] || STATUS_COLOR.new);
+    const mobileColor = statusColorVar(resolveDisplayStatus(client.status));
     return (
       <div
         className={`${s.mobileRow} ${isActive ? s.mobileRowActive : ''}`}
@@ -45,7 +38,7 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
     );
   }
 
-  const color = STATUS_COLOR[client.status] || STATUS_COLOR.new;
+  const color = statusColorVar(client.status);
 
   return (
     <div
@@ -65,6 +58,151 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
       <span className={s.statusDot} style={{ background: color }} />
     </div>
   );
+}
+
+const clientGroupKey = (client) => client?.client_name || client?.full_name || '—';
+
+// Desktop sidebar 2026-10: подменю папок файлов под активным проектом. Выбор папки и "+"
+// уходят в App → ProjectModal → FilesTab; сам FilesTab справа больше не рисует эти кнопки.
+function ProjectFileFolders({ activeCategory, onSelectCategory, onUploadFile, uploading }) {
+  return (
+    <div className={s.folderList} role="group" aria-label="Foldery plików projektu">
+      {PROJECT_FILE_CATEGORIES.map((category) => {
+        const isActive = category.id === activeCategory;
+        const Icon = isActive ? FolderOpen : Folder;
+        return (
+          <button
+            key={category.id}
+            type="button"
+            className={`${s.folderBtn} ${isActive ? s.folderBtnActive : ''}`}
+            aria-pressed={isActive}
+            disabled={uploading}
+            onClick={() => onSelectCategory(category.id)}
+          >
+            <Icon size={13} strokeWidth={2} aria-hidden="true" />
+            <span>{category.label}</span>
+          </button>
+        );
+      })}
+      {onUploadFile && (
+        <button
+          type="button"
+          className={s.folderUploadBtn}
+          disabled={uploading}
+          onClick={onUploadFile}
+          aria-label="Dodaj plik lub zdjęcie do wybranego folderu"
+          title="Dodaj plik lub zdjęcie do wybranego folderu"
+        >
+          <Plus size={13} strokeWidth={2.5} aria-hidden="true" />
+          <span>{uploading ? 'Wysyłanie…' : 'Dodaj plik'}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TreeProjectRow({ client, onRowClick, isActive, folders }) {
+  const projectName = client.project_name || client.full_name || '—';
+  const openTasks = (client.tasks || []).filter((t) => !t.isDone).length;
+  const color = statusColorVar(client.status);
+
+  return (
+    <div className={s.treeItem}>
+      <div
+        className={`${s.treeRow} ${isActive ? s.treeRowActive : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-current={isActive ? 'page' : undefined}
+        onClick={() => onRowClick(client)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(client); }
+        }}
+      >
+        <span className={s.treeRowName}>{projectName}</span>
+        {openTasks > 0 && <span className={s.rowTasks} title="Zadania do wykonania">{openTasks}</span>}
+        <span className={s.statusDot} style={{ background: color }} aria-hidden="true" />
+      </div>
+      {folders}
+    </div>
+  );
+}
+
+// Desktop-дерево «клиент → проекты»: по умолчанию видны только клиенты, проекты раскрываются
+// кликом по строке клиента (аккордеон). Справа на строке клиента — карандаш (окно «Klient i
+// projekt») и Bilans.
+function TreeClientGroups({
+  projects,
+  onRowClick,
+  activeProjectId,
+  isGroupOpen,
+  onToggleGroup,
+  onOpenBalance,
+  onEditClient,
+  renderFolders,
+}) {
+  return groupByClient(projects).map(([clientName, group]) => {
+    const open = isGroupOpen(clientName);
+    const containsActive = group.some((c) => c.id === activeProjectId);
+    const listId = `project-tree-${encodeURIComponent(clientName)}`;
+    return (
+      <div key={clientName} className={s.treeGroup}>
+        <div className={`${s.treeClient} ${containsActive ? s.treeClientCurrent : ''}`}>
+          <button
+            type="button"
+            className={s.treeClientToggle}
+            aria-expanded={open}
+            aria-controls={open ? listId : undefined}
+            onClick={() => onToggleGroup(clientName)}
+            title={clientName}
+          >
+            <ChevronRight
+              size={14}
+              strokeWidth={2.5}
+              className={`${s.treeChevron} ${open ? s.treeChevronOpen : ''}`}
+              aria-hidden="true"
+            />
+            <span className={s.treeClientName}>{clientName}</span>
+          </button>
+          {onEditClient && (
+            <button
+              type="button"
+              className={s.treeIconBtn}
+              onClick={(e) => { e.stopPropagation(); onEditClient(clientName, group); }}
+              aria-label={`Edytuj dane: ${clientName}`}
+              title="Edytuj dane klienta i projektu"
+            >
+              <Pencil size={13} strokeWidth={2} aria-hidden="true" />
+            </button>
+          )}
+          {onOpenBalance && (
+            <button
+              type="button"
+              className={s.desktopBalanceBtn}
+              onClick={(e) => { e.stopPropagation(); onOpenBalance(clientName); }}
+            >
+              Bilans
+            </button>
+          )}
+        </div>
+        {open && (
+          <div id={listId} className={s.treeChildren}>
+            {group.map((c) => {
+              const isActive = c.id === activeProjectId;
+              return (
+                <TreeProjectRow
+                  key={c.id}
+                  client={c}
+                  onRowClick={onRowClick}
+                  isActive={isActive}
+                  folders={isActive ? renderFolders?.() : null}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  });
 }
 
 // Группы «клиент → проекты» — временное представление поверх текущих данных clients
@@ -127,16 +265,97 @@ export default function ProjectListPanel({
   onOpenBalance,
   onOpenLibrary,
   libraryActive = false,
+  // Desktop sidebar (ProjectNav) 2026-10: дерево-аккордеон клиентов, карандаш редактирования и
+  // папки файлов под активным проектом. Мобильный dropdown и mobileLayout его не используют.
+  treeLayout = false,
+  onEditClient,
+  workspaceOpen = false,
+  activeFileCategory,
+  onSelectFileCategory,
+  onUploadFile,
+  filesUploading = false,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
 
-  // Защитный fallback: если обёртка не передала вычисленную группу, показываем GGS.
-  const effectiveScope = scopeView || 'firma';
-
   const handleOpen = (client) => {
     onOpenProject(client);
   };
+
+  // Аккордеон (treeLayout): по умолчанию все клиенты свёрнуты. Группа активного проекта
+  // раскрывается автоматически, когда проект открывают (из дерева, доски, поиска).
+  const activeProject = clients.find((c) => c.id === activeProjectId) || null;
+  const activeGroupKey = activeProject ? clientGroupKey(activeProject) : null;
+  const [openGroups, setOpenGroups] = useState(() => new Set(activeGroupKey ? [activeGroupKey] : []));
+  const [revealedProjectId, setRevealedProjectId] = useState(activeProjectId ?? null);
+  // Пока идёт поиск, совпавшие группы показаны раскрытыми; здесь — те, что пользователь
+  // свернул вручную во время текущего поиска.
+  const [searchClosedGroups, setSearchClosedGroups] = useState(() => new Set());
+
+  if ((activeProjectId ?? null) !== revealedProjectId) {
+    setRevealedProjectId(activeProjectId ?? null);
+    if (treeLayout && activeGroupKey) {
+      if (!openGroups.has(activeGroupKey)) setOpenGroups(new Set(openGroups).add(activeGroupKey));
+      if (COMPLETED_STATUSES.has(activeProject.status)) setCompletedOpen(true);
+    }
+  }
+
+  // Только что созданный проект (появился в clients после первой загрузки) — раскрываем его
+  // группу, чтобы новый проект сразу был виден в дереве.
+  const [seenClients, setSeenClients] = useState(clients);
+  if (clients !== seenClients) {
+    setSeenClients(clients);
+    if (treeLayout && seenClients.length > 0) {
+      const seenIds = new Set(seenClients.map((c) => c.id));
+      const addedKeys = clients.filter((c) => !seenIds.has(c.id)).map(clientGroupKey);
+      if (addedKeys.some((key) => !openGroups.has(key))) setOpenGroups(new Set([...openGroups, ...addedKeys]));
+    }
+  }
+
+  const isSearching = searchText.trim().length > 0;
+  const isGroupOpen = (key) => (isSearching ? !searchClosedGroups.has(key) : openGroups.has(key));
+  const toggleGroup = (key) => {
+    const toggle = (current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    };
+    if (isSearching) setSearchClosedGroups(toggle);
+    else setOpenGroups(toggle);
+  };
+  const handleSearchChange = (value) => {
+    setSearchText(value);
+    setSearchClosedGroups(new Set());
+  };
+
+  const renderFolders = workspaceOpen && onSelectFileCategory
+    ? () => (
+      <ProjectFileFolders
+        activeCategory={activeFileCategory}
+        onSelectCategory={onSelectFileCategory}
+        onUploadFile={onUploadFile}
+        uploading={filesUploading}
+      />
+    )
+    : null;
+
+  const renderGroups = (projects) => (treeLayout ? (
+    <TreeClientGroups
+      projects={projects}
+      onRowClick={handleOpen}
+      activeProjectId={activeProjectId}
+      isGroupOpen={isGroupOpen}
+      onToggleGroup={toggleGroup}
+      onOpenBalance={onOpenBalance}
+      onEditClient={onEditClient}
+      renderFolders={renderFolders}
+    />
+  ) : (
+    <ClientGroups projects={projects} onRowClick={handleOpen} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
+  ));
+
+  // Защитный fallback: если обёртка не передала вычисленную группу, показываем GGS.
+  const effectiveScope = scopeView || 'firma';
 
   const { active, completed } = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -182,7 +401,7 @@ export default function ProjectListPanel({
             className={s.search}
             placeholder="Szukaj projektu…"
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Szukaj projektu"
           />
 
@@ -218,13 +437,13 @@ export default function ProjectListPanel({
         className={s.search}
         placeholder="Szukaj projektu…"
         value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
+        onChange={(e) => handleSearchChange(e.target.value)}
         aria-label="Szukaj projektu"
       />
 
-      <div className={`${s.list} ${extraBottomPadding ? s.listExtraBottom : ''}`}>
+      <div className={`${s.list} ${treeLayout ? s.treeList : ''} ${extraBottomPadding ? s.listExtraBottom : ''}`}>
         {active.length === 0 && <div className={s.empty}>Brak projektów.</div>}
-        <ClientGroups projects={active} onRowClick={handleOpen} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
+        {renderGroups(active)}
       </div>
 
       {completed.length > 0 && (
@@ -238,8 +457,8 @@ export default function ProjectListPanel({
             {completedOpen ? '▾' : '▸'} Zakończone ({completed.length})
           </button>
           {completedOpen && (
-            <div className={s.completedList}>
-              <ClientGroups projects={completed} onRowClick={handleOpen} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
+            <div className={`${s.completedList} ${treeLayout ? s.treeList : ''}`}>
+              {renderGroups(completed)}
             </div>
           )}
         </div>

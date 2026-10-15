@@ -1,17 +1,8 @@
 import { useState, useEffect } from 'react';
 import projectFileCountsRepository from '../data/projectFileCountsRepository';
 import { nextTaskId } from './dashboardHelpers';
+import { PROJECT_STATUSES, STATUS_BOARD_TITLE, statusBoardColorVar } from '../utils/projectStatuses';
 import s from './KanbanBoard.module.css';
-
-const STATUS_COLOR = {
-  new:        '#ef4444',
-  design:     '#f59e0b',
-  production: '#eab308',
-  done:       '#22c55e',
-};
-
-const STATUSES = ['new', 'design', 'production', 'done'];
-const TITLES   = ['Nowe', 'Projektowanie / 3D', 'W produkcji', 'Montaż / Gotowe'];
 
 const MAX_TASKS_SHOWN = 4;
 
@@ -92,7 +83,7 @@ export default function KanbanBoard({
       <h1 className={s.pageTitle}>Projekty</h1>
 
       <div className="kanban-board">
-        {STATUSES.map((status, index) => (
+        {PROJECT_STATUSES.map((status) => (
           <div
             key={status}
             className="kanban-column"
@@ -100,7 +91,7 @@ export default function KanbanBoard({
             onDrop={(e) => handleDrop(e, status)}
           >
             <h3 className={s.columnTitle}>
-              {TITLES[index]} <span className={s.columnCount}>{getByStatus(status).length}</span>
+              {STATUS_BOARD_TITLE[status]} <span className={s.columnCount}>{getByStatus(status).length}</span>
             </h3>
 
             {getByStatus(status).map(client => {
@@ -116,7 +107,7 @@ export default function KanbanBoard({
                 <div
                   key={client.id}
                   className="client-card"
-                  style={{ borderLeft: `3px solid ${STATUS_COLOR[client.status] || STATUS_COLOR.new}` }}
+                  style={{ borderLeft: `3px solid ${statusBoardColorVar(client.status)}` }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, client.id)}
                   onClick={() => setActiveClient(client)}

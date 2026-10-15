@@ -74,9 +74,8 @@ const ProjectImportantPoints = ({ points = [], onChange, currentProfile = null }
           <span>Dodaj</span>
         </button>
       </div>
-      {points.length === 0 ? (
-        <div className={s.empty}>Brak ważnych informacji.</div>
-      ) : (
+      {/* Без записей остаётся только шапка с «+ Dodaj» — пустую рамку-заглушку не рисуем. */}
+      {points.length > 0 && (
         <div className={s.list}>
           {points.map(point => {
             const expanded = expandedId === point.id;

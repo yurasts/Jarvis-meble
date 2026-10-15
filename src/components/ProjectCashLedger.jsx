@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { transactionsForProject, sortCashDesc, summarizeCash, plannedWycena } from '../utils/cashLedger';
 import { projectTotals } from './dashboardHelpers';
+import { resolveDisplayStatus, statusColorVar } from '../utils/projectStatuses';
 import s from './ProjectCashLedger.module.css';
 
-const STATUS_COLOR = { new: '#e53e3e', design: '#dd6b20', production: '#d69e2e', done: '#38a169' };
-const COMPLETED_STATUSES = new Set(['done', 'Zrealizowane', 'Zakończone']);
 
 // getFullYear/getMonth/getDate — lokalna strefa czasowa. toISOString() konwertowałby na UTC, co
 // koło północy w Polsce (UTC+1/+2) potrafi cofnąć datę o jeden dzień (review P2).
@@ -257,7 +256,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   };
 
   const projectName = client.project_name || client.full_name || '—';
-  const statusColor = COMPLETED_STATUSES.has(client.status) ? STATUS_COLOR.done : (STATUS_COLOR[client.status] || STATUS_COLOR.new);
+  const statusColor = statusColorVar(resolveDisplayStatus(client.status));
   const formatDesktopMoney = (value) => Number(value || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   const formatDesktopSigned = (value, sign) => (
     value > 0 ? `${sign}${formatDesktopMoney(value)} zł` : `${formatDesktopMoney(value)} zł`

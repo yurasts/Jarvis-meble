@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../useAuth';
+import { STATUS_LEGEND, statusColorVar } from '../utils/projectStatuses';
 import s from './Settings.module.css';
 
 const PALETTE = [
@@ -410,14 +411,9 @@ const Settings = ({
         <h3 className={s.sectionTitle}>🚦 Legenda statusów projektów</h3>
         <p className={s.sectionDesc}>Kolor ramki karty projektu na Dashboard i Kanban.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {[
-            { color: '#e53e3e', status: 'new',        label: 'Nowy / Nieokreślony',              desc: 'Zapytanie, wycena, brak decyzji' },
-            { color: '#dd6b20', status: 'design',     label: 'Umowa podpisana / Projektowanie',  desc: 'Start projektu, zakup materiałów' },
-            { color: '#d69e2e', status: 'production', label: 'Produkcja / Składanie',            desc: 'Elementy w produkcji lub na hali' },
-            { color: '#38a169', status: 'done',       label: 'Montaż / Gotowe',                  desc: 'Montaż u klienta lub zakończony' },
-          ].map(({ color, status, label, desc }) => (
-            <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-base)', borderRadius: '8px', borderLeft: `4px solid ${color}` }}>
-              <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+          {STATUS_LEGEND.map(({ status, label, description: desc }) => (
+            <div key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-base)', borderRadius: '8px', borderLeft: `4px solid ${statusColorVar(status)}` }}>
+              <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: statusColorVar(status), flexShrink: 0 }} />
               <div>
                 <div style={{ fontWeight: 'bold', color: 'var(--text-main)', fontSize: '13px' }}>{label}</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{desc}</div>

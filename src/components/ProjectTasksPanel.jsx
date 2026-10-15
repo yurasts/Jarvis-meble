@@ -265,11 +265,12 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
         </div>
       ), document.body)}
 
-      <div className={s.list}>
-        {openTasks.length === 0 ? (
-          <div className={s.empty}>Brak zadań do wykonania.</div>
-        ) : openTasks.map(renderTask)}
-      </div>
+      {/* Пустой список не рисуем: «0 do wykonania» уже видно в заголовке. */}
+      {openTasks.length > 0 && (
+        <div className={s.list}>
+          {openTasks.map(renderTask)}
+        </div>
+      )}
 
       {showDone && doneTasks.length > 0 && (
         <div className={s.doneList}>

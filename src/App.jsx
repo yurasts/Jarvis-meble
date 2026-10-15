@@ -14,6 +14,7 @@ import clientsRepository from './data/clientsRepository';
 import catalogRepository from './data/catalogRepository';
 import { BOOTSTRAP_RESOURCES, loadBootstrapData } from './data/bootstrapData';
 import useCashTransactions from './components/useCashTransactions';
+import { DEFAULT_PROJECT_FILE_CATEGORY } from './utils/projectFileCategories';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -243,10 +244,23 @@ function App() {
   }, [authUserId, fetchBootstrapData])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
+  // Desktop workspace 2026-10: папка файлов активного проекта выбирается в левой панели (под
+  // проектом) и передаётся в FilesTab; "+" там же вызывает загрузку через fileUploadTriggerRef.
+  const [fileCategory, setFileCategory] = useState(DEFAULT_PROJECT_FILE_CATEGORY)
+  const [filesUploading, setFilesUploading] = useState(false)
+  const fileUploadTriggerRef = useRef(null)
+  // Окно «Klient i projekt» (бывший ℹ️ в шапке) открывается карандашом у клиента в левой панели.
+  const [clientEditOpen, setClientEditOpen] = useState(false)
+  // Проект, для которого после переключения нужно открыть это окно (карандаш у другого клиента).
+  const [pendingEditProjectId, setPendingEditProjectId] = useState(null)
 
   const openProjectModal = (client, initialTab = 'materials') => {
     setBalanceClientName(null)
     setPendingBalanceClientName(null)
+    if (client.id !== activeClient?.id) {
+      setFileCategory(DEFAULT_PROJECT_FILE_CATEGORY)
+      setClientEditOpen(false)
+    }
     setActiveClient(client)
     setOriginalClient(JSON.parse(JSON.stringify(client)))
     setProjectModalTab(initialTab)
@@ -257,6 +271,11 @@ function App() {
   // если открыт ДРУГОЙ проект с несохранёнными изменениями — не заменяет его сразу, а просит
   // подтверждение через тот же диалог, что и закрытие карточки (ADR-002, UX-faza 2.1).
   const requestOpenProject = (client, initialTab = 'materials') => {
+    // Повторный клик по уже открытому проекту (например, в дереве слева) ничего не делает —
+    // иначе черновик в рабочей области заменился бы сохранённой версией из списка.
+    if (isDesktop && viewMode === 'project' && client.id === activeClient?.id && initialTab === projectModalTab) {
+      return
+    }
     if (activeClient && workspaceDirty && client.id !== activeClient.id) {
       setPendingClient({ client, initialTab })
       setViewMode('project') // возвращает рабочую область в видимость, чтобы диалог было видно
@@ -288,6 +307,21 @@ function App() {
   const cancelPendingSwitch = () => {
     setPendingClient(null)
     setPendingBalanceClientName(null)
+    setPendingEditProjectId(null)
+  }
+
+  // Карандаш у клиента в левой панели: открывает окно «Klient i projekt» для активного проекта
+  // этого клиента, а если активен проект другого клиента — сначала открывает первый проект группы
+  // (через тот же диалог несохранённых изменений, что и обычное переключение).
+  const requestEditClient = (_clientName, group) => {
+    const target = group.find(c => c.id === activeClient?.id) || group[0]
+    if (!target) return
+    if (viewMode === 'project' && activeClient?.id === target.id) {
+      setClientEditOpen(true)
+      return
+    }
+    setPendingEditProjectId(target.id)
+    requestOpenProject(target)
   }
 
   const goToTab = (id) => {
@@ -494,6 +528,18 @@ function App() {
   const showDesktopBalance = isDesktop && viewMode === 'balance' && !!balanceClientName
 
   const showDesktopLibrary = isDesktop && viewMode === 'library'
+
+  // Отложенное открытие окна «Klient i projekt» — как только нужный проект стал активным.
+  if (pendingEditProjectId !== null && showWorkspace && activeClient?.id === pendingEditProjectId) {
+    setPendingEditProjectId(null)
+    setClientEditOpen(true)
+  }
+  // Ушли из рабочей области (доска, Bilans, библиотека) — очищаем и открытое, и
+  // отложенное состояние, чтобы редактор не «всплыл» при позднейшем возврате.
+  if (!showWorkspace) {
+    if (clientEditOpen) setClientEditOpen(false)
+    if (pendingEditProjectId !== null) setPendingEditProjectId(null)
+  }
   const openClientBalance = (clientName) => {
     if (isDesktop && viewMode === 'project' && activeClient && workspaceDirty) {
       setPendingClient(null)
@@ -541,6 +587,12 @@ function App() {
         activeProjectId={activeClient?.id}
         onOpenLibrary={openPro100Library}
         libraryActive={showDesktopLibrary}
+        onEditClient={requestEditClient}
+        workspaceOpen={showWorkspace}
+        activeFileCategory={fileCategory}
+        onSelectFileCategory={setFileCategory}
+        onUploadFile={() => fileUploadTriggerRef.current?.()}
+        filesUploading={filesUploading}
       />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
@@ -700,6 +752,12 @@ function App() {
             onDeleteCashTransaction={deleteCashTransaction}
             cashStatus={cashStatus}
             onRetryCash={loadCashTransactions}
+            fileCategory={fileCategory}
+            onFileCategoryChange={setFileCategory}
+            fileUploadTriggerRef={fileUploadTriggerRef}
+            onFilesUploadingChange={setFilesUploading}
+            clientInfoOpen={clientEditOpen}
+            onClientInfoOpenChange={setClientEditOpen}
           />
         ) : (
         <>
