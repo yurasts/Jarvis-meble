@@ -87,6 +87,124 @@ html[data-theme="forest"] .client-card:hover {
   box-shadow: 0 4px 6px rgba(0,0,0,0.5);
 }
 
+/* --- 2c. ДИЗАЙН-ТОКЕНЫ (2026-10) ---
+   Единое место для цветов, радиусов и размеров шрифта, которые раньше были захардкожены в JSX.
+   Слои:
+   1) палитра (--palette-*) — «сырые» цвета, НЕ зависят от темы;
+   2) семантические токены (--surface-*, --line-*, --ink-*, --tone-*, --status-*) — их и
+      используют компоненты. Сейчас семантика указывает на ту же палитру во всех темах, поэтому
+      внешний вид не изменился; чтобы перекрасить элемент в конкретной теме, достаточно
+      переопределить семантический токен в html[data-theme="dark"] / html[data-theme="forest"].
+   ProjectModal и другие компоненты, красившие себя через isDark ? … : …, считают тёмными и dark,
+   и forest — поэтому «тёмные» значения ниже заданы для обеих тем. */
+:root {
+  /* Палитра */
+  --palette-white:      #ffffff;
+  --palette-gray-200:   #e2e8f0;
+  --palette-gray-300:   #cbd5e0;
+  --palette-gray-500:   #a0aec0;
+  --palette-gray-600:   #4a5568;
+  --palette-gray-700:   #2d3748;
+  --palette-blue-500:   #3182ce;
+  --palette-blue-700:   #2b6cb0;
+  --palette-green-600:  #38a169;
+  --palette-orange-300: #f6ad55;
+  --palette-yellow-900: #744210;
+  --palette-red-500:    #e53e3e;
+
+  /* Поверхности, линии, текст (фиксированные, не зависят от темы) */
+  --surface-paper:      var(--palette-white);
+  --line-subtle:        var(--palette-gray-200);
+  --line-strong:        var(--palette-gray-300);
+  --ink-strong:         var(--palette-gray-700);
+  --ink-soft:           var(--palette-gray-600);
+  --ink-faint:          var(--palette-gray-500);
+  --ink-link:           var(--palette-blue-700);
+  --ink-on-accent:      var(--palette-white);
+
+  /* Акценты */
+  --tone-primary:       var(--palette-blue-500);
+  --tone-success:       var(--palette-green-600);
+  --tone-highlight:     var(--palette-orange-300);
+  --tone-highlight-ink: var(--palette-yellow-900);
+  --tone-danger:        var(--palette-red-500);
+  --tone-highlight-ring: rgba(246, 173, 85, 0.4);
+  --scrim-soft:         rgba(0, 0, 0, 0.45);
+  --scrim-medium:       rgba(0, 0, 0, 0.55);
+  --scrim-strong:       rgba(0, 0, 0, 0.75);
+  --scrim-dialog:       rgba(0, 0, 0, 0.5);
+  --scrim-overlay:      rgba(0, 0, 0, 0.7);
+  --shadow-dialog:      0 8px 30px rgba(0, 0, 0, 0.3);
+  --shadow-modal:       0 10px 25px rgba(0, 0, 0, 0.3);
+  --ink-client-name:    #4da6ff;
+
+  /* Разделы проекта (вкладки и шапки Materiały / Usługi / Rozliczenia / Pliki):
+     *-ink — текст, *-line — акцентная линия, *-tint — заливка активной вкладки. */
+  --section-materials-ink:  #2b6cb0;
+  --section-materials-line: #3182ce;
+  --section-materials-tint: #ebf8ff;
+  --section-services-ink:   #276749;
+  --section-services-line:  #38a169;
+  --section-services-tint:  #f0fff4;
+  --section-expenses-ink:   #c53030;
+  --section-expenses-line:  #e53e3e;
+  --section-expenses-tint:  #fff5f5;
+  --section-files-ink:      #553c9a;
+  --section-files-line:     #805ad5;
+  --section-files-tint:     #faf5ff;
+
+  /* Статусы проектов — единый источник, см. src/utils/projectStatuses.js */
+  --status-new-color:        #e53e3e;
+  --status-new-bg:           rgba(229, 62, 62, 0.04);
+  --status-design-color:     #dd6b20;
+  --status-design-bg:        rgba(221, 107, 32, 0.04);
+  --status-production-color: #d69e2e;
+  --status-production-bg:    rgba(214, 158, 46, 0.04);
+  --status-done-color:       #38a169;
+  --status-done-bg:          rgba(56, 161, 105, 0.04);
+  /* Tablica projektów исторически использует более яркие оттенки. Чтобы доска совпала с
+     остальным приложением, достаточно заменить значения на var(--status-*-color). */
+  --status-new-board-color:        #ef4444;
+  --status-design-board-color:     #f59e0b;
+  --status-production-board-color: #eab308;
+  --status-done-board-color:       #22c55e;
+
+  /* Радиусы скругления */
+  --radius-xs:   3px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   10px;
+  --radius-2xl:  12px;
+  --radius-pill: 999px;
+
+  /* Размеры шрифта */
+  --font-size-2xs:  10px;
+  --font-size-xs:   11px;
+  --font-size-sm:   12px;
+  --font-size-md:   13px;
+  --font-size-base: 14px;
+  --font-size-lg:   16px;
+  --font-size-icon: 18px;
+}
+
+html[data-theme="dark"],
+html[data-theme="forest"] {
+  --section-materials-ink:  #63b3ed;
+  --section-materials-tint: #0f2236;
+  --section-services-ink:   #68d391;
+  --section-services-tint:  #0f2a1a;
+  --section-expenses-ink:   #fc8181;
+  --section-expenses-tint:  #2d1515;
+  --section-files-ink:      #b794f4;
+  --section-files-tint:     #1a102e;
+
+  --status-new-bg:        rgba(229, 62, 62, 0.08);
+  --status-design-bg:     rgba(221, 107, 32, 0.08);
+  --status-production-bg: rgba(214, 158, 46, 0.08);
+  --status-done-bg:       rgba(56, 161, 105, 0.08);
+}
+
 /* --- 3. СБРОС VITE И БРАУЗЕРА --- */
 
 html, body, #root {

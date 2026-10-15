@@ -19,10 +19,12 @@ export function FileCategorySelect({
   onChange,
   showCounts = false,
   ariaLabel,
+  className,
   style,
 }) {
   return (
     <select
+      className={className}
       value={value}
       disabled={disabled}
       onChange={event => onChange(event.target.value)}
@@ -66,41 +68,43 @@ export function ProjectFileDetails({
   onDelete,
 }) {
   const categoryIcon = categoryId => categories.find(category => category.id === categoryId)?.icon;
+  // Цвет автора файла — единственное значение из данных; передаётся в CSS через переменную,
+  // остальные стили живут в FilesTab.module.css.
+  const uploaderStyle = file => (file.uploaded_by_color ? { '--file-uploader-color': file.uploaded_by_color } : undefined);
 
   return (
     <>
-      {loading && <div style={{ color: '#a0aec0', fontSize: '13px' }}>Ładowanie...</div>}
+      {loading && <div className={fs.detailsLoading}>Ładowanie...</div>}
       <FileActionError message={fileActionError} />
 
       {images.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+        <div className={fs.detailsGrid}>
           {images.map(file => {
             const isCover = coverUrl === file.file_url;
             const isDeleting = deletingFileId === file.id;
             return (
-              <div key={file.id} style={{
-                borderRadius: '6px', overflow: 'hidden', position: 'relative',
-                border: isCover ? '2px solid #f6ad55' : `2px solid ${file.uploaded_by_color || '#e2e8f0'}`,
-                background: '#fff',
-                boxShadow: isCover ? '0 0 0 2px #f6ad5566' : 'none',
-              }}>
-                <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => onOpenImage(file.id)}>
+              <div
+                key={file.id}
+                className={[fs.imageCard, isCover ? fs.imageCardCover : ''].filter(Boolean).join(' ')}
+                style={uploaderStyle(file)}
+              >
+                <div className={fs.imagePreview} onClick={() => onOpenImage(file.id)}>
                   <img
                     src={getProjectFileDisplayUrl(file)}
                     alt={file.file_name}
-                    style={{ width: '100%', height: '100px', objectFit: 'cover', display: 'block' }}
+                    className={fs.imagePreviewImg}
                   />
-                  <div style={{ position: 'absolute', top: '4px', left: '4px', background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: '10px', padding: '1px 5px', borderRadius: '3px' }}>
+                  <div className={fs.imageCategoryBadge}>
                     {categoryIcon(file.category)}
                   </div>
                   {isCover && (
-                    <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: '#f6ad55', color: '#744210', fontSize: '10px', fontWeight: 'bold', padding: '1px 5px', borderRadius: '3px' }}>
+                    <div className={fs.imageCoverBadge}>
                       okładka
                     </div>
                   )}
                 </div>
 
-                <div style={{ padding: '4px 6px', borderTop: `2px solid ${file.uploaded_by_color || '#e2e8f0'}` }}>
+                <div className={fs.imageCommentArea}>
                   {editingComment === file.id ? (
                     <input
                       autoFocus
@@ -109,12 +113,12 @@ export function ProjectFileDetails({
                       onBlur={() => onSaveComment(file)}
                       onKeyDown={event => event.key === 'Enter' && onSaveComment(file)}
                       aria-label={`Komentarz do ${file.file_name}`}
-                      style={{ width: '100%', fontSize: '11px', border: 'none', outline: 'none', background: 'transparent', boxSizing: 'border-box' }}
+                      className={fs.imageCommentInput}
                     />
                   ) : (
                     <div
                       onClick={() => onStartComment(file)}
-                      style={{ fontSize: '11px', color: file.comment ? '#2d3748' : '#a0aec0', cursor: 'text', minHeight: '16px' }}
+                      className={[fs.imageComment, file.comment ? fs.imageCommentFilled : ''].filter(Boolean).join(' ')}
                     >
                       {file.comment || '+ komentarz'}
                     </div>
@@ -126,26 +130,19 @@ export function ProjectFileDetails({
                   onClick={event => { event.stopPropagation(); onToggleCover(file); }}
                   disabled={settingCover === file.id}
                   title={isCover ? 'Usuń okładkę' : 'Ustaw jako okładkę projektu'}
-                  style={{
-                    position: 'absolute', bottom: '28px', right: '4px',
-                    background: isCover ? '#f6ad55' : 'rgba(0,0,0,0.45)',
-                    border: 'none', borderRadius: '50%', width: '22px', height: '22px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: '12px', lineHeight: 1,
-                    transition: 'background 0.15s',
-                  }}
+                  className={[fs.coverToggle, isCover ? fs.coverToggleActive : ''].filter(Boolean).join(' ')}
                 >
                   {settingCover === file.id ? '⏳' : isCover ? '⭐' : '☆'}
                 </button>
 
-                <div style={{ position: 'absolute', top: '4px', right: '4px' }}>
+                <div className={fs.imageDeleteSlot}>
                   {confirmDeleteId === file.id ? (
-                    <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: '4px', padding: '3px 5px', display: 'flex', gap: '3px' }}>
-                      <button type="button" disabled={isDeleting} onClick={() => onDelete(file)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}>{isDeleting ? '…' : 'Tak'}</button>
-                      <button type="button" disabled={isDeleting} onClick={onCancelDelete} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 5px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}>Nie</button>
+                    <div className={fs.imageDeleteConfirm}>
+                      <button type="button" disabled={isDeleting} onClick={() => onDelete(file)} className={fs.imageConfirmYes}>{isDeleting ? '…' : 'Tak'}</button>
+                      <button type="button" disabled={isDeleting} onClick={onCancelDelete} className={fs.imageConfirmNo}>Nie</button>
                     </div>
                   ) : (
-                    <button type="button" disabled={deletingFileId !== null} aria-label={`Usuń plik ${file.file_name}`} onClick={() => onConfirmDelete(file.id)} style={{ background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none', width: '20px', height: '20px', borderRadius: '50%', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>✖</button>
+                    <button type="button" disabled={deletingFileId !== null} aria-label={`Usuń plik ${file.file_name}`} onClick={() => onConfirmDelete(file.id)} className={fs.imageDeleteBtn}>✖</button>
                   )}
                 </div>
               </div>
@@ -155,13 +152,13 @@ export function ProjectFileDetails({
       )}
 
       {documents.length > 0 && (
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-          {documents.map((file, index) => {
+        <div className={fs.docList}>
+          {documents.map(file => {
             const isDeleting = deletingFileId === file.id;
             return (
-              <div key={file.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderBottom: index < documents.length - 1 ? '1px solid #e2e8f0' : 'none', background: '#fff', borderLeft: `3px solid ${file.uploaded_by_color || '#e2e8f0'}` }}>
-                <span style={{ fontSize: '18px', flexShrink: 0 }}>{file.file_type === 'application/pdf' ? '📄' : '📁'}</span>
-                <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#2b6cb0', fontWeight: 'bold', textDecoration: 'none', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.file_name}>
+              <div key={file.id} className={fs.docRow} style={uploaderStyle(file)}>
+                <span className={fs.docIcon}>{file.file_type === 'application/pdf' ? '📄' : '📁'}</span>
+                <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" className={fs.docLink} title={file.file_name}>
                   {file.file_name}
                 </a>
                 {editingComment === file.id ? (
@@ -173,21 +170,21 @@ export function ProjectFileDetails({
                     onKeyDown={event => event.key === 'Enter' && onSaveComment(file)}
                     aria-label={`Komentarz do ${file.file_name}`}
                     placeholder="Komentarz..."
-                    style={{ fontSize: '11px', border: '1px solid #cbd5e0', borderRadius: '4px', padding: '2px 6px', width: '140px' }}
+                    className={fs.docCommentInput}
                   />
                 ) : (
-                  <span onClick={() => onStartComment(file)} style={{ fontSize: '11px', color: file.comment ? '#4a5568' : '#a0aec0', cursor: 'text', minWidth: '60px' }}>
+                  <span onClick={() => onStartComment(file)} className={[fs.docComment, file.comment ? fs.docCommentFilled : ''].filter(Boolean).join(' ')}>
                     {file.comment || '+ komentarz'}
                   </span>
                 )}
-                <span style={{ fontSize: '10px', color: '#a0aec0', flexShrink: 0 }}>{categoryIcon(file.category)}</span>
+                <span className={fs.docCategory}>{categoryIcon(file.category)}</span>
                 {confirmDeleteId === file.id ? (
-                  <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                    <button type="button" disabled={isDeleting} onClick={() => onDelete(file)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>{isDeleting ? '…' : 'Tak'}</button>
-                    <button type="button" disabled={isDeleting} onClick={onCancelDelete} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
+                  <div className={fs.docDeleteConfirm}>
+                    <button type="button" disabled={isDeleting} onClick={() => onDelete(file)} className={fs.docConfirmYes}>{isDeleting ? '…' : 'Tak'}</button>
+                    <button type="button" disabled={isDeleting} onClick={onCancelDelete} className={fs.docConfirmNo}>Nie</button>
                   </div>
                 ) : (
-                  <button type="button" disabled={deletingFileId !== null} aria-label={`Usuń plik ${file.file_name}`} onClick={() => onConfirmDelete(file.id)} style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', flexShrink: 0, lineHeight: 1 }}>✖</button>
+                  <button type="button" disabled={deletingFileId !== null} aria-label={`Usuń plik ${file.file_name}`} onClick={() => onConfirmDelete(file.id)} className={fs.docDeleteBtn}>✖</button>
                 )}
               </div>
             );
@@ -196,7 +193,7 @@ export function ProjectFileDetails({
       )}
 
       {!loading && images.length === 0 && documents.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '30px', color: '#a0aec0', fontSize: '13px', border: '2px dashed #e2e8f0', borderRadius: '8px' }}>
+        <div className={fs.detailsEmpty}>
           {isShelf ? 'Brak plików w tym folderze.' : 'Brak plików w tej kategorii.'}
         </div>
       )}
@@ -214,9 +211,10 @@ export function DesktopProjectFileCarousel({
   onConfirmDelete,
   onCancelDelete,
   onDelete,
+  emptyText = 'Brak plików w tym folderze.',
 }) {
   if (loading) return <div className={fs.desktopEmpty}>Ładowanie...</div>;
-  if (files.length === 0) return <div className={fs.desktopEmpty}>Brak plików w tym folderze.</div>;
+  if (files.length === 0) return <div className={fs.desktopEmpty}>{emptyText}</div>;
 
   return (
     <div className={fs.desktopCarousel}>
@@ -228,8 +226,7 @@ export function DesktopProjectFileCarousel({
               alt={file.file_name}
               draggable={false}
               onClick={() => onOpenImage(file.id)}
-              className={fs.desktopCarouselImg}
-              style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
+              className={[fs.desktopCarouselImg, coverUrl === file.file_url ? fs.desktopCarouselImgCover : ''].filter(Boolean).join(' ')}
             />
           ) : (
             <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" title={file.file_name} className={fs.desktopCarouselDoc}>

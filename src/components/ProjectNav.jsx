@@ -16,6 +16,12 @@ export default function ProjectNav({
   onOpenLibrary,
   libraryActive,
   activeProjectId,
+  onEditClient,
+  workspaceOpen,
+  activeFileCategory,
+  onSelectFileCategory,
+  onUploadFile,
+  filesUploading,
 }) {
   return (
     <div className={s.sidebar}>
@@ -48,6 +54,13 @@ export default function ProjectNav({
         onOpenLibrary={onOpenLibrary}
         libraryActive={libraryActive}
         activeProjectId={activeProjectId}
+        treeLayout
+        onEditClient={onEditClient}
+        workspaceOpen={workspaceOpen}
+        activeFileCategory={activeFileCategory}
+        onSelectFileCategory={onSelectFileCategory}
+        onUploadFile={onUploadFile}
+        filesUploading={filesUploading}
       />
 
     </div>

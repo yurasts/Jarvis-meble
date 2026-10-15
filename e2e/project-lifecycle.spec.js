@@ -23,15 +23,23 @@ test('owner saves a protected project draft and completes the cash transaction l
   });
 
   await page.getByRole('button', { name: /Kuchnia E2E/ }).click();
-  const projectName = page.getByPlaceholder('Nazwa projektu (szafa, kuchnia...)');
+  await expect(page.getByRole('group', { name: 'Foldery plików projektu' })).toBeVisible();
+
+  // Nazwy klienta i projektu edytuje się w oknie otwieranym ołówkiem przy kliencie w drzewie.
+  await page.getByRole('button', { name: 'Edytuj dane: Jan Nowak' }).click();
+  const projectName = page.getByLabel('Nazwa projektu');
   await expect(projectName).toHaveValue('Kuchnia E2E');
   await projectName.fill('Kuchnia E2E po zmianie');
+  await page.getByRole('button', { name: 'Gotowe' }).click();
 
+  await page.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
   await page.getByRole('button', { name: /Szafa istniejąca/ }).click();
   const dirtyDialog = page.getByRole('heading', { name: 'Masz niezapisane zmiany' }).locator('..');
   await expect(dirtyDialog).toBeVisible();
   await dirtyDialog.getByRole('button', { name: 'Anuluj' }).click();
+  await page.getByRole('button', { name: 'Edytuj dane: Jan Nowak' }).click();
   await expect(projectName).toHaveValue('Kuchnia E2E po zmianie');
+  await page.getByRole('button', { name: 'Gotowe' }).click();
 
   await page.locator('.main-content').getByRole('button', { name: /Zapisz/ }).first().click();
   await expect(page.getByText('✓ Zapisano')).toBeVisible();

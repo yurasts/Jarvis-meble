@@ -1,5 +1,10 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { getProjectFileDisplayUrl } from '../utils/projectFileAccess';
+import {
+  DEFAULT_PROJECT_FILE_CATEGORY,
+  PROJECT_FILE_CATEGORIES,
+  findProjectFileCategory,
+} from '../utils/projectFileCategories';
 import {
   isProjectImage as isImage,
   isProjectPdf as isPdf,
@@ -16,19 +21,12 @@ import {
 import useProjectFiles from './useProjectFiles';
 import fs from './FilesTab.module.css';
 
-// Единая таблица четырёх реальных папок — общая для variant='shelf' и variant='tab' (оба
-// используют один и тот же селектор одновременно как фильтр видимых файлов и как категорию
-// загрузки нового файла). "Wszystkie" сюда намеренно не входит — обе полки не место назначения
-// для загрузки "во все"; id совпадают с project_files.category и нигде не переименовываются.
-const FOLDER_CATEGORIES = [
-  { id: 'projekt', label: 'Zadanie', icon: '📐' },
-  { id: 'usterki', label: 'Projekt', icon: '⚠' },
-  { id: 'montaz',  label: 'Montaż',  icon: '✅' },
-  { id: 'inne',    label: 'Inne',    icon: '📄' },
-];
-
-const DESKTOP_FOLDER_CATEGORIES = ['usterki', 'projekt', 'montaz', 'inne']
-  .map(id => FOLDER_CATEGORIES.find(category => category.id === id));
+// Четыре реальные папки (id = project_files.category, см. utils/projectFileCategories.js) —
+// общие для variant='shelf' и variant='tab': один и тот же выбор одновременно фильтрует видимые
+// файлы и служит категорией загрузки. "Wszystkie" сюда намеренно не входит.
+// Единый порядок для mobile/tab и desktop: Projekt → Zadanie → Krój → Montaż.
+// На desktop сами кнопки папок живут в левой панели.
+const FOLDER_CATEGORIES = PROJECT_FILE_CATEGORIES;
 
 const isStoFile = (file) => /\.sto$/i.test(file?.file_name || '');
 
@@ -48,7 +46,27 @@ const pluralPliki = (n) => {
 // используемая и в шапке desktop/embedded, и (с mobileLayout=true) внутри прокручиваемого
 // контента mobile-экрана проекта (ADR-003 + feat/mobile-files-zoom). Один компонент, один
 // files-стейт, один fetch — переключается только JSX-вывод, никакого второго монтирования/запроса.
-export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverChange, variant = 'tab', initialShelfExpanded = false, expanded: expandedProp, onExpandedChange, mobileLayout = false, mobileWorkspaceLayout = false }) {
+// Desktop workspace (2026-10): кнопки папок и "+" вынесены в левую панель под активный проект.
+// В этом режиме (externalFolderControls) выбранная папка приходит снаружи (category /
+// onCategoryChange), а "+" вызывает загрузку через функцию, которую FilesTab регистрирует в
+// uploadTriggerRef — сам скрытый <input type="file"> остаётся здесь, рядом с useProjectFiles.
+export default function FilesTab({
+  clientId,
+  currentProfile,
+  coverUrl,
+  onCoverChange,
+  variant = 'tab',
+  initialShelfExpanded = false,
+  expanded: expandedProp,
+  onExpandedChange,
+  mobileLayout = false,
+  mobileWorkspaceLayout = false,
+  externalFolderControls = false,
+  category: categoryProp,
+  onCategoryChange,
+  uploadTriggerRef,
+  onUploadingChange,
+}) {
   const isShelf = variant === 'shelf';
   const {
     files,
@@ -72,10 +90,24 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // изначально видна папка "usterki" (подпись "⚠ Projekt" — см. FOLDER_CATEGORIES). В обеих
   // вариантах один и тот же activeCategory одновременно фильтрует видимые файлы и служит
   // категорией загрузки — отдельного uploadCategory-стейта больше нет ни у одной из них.
-  const [activeCategory, setActiveCategory] = useState('usterki');
+  const [internalCategory, setInternalCategory] = useState(DEFAULT_PROJECT_FILE_CATEGORY);
+  const isCategoryControlled = categoryProp !== undefined;
+  const activeCategory = isCategoryControlled ? categoryProp : internalCategory;
+  const setActiveCategory = (id) => {
+    if (isCategoryControlled) onCategoryChange?.(id);
+    else setInternalCategory(id);
+  };
   const [editingComment, setEditingComment] = useState(null);
   const [commentDraft,   setCommentDraft]   = useState('');
   const [confirmDeleteId,setConfirmDeleteId]= useState(null);
+  // Папка сменилась снаружи (клик в левой панели) — сбрасываем открытое подтверждение удаления и
+  // ошибку прошлой операции так же, как при локальном selectFolder (adjust-state-during-render).
+  const [renderedCategory, setRenderedCategory] = useState(activeCategory);
+  if (renderedCategory !== activeCategory) {
+    setRenderedCategory(activeCategory);
+    setConfirmDeleteId(null);
+    if (fileActionError) clearFileActionError();
+  }
   // id файла, открытого в общем FileLightbox (не url — id стабилен и однозначно находит позицию
   // в текущей отфильтрованной по категории подборке images, даже если files успел измениться).
   const [lightboxFileId, setLightboxFileId] = useState(null);
@@ -94,6 +126,23 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   };
   const fileInputRef = useRef();
   const stoInputRef = useRef();
+
+  // "+" из левой панели: регистрируем функцию открытия диалога выбора файлов. Вызывается прямо
+  // из обработчика клика кнопки, поэтому браузер считает это действием пользователя.
+  useEffect(() => {
+    if (!uploadTriggerRef) return undefined;
+    const trigger = () => fileInputRef.current?.click();
+    uploadTriggerRef.current = trigger;
+    return () => {
+      if (uploadTriggerRef.current === trigger) uploadTriggerRef.current = null;
+    };
+  }, [uploadTriggerRef]);
+
+  useEffect(() => {
+    if (!onUploadingChange) return undefined;
+    onUploadingChange(uploading);
+    return () => onUploadingChange(false);
+  }, [uploading, onUploadingChange]);
 
   // Именованный (не создаваемый заново в .map()) обработчик выбора папки — используется рядом
   // кнопок-папок в mobileWorkspaceLayout ниже; тот же принцип "один select одновременно фильтрует
@@ -202,12 +251,27 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
   // touch-target'ы ≥40×40px, счётчик встроен в текст опции селектора, подпись "📎 Pliki" скрыта,
   // подписи кнопок — иконки с aria-label/title, лента миниатюр крупнее). ========
   if (isShelf && !mobileLayout && !mobileWorkspaceLayout) {
+    const activeFolder = findProjectFileCategory(activeCategory);
     return (
-      <section className={fs.desktopShelf} aria-label="Pliki projektu">
+      <section
+        className={[fs.desktopShelf, externalFolderControls ? fs.desktopShelfCompact : ''].filter(Boolean).join(' ')}
+        aria-label={externalFolderControls && activeFolder ? `Pliki projektu: ${activeFolder.label}` : 'Pliki projektu'}
+      >
+        {externalFolderControls ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.pms,.pr0"
+            hidden
+            onChange={handleUpload}
+            data-testid="project-files-upload-input"
+          />
+        ) : (
         <div className={fs.desktopControls}>
           <strong className={fs.desktopTitle}>Pliki projektu</strong>
           <div className={fs.desktopFolderRow}>
-            {DESKTOP_FOLDER_CATEGORIES.map(category => (
+            {FOLDER_CATEGORIES.map(category => (
               <button
                 key={category.id}
                 type="button"
@@ -231,10 +295,14 @@ export default function FilesTab({ clientId, currentProfile, coverUrl, onCoverCh
             <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" hidden onChange={handleUpload} />
           </div>
         </div>
+        )}
 
         <DesktopProjectFileCarousel
           files={visible}
           loading={loading}
+          emptyText={externalFolderControls && activeFolder
+            ? `Brak plików w folderze „${activeFolder.label}”. Dodaj je przyciskiem + w panelu projektów po lewej.`
+            : undefined}
           coverUrl={coverUrl}
           deletingFileId={deletingFileId}
           confirmDeleteId={confirmDeleteId}

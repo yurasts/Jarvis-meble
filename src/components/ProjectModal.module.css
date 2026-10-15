@@ -1,0 +1,651 @@
+/* ================================================
+   ProjectModal — структурные стили (2026-10).
+   Перенесено из inline-объектов outerStyle/innerStyle/contentAreaStyle, шапок, вкладок,
+   заголовков секций, панели «Zapisz» и диалогов. Цвета — токены из src/index.css; статус
+   проекта приходит из данных через --project-status-color / --project-status-bg (inline).
+   Строки таблиц и карточки позиций пока остаются inline (передают цвета дочерним компонентам).
+   ================================================ */
+
+/* ---------- Оболочка: три варианта ---------- */
+.shellEmbedded {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* variant='mobile': 100dvh устойчиво к динамическому viewport Safari; overscroll-behavior
+   не «протаскивает» документ под экраном; inset:0 + непрозрачный фон полностью закрывают viewport. */
+.shellMobile {
+  position: fixed;
+  inset: 0;
+  left: var(--mobile-landscape-nav-width, 0px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: var(--modal-bg);
+}
+
+.shellModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 30px;
+  padding-bottom: 30px;
+  overflow-y: auto;
+  background-color: var(--scrim-overlay);
+}
+
+.shellModalCompact {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* ---------- Панель (карточка проекта) ---------- */
+.panel {
+  position: relative;
+  background: var(--modal-bg);
+  background-image: linear-gradient(var(--project-status-bg), var(--project-status-bg));
+  border-top: 3px solid var(--project-status-color);
+}
+
+.panelEmbedded {
+  width: 100%;
+  max-width: 1400px;
+  padding: 15px;
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+}
+
+.panelMobile {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+  border-top: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.panelModal {
+  width: 95%;
+  max-width: 1100px;
+  padding: 15px;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
+}
+
+.panelModalCompact {
+  border-radius: 0;
+}
+
+/* Единственный прокручиваемый блок мобильного экрана (между шапкой и панелью «Zapisz»). */
+.contentMobile {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 10px 15px 16px;
+}
+
+/* ---------- Мобильная шапка ---------- */
+.mobileHeader {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 10px 15px 8px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  border-bottom: 2px solid var(--border);
+  background: var(--modal-bg);
+}
+
+.mobileBackBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mobileTitleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mobileTitleText {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileClientRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mobileClientName,
+.mobileProjectName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileClientName {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.mobileProjectName {
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.infoIconBtn {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.infoIconBtnLarge {
+  font-size: var(--font-size-base);
+}
+
+.statusPill {
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--project-status-color);
+  color: var(--ink-on-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mobileShelf {
+  margin-bottom: 14px;
+}
+
+/* ---------- Шапка modal-fallback (Klient / Projekt) ---------- */
+.modalHeader {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+
+.modalHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modalHeaderFields {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.modalHeaderField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.modalHeaderFieldClient {
+  flex: 1 1 140px;
+}
+
+.modalHeaderFieldProject {
+  flex: 1 1 160px;
+}
+
+.fieldLabel {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+  font-size: var(--font-size-xs);
+}
+
+.headerInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 60px;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  outline: none;
+  background: transparent;
+  font-weight: 700;
+}
+
+.headerInputClient {
+  color: var(--ink-client-name);
+  font-size: var(--font-size-lg);
+}
+
+.headerInputProject {
+  color: var(--text-main);
+  font-size: var(--font-size-base);
+}
+
+.headerInputClientCompact {
+  font-size: 15px;
+}
+
+.headerInputProjectCompact {
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Embedded: лента файлов + действия справа ---------- */
+.workspaceShelfRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.workspaceShelfMain {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Действия: Firma/Moje + Zapisz ---------- */
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scopeToggle {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.scopeBtn {
+  padding: 6px 10px;
+  border: none;
+  background: var(--modal-bg);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scopeBtnActive {
+  background: var(--tone-primary);
+  color: var(--ink-on-accent);
+}
+
+.saveBtn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--tone-primary);
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.saveStatus {
+  max-width: 220px;
+  color: var(--tone-success);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-align: right;
+}
+
+.saveStatusError {
+  color: var(--tone-danger);
+}
+
+/* ---------- Окно «Klient i projekt» / «Informacje o kliencie» ---------- */
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--scrim-dialog);
+}
+
+.dialog {
+  width: 100%;
+  max-width: 380px;
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  background: var(--modal-bg);
+  color: var(--text-main);
+  box-shadow: var(--shadow-dialog);
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+}
+
+.dialogClose {
+  border: none;
+  background: none;
+  color: var(--text-main);
+  font-size: var(--font-size-icon);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+
+.dialogField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dialogLabel {
+  flex-shrink: 0;
+  width: 60px;
+  color: var(--ink-faint);
+  font-size: var(--font-size-xs);
+}
+
+.dialogInput {
+  flex: 1;
+  padding: 2px 0;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: var(--font-size-md);
+}
+
+.dialogInputStrong {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.dialogInputDate {
+  background: var(--input-bg);
+}
+
+.dialogLink {
+  flex-shrink: 0;
+  font-size: var(--font-size-base);
+}
+
+.dialogFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.dialogHint {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Вкладки ---------- */
+.tabBar {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 15px;
+  overflow-x: auto;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.tabBarMobile {
+  overflow-x: hidden;
+}
+
+.tab {
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabMobile {
+  flex: 1;
+  text-align: center;
+}
+
+.tabMaterials { --tab-ink: var(--section-materials-ink); --tab-line: var(--section-materials-line); --tab-tint: var(--section-materials-tint); }
+.tabServices  { --tab-ink: var(--section-services-ink);  --tab-line: var(--section-services-line);  --tab-tint: var(--section-services-tint); }
+.tabExpenses  { --tab-ink: var(--section-expenses-ink);  --tab-line: var(--section-expenses-line);  --tab-tint: var(--section-expenses-tint); }
+.tabFiles     { --tab-ink: var(--section-files-ink);     --tab-line: var(--section-files-line);     --tab-tint: var(--section-files-tint); }
+
+.tabActive {
+  border-bottom-color: var(--tab-line);
+  background: var(--tab-tint);
+  color: var(--tab-ink);
+}
+
+/* ---------- Заголовок секции (Dodane pozycje / Faktyczne przepływy) ---------- */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-kanban-col);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sectionHeaderLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-main);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+}
+
+/* Зелёный ✓ — визуальный индикатор раскрытия (по Figma), клик обрабатывает вся кнопка. */
+.sectionCheck {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sectionCheckOn {
+  border-color: var(--tone-success);
+  background: var(--tone-success);
+}
+
+.sectionTotal {
+  color: var(--text-main);
+  font-size: var(--font-size-md);
+}
+
+/* ---------- Нижняя панель «Zapisz» на mobile ---------- */
+.saveBar {
+  flex-shrink: 0;
+  padding: 10px 15px calc(10px + env(safe-area-inset-bottom));
+  border-top: 2px solid var(--border);
+  background: var(--bg-kanban-col);
+}
+
+.saveBarBtn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--tone-primary);
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.saveBarStatus {
+  margin-top: 6px;
+  color: var(--tone-success);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-align: center;
+}
+
+.saveBarStatusError {
+  color: var(--tone-danger);
+}
+
+/* ---------- Диалог несохранённых изменений ---------- */
+.confirmOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xl);
+  background: var(--scrim-dialog);
+}
+
+.confirmOverlayMobile {
+  border-radius: 0;
+}
+
+.confirmCard {
+  max-width: 360px;
+  padding: 28px 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-dialog);
+  text-align: center;
+}
+
+.confirmIcon {
+  margin-bottom: 10px;
+  font-size: 32px;
+}
+
+.confirmTitle {
+  margin: 0 0 8px 0;
+  color: var(--text-main);
+  font-size: var(--font-size-lg);
+}
+
+.confirmText {
+  margin: 0 0 8px 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+}
+
+.confirmError {
+  margin: 0 0 12px 0;
+  color: var(--tone-danger);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.confirmDiscard,
+.confirmSave,
+.confirmCancel {
+  padding: 9px 20px;
+  border: none;
+  border-radius: 7px;
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirmDiscard {
+  background: var(--tone-danger);
+}
+
+.confirmSave {
+  background: var(--tone-success);
+}
+
+.confirmCancel {
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+  color: var(--text-main);
+}

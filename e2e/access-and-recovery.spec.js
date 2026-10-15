@@ -9,11 +9,14 @@ test('designer can open an assigned project but cannot create a new one', async 
 
   await page.goto('/');
 
-  await expect(page.getByRole('button', { name: /Szafa/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Anna Kowalska', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Dodaj projekt' })).toHaveCount(0);
 
+  await page.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
   await page.getByRole('button', { name: /Szafa/ }).click();
-  await expect(page.getByPlaceholder('Nazwa projektu (szafa, kuchnia...)')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Foldery plików projektu' })).toBeVisible();
+  await page.getByRole('button', { name: 'Edytuj dane: Anna Kowalska' }).click();
+  await expect(page.getByLabel('Nazwa projektu')).toHaveValue('Szafa istniejąca');
 });
 
 test('a partial bootstrap failure keeps projects usable and retries only the failed resource', async ({ page }) => {
@@ -26,7 +29,7 @@ test('a partial bootstrap failure keeps projects usable and retries only the fai
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('Nie udało się załadować: materiały.');
   await expect(alert).toContainText('Pozostała część aplikacji nadal działa.');
-  await expect(page.getByRole('button', { name: /Szafa/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Anna Kowalska', exact: true })).toBeVisible();
   const requestsBeforeRetry = { ...state.requests };
   state.failures.materials = 0;
 

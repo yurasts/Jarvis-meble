@@ -142,8 +142,73 @@ describe('FilesTab', () => {
     });
   });
 
+  it('shows desktop folders in the order Projekt, Zadanie, Krój, Montaż', () => {
+    renderFilesTab({ variant: 'shelf' });
+
+    const labels = ['Projekt', 'Zadanie', 'Krój', 'Montaż'];
+    const buttons = screen.getAllByRole('button').filter(button => labels.includes(button.textContent));
+    expect(buttons.map(button => button.textContent)).toEqual(labels);
+    expect(screen.queryByRole('button', { name: 'Inne' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the mobile workspace folders in the same order as desktop', () => {
+    renderFilesTab({ variant: 'shelf', mobileWorkspaceLayout: true });
+
+    const labels = ['Projekt', 'Zadanie', 'Krój', 'Montaż'];
+    const buttons = screen.getAllByRole('button').filter(button => labels.includes(button.textContent));
+    expect(buttons.map(button => button.textContent)).toEqual(labels);
+  });
+
+  it('lets the sidebar control the folder and upload in external-controls mode', async () => {
+    const uploadTriggerRef = { current: null };
+    const onUploadingChange = vi.fn();
+    const { container, hookResult, rerender } = renderFilesTab({
+      variant: 'shelf',
+      externalFolderControls: true,
+      category: 'usterki',
+      onCategoryChange: vi.fn(),
+      uploadTriggerRef,
+      onUploadingChange,
+    });
+
+    expect(screen.queryByText('Pliki projektu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Projekt' })).not.toBeInTheDocument();
+    expect(screen.getByAltText('front.jpg')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pobierz' })).toBeInTheDocument();
+    expect(typeof uploadTriggerRef.current).toBe('function');
+    expect(onUploadingChange).toHaveBeenCalledWith(false);
+
+    rerender(
+      <FilesTab
+        clientId="client-1"
+        currentProfile={{ id: 'user-1', color: '#123456' }}
+        coverUrl={null}
+        variant="shelf"
+        externalFolderControls
+        category="inne"
+        onCategoryChange={vi.fn()}
+        uploadTriggerRef={uploadTriggerRef}
+        onUploadingChange={onUploadingChange}
+      />,
+    );
+    expect(screen.queryByAltText('front.jpg')).not.toBeInTheDocument();
+    expect(screen.getByText(/Brak plików w folderze „Krój”/)).toBeInTheDocument();
+
+    const input = container.querySelector('input[type="file"][multiple]');
+    const clickSpy = vi.spyOn(input, 'click');
+    uploadTriggerRef.current();
+    expect(clickSpy).toHaveBeenCalledOnce();
+
+    const selectedFile = new File(['cut'], 'kroj.pdf', { type: 'application/pdf' });
+    fireEvent.change(input, { target: { files: [selectedFile] } });
+    await waitFor(() => {
+      expect(hookResult.uploadFiles).toHaveBeenCalledWith([selectedFile], 'inne');
+    });
+  });
+
   it.each([
     ['desktop shelf', { variant: 'shelf' }],
+    ['desktop shelf with sidebar folders', { variant: 'shelf', externalFolderControls: true, category: 'usterki' }],
     ['mobile workspace', { variant: 'shelf', mobileWorkspaceLayout: true }],
     ['compact shelf', { variant: 'shelf', mobileLayout: true }],
     ['full tab', { variant: 'tab' }],
