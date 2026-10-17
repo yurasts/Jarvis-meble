@@ -24,7 +24,10 @@ CREATE TABLE "public"."clients" (
   "project_name"       text                     DEFAULT ''::text,
   "project_scope"      text                     NOT NULL DEFAULT 'firma'::text,
   "important_points"   jsonb                    NOT NULL DEFAULT '[]'::jsonb,
+  "lifecycle_status"   text                     NOT NULL DEFAULT 'active'::text,
+  "lifecycle_changed_at" timestamp with time zone,
   CONSTRAINT "clients_important_points_is_array" CHECK ((jsonb_typeof(important_points) = 'array'::text)),
+  CONSTRAINT "clients_lifecycle_status_check" CHECK ((lifecycle_status = ANY (ARRAY['active'::text, 'archived'::text, 'trash'::text]))),
   CONSTRAINT "clients_pkey" PRIMARY KEY (id),
   CONSTRAINT "clients_portal_token_key" UNIQUE (portal_token),
   CONSTRAINT "clients_project_scope_check" CHECK ((project_scope = ANY (ARRAY['firma'::text, 'personal'::text]))),
@@ -41,15 +44,20 @@ CREATE TRIGGER trg_clients_audit
   FOR EACH ROW
   EXECUTE FUNCTION public.log_client_changes();
 
+CREATE TRIGGER trg_clients_protect_lifecycle
+  BEFORE UPDATE ON public.clients
+  FOR EACH ROW
+  EXECUTE FUNCTION public.protect_lifecycle_column();
+
 CREATE TRIGGER trg_clients_updated_meta
   BEFORE UPDATE ON public.clients
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_meta();
 
-CREATE POLICY "clients_delete_owner_only" ON "public"."clients"
+CREATE POLICY "clients_delete_owner_trash_only" ON "public"."clients"
   FOR DELETE
-  TO PUBLIC
-  USING ((public.current_role_name() = 'owner'::text));
+  TO "authenticated"
+  USING (((public.current_role_name() = 'owner'::text) AND (lifecycle_status = 'trash'::text)));
 
 CREATE POLICY "clients_insert_owner_assembler" ON "public"."clients"
   FOR INSERT

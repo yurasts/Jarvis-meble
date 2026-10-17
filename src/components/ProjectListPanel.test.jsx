@@ -145,3 +145,163 @@ describe('ProjectListPanel without tree layout', () => {
     expect(screen.queryByRole('button', { name: /Edytuj dane/ })).not.toBeInTheDocument();
   });
 });
+
+describe('ProjectListPanel Archiwum and Kosz', () => {
+  const archived = [
+    project(20, 'ARCHIWALNY', 'Szafa 2024', { lifecycle_status: 'archived' }),
+    project(21, 'YURA', 'Stara komoda', { lifecycle_status: 'archived' }),
+  ];
+  const trashed = [
+    project(22, 'KOSZOWY', 'Regał', { lifecycle_status: 'trash' }),
+    project(23, 'KOSZOWY', 'Biurko', { lifecycle_status: 'trash' }),
+  ];
+  const renderFolders = (props = {}) => renderPanel({
+    archivedClients: archived,
+    trashClients: trashed,
+    canManageLifecycle: true,
+    onChangeLifecycle: vi.fn(),
+    onPurgeProjects: vi.fn(),
+    ...props,
+  });
+
+  it('shows collapsed Archiwum and Kosz folders with counts and keeps their projects out of the tree', () => {
+    renderFolders();
+
+    const folders = screen.getByRole('group', { name: 'Foldery systemowe' });
+    expect(within(folders).getAllByRole('button').map(button => button.textContent)).toEqual(['Archiwum2', 'Kosz2']);
+    expect(within(folders).getByRole('button', { name: /^Archiwum/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Szafa 2024')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^KOSZOWY/ })).not.toBeInTheDocument();
+  });
+
+  it('expands Archiwum and opens an archived project', async () => {
+    const user = userEvent.setup();
+    const { handlers } = renderFolders();
+
+    await user.click(screen.getByRole('button', { name: /^Archiwum/ }));
+    await user.click(screen.getByRole('button', { name: /^ARCHIWALNY/ }));
+    await user.click(screen.getByRole('button', { name: 'Szafa 2024' }));
+
+    expect(handlers.onOpenProject).toHaveBeenCalledWith(archived[0]);
+  });
+
+  it('keeps the same client independently expanded in the tree and in Archiwum', async () => {
+    const user = userEvent.setup();
+    renderFolders();
+
+    await user.click(screen.getByRole('button', { name: /^Archiwum/ }));
+    const [treeYura, archiveYura] = screen.getAllByRole('button', { name: /^YURA/ });
+    await user.click(archiveYura);
+
+    expect(archiveYura).toHaveAttribute('aria-expanded', 'true');
+    expect(treeYura).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Stara komoda' })).toBeInTheDocument();
+    expect(screen.queryByText('Wzurniki')).not.toBeInTheDocument();
+  });
+
+  it('archives or trashes an active project from its menu', async () => {
+    const user = userEvent.setup();
+    const onChangeLifecycle = vi.fn();
+    renderFolders({ onChangeLifecycle });
+
+    await user.click(screen.getByRole('button', { name: /^CZERNIECHOWKA/ }));
+    const row = screen.getByRole('button', { name: 'Kuchnia' }).parentElement;
+    await user.click(within(row).getByRole('button', { name: 'Więcej działań' }));
+    const menu = screen.getByRole('menu', { name: 'Działania: Kuchnia' });
+    expect(within(menu).getAllByRole('menuitem').map(item => item.textContent)).toEqual(['W archiwum', 'Do kosza']);
+
+    await user.click(within(menu).getByRole('menuitem', { name: 'Do kosza' }));
+    expect(onChangeLifecycle).toHaveBeenCalledWith([clients[1]], 'trash');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('archives every active project of a client from the client menu', async () => {
+    const user = userEvent.setup();
+    const onChangeLifecycle = vi.fn();
+    renderFolders({ onChangeLifecycle });
+
+    await user.click(screen.getByRole('button', { name: 'Działania: CZERNIECHOWKA' }));
+    await user.click(screen.getByRole('menuitem', { name: 'W archiwum' }));
+
+    expect(onChangeLifecycle).toHaveBeenCalledWith([clients[1], clients[2]], 'archived');
+  });
+
+  it('restores an archived project from its menu', async () => {
+    const user = userEvent.setup();
+    const onChangeLifecycle = vi.fn();
+    renderFolders({ onChangeLifecycle });
+
+    await user.click(screen.getByRole('button', { name: /^Archiwum/ }));
+    await user.click(screen.getByRole('button', { name: /^ARCHIWALNY/ }));
+    const row = screen.getByRole('button', { name: 'Szafa 2024' }).parentElement;
+    await user.click(within(row).getByRole('button', { name: 'Więcej działań' }));
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['Przywróć', 'Do kosza']);
+    await user.click(screen.getByRole('menuitem', { name: 'Przywróć' }));
+
+    expect(onChangeLifecycle).toHaveBeenCalledWith([archived[0]], 'active');
+  });
+
+  it('lets the owner restore or permanently delete projects in Kosz', async () => {
+    const user = userEvent.setup();
+    const onChangeLifecycle = vi.fn();
+    const onPurgeProjects = vi.fn();
+    renderFolders({ canPurge: true, onChangeLifecycle, onPurgeProjects });
+
+    await user.click(screen.getByRole('button', { name: /^Kosz/ }));
+    await user.click(screen.getByRole('button', { name: /^KOSZOWY/ }));
+    expect(screen.queryByRole('button', { name: 'Regał' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Przywróć: Regał' }));
+    expect(onChangeLifecycle).toHaveBeenCalledWith([trashed[0]], 'active');
+    await user.click(screen.getByRole('button', { name: 'Usuń trwale: Biurko' }));
+    expect(onPurgeProjects).toHaveBeenCalledWith([trashed[1]]);
+
+    await user.click(screen.getByRole('button', { name: 'Działania: KOSZOWY' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Usuń trwale' }));
+    expect(onPurgeProjects).toHaveBeenLastCalledWith(trashed);
+  });
+
+  it('blocks permanent deletion for roles other than the owner', async () => {
+    const user = userEvent.setup();
+    const onPurgeProjects = vi.fn();
+    renderFolders({ canPurge: false, onPurgeProjects });
+
+    await user.click(screen.getByRole('button', { name: /^Kosz/ }));
+    await user.click(screen.getByRole('button', { name: /^KOSZOWY/ }));
+
+    expect(screen.getByRole('button', { name: 'Przywróć: Regał' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Usuń trwale: Regał' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Działania: KOSZOWY' }));
+    expect(screen.getByRole('menuitem', { name: 'Usuń trwale' })).toBeDisabled();
+    expect(onPurgeProjects).not.toHaveBeenCalled();
+  });
+
+  it('shows the folders read-only to roles that cannot manage the lifecycle', async () => {
+    const user = userEvent.setup();
+    renderFolders({ canManageLifecycle: false });
+
+    expect(screen.queryByRole('button', { name: /^Działania:/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Kosz/ }));
+    await user.click(screen.getByRole('button', { name: /^KOSZOWY/ }));
+
+    expect(screen.getByText('Regał')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Przywróć|Usuń trwale/ })).not.toBeInTheDocument();
+  });
+
+  it('reveals the Archiwum group of an open archived project', () => {
+    renderFolders({ activeProjectId: 20 });
+
+    expect(screen.getByRole('button', { name: /^Archiwum/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Szafa 2024' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('applies the search to the folder counts', async () => {
+    const user = userEvent.setup();
+    renderFolders();
+
+    await user.type(screen.getByLabelText('Szukaj projektu'), 'regał');
+
+    expect(screen.getByRole('button', { name: /^Archiwum/ })).toHaveTextContent('Archiwum0');
+    expect(screen.getByRole('button', { name: /^Kosz/ })).toHaveTextContent('Kosz1');
+  });
+});

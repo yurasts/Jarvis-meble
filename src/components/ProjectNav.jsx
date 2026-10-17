@@ -22,6 +22,13 @@ export default function ProjectNav({
   onSelectFileCategory,
   onUploadFile,
   filesUploading,
+  archivedClients,
+  trashClients,
+  canManageLifecycle,
+  canPurge,
+  lifecycleBusy,
+  onChangeLifecycle,
+  onPurgeProjects,
 }) {
   return (
     <div className={s.sidebar}>
@@ -61,6 +68,13 @@ export default function ProjectNav({
         onSelectFileCategory={onSelectFileCategory}
         onUploadFile={onUploadFile}
         filesUploading={filesUploading}
+        archivedClients={archivedClients}
+        trashClients={trashClients}
+        canManageLifecycle={canManageLifecycle}
+        canPurge={canPurge}
+        lifecycleBusy={lifecycleBusy}
+        onChangeLifecycle={onChangeLifecycle}
+        onPurgeProjects={onPurgeProjects}
       />
 
     </div>

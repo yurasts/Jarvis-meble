@@ -1,7 +1,20 @@
-import { useMemo, useState } from 'react';
-import { ChevronRight, Folder, FolderOpen, Pencil, Plus } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronRight,
+  Ellipsis,
+  Folder,
+  FolderOpen,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react';
 import { groupByClient } from './dashboardHelpers';
 import { PROJECT_FILE_CATEGORIES } from '../utils/projectFileCategories';
+import { PROJECT_LIFECYCLE, PROJECT_LIFECYCLE_ACTION_LABELS } from '../utils/projectLifecycle';
 import { COMPLETED_STATUSES, resolveDisplayStatus, statusColorVar } from '../utils/projectStatuses';
 import s from './ProjectListPanel.module.css';
 
@@ -61,6 +74,8 @@ function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
 }
 
 const clientGroupKey = (client) => client?.client_name || client?.full_name || '—';
+const sectionGroupKey = (section, clientName) => (section ? `${section}::${clientName}` : clientName);
+const NO_PROJECTS = Object.freeze([]);
 
 // Desktop sidebar 2026-10: подменю папок файлов под активным проектом. Выбор папки и "+"
 // уходят в App → ProjectModal → FilesTab; сам FilesTab справа больше не рисует эти кнопки.
@@ -101,13 +116,149 @@ function ProjectFileFolders({ activeCategory, onSelectCategory, onUploadFile, up
   );
 }
 
-function TreeProjectRow({ client, onRowClick, isActive, folders }) {
+// Меню «⋯» строки дерева (W archiwum / Do kosza / Przywróć / Usuń trwale). Список рендерится
+// в портал с position: fixed — иначе его обрезал бы прокручиваемый список проектов.
+// label — доступное имя кнопки, menuLabel — имя самого меню (по умолчанию то же).
+function RowMenu({ label, menuLabel = label, actions }) {
+  const [position, setPosition] = useState(null);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+  const open = position !== null;
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = () => setPosition(null);
+    const handlePointer = (event) => {
+      if (menuRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return;
+      close();
+    };
+    const handleKey = (event) => {
+      if (event.key !== 'Escape') return;
+      close();
+      buttonRef.current?.focus();
+    };
+    const handleScroll = (event) => {
+      if (!menuRef.current?.contains(event.target)) close();
+    };
+    document.addEventListener('mousedown', handlePointer);
+    document.addEventListener('touchstart', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', close);
+    menuRef.current?.querySelector('[role="menuitem"]:not(:disabled)')?.focus();
+    return () => {
+      document.removeEventListener('mousedown', handlePointer);
+      document.removeEventListener('touchstart', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
+  if (actions.length === 0) return null;
+
+  const toggle = (event) => {
+    event.stopPropagation();
+    if (open) {
+      setPosition(null);
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    setPosition({ top: rect.bottom + 4, left: rect.left });
+  };
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`${s.rowMenuBtn} ${open ? s.rowMenuBtnOpen : ''}`}
+        aria-label={label}
+        title="Więcej działań"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={toggle}
+      >
+        <Ellipsis size={14} strokeWidth={2.25} aria-hidden="true" />
+      </button>
+      {open && createPortal(
+        <div ref={menuRef} role="menu" aria-label={menuLabel} className={s.rowMenu} style={position}>
+          {actions.map(({ id, label: actionLabel, Icon, onSelect, disabled, title, danger }) => (
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              className={`${s.rowMenuItem} ${danger ? s.rowMenuItemDanger : ''}`}
+              disabled={disabled}
+              title={title}
+              onClick={() => {
+                setPosition(null);
+                onSelect();
+              }}
+            >
+              <Icon size={13} strokeWidth={2} aria-hidden="true" />
+              <span>{actionLabel}</span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+const PURGE_FORBIDDEN_TITLE = 'Trwale usuwać projekty może tylko właściciel (owner).';
+
+// Проект в корзине не открывается: его можно только восстановить или (owner) удалить навсегда.
+function TrashProjectRow({ client, canRestore, canPurge, busy, onRestore, onPurge }) {
+  const projectName = client.project_name || client.full_name || '—';
+  return (
+    <div className={s.treeItem}>
+      <div className={`${s.treeRow} ${s.trashRow}`}>
+        <span className={s.treeRowName} title={projectName}>{projectName}</span>
+        {(canRestore || onPurge) && (
+          <div className={s.trashActions}>
+            {canRestore && (
+              <button
+                type="button"
+                className={s.trashActionBtn}
+                disabled={busy}
+                onClick={() => onRestore([client])}
+                aria-label={`Przywróć: ${projectName}`}
+                title="Przywróć do aktywnych projektów"
+              >
+                <RotateCcw size={12} strokeWidth={2.25} aria-hidden="true" />
+                <span>Przywróć</span>
+              </button>
+            )}
+            {onPurge && (
+              <button
+                type="button"
+                className={`${s.trashActionBtn} ${s.trashActionDanger}`}
+                disabled={busy || !canPurge}
+                onClick={() => onPurge([client])}
+                aria-label={`Usuń trwale: ${projectName}`}
+                title={canPurge ? 'Usuń projekt trwale (bez możliwości przywrócenia)' : PURGE_FORBIDDEN_TITLE}
+              >
+                <Trash2 size={12} strokeWidth={2.25} aria-hidden="true" />
+                <span>Usuń trwale</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TreeProjectRow({ client, onRowClick, isActive, folders, menuActions = [] }) {
   const projectName = client.project_name || client.full_name || '—';
   const openTasks = (client.tasks || []).filter((t) => !t.isDone).length;
   const color = statusColorVar(client.status);
+  const hasMenu = menuActions.length > 0;
 
   return (
-    <div className={s.treeItem}>
+    <div className={`${s.treeItem} ${hasMenu ? s.treeItemWithMenu : ''}`}>
       <div
         className={`${s.treeRow} ${isActive ? s.treeRowActive : ''}`}
         role="button"
@@ -122,6 +273,13 @@ function TreeProjectRow({ client, onRowClick, isActive, folders }) {
         {openTasks > 0 && <span className={s.rowTasks} title="Zadania do wykonania">{openTasks}</span>}
         <span className={s.statusDot} style={{ background: color }} aria-hidden="true" />
       </div>
+      {hasMenu && (
+        <div className={s.treeRowMenu}>
+          {/* Имя кнопки без названия проекта — иначе поиск строки проекта по имени
+              (getByRole('button', { name: /Kuchnia/ })) находил бы две кнопки. */}
+          <RowMenu label="Więcej działań" menuLabel={`Działania: ${projectName}`} actions={menuActions} />
+        </div>
+      )}
       {folders}
     </div>
   );
@@ -130,8 +288,13 @@ function TreeProjectRow({ client, onRowClick, isActive, folders }) {
 // Desktop-дерево «клиент → проекты»: по умолчанию видны только клиенты, проекты раскрываются
 // кликом по строке клиента (аккордеон). Справа на строке клиента — карандаш (окно «Klient i
 // projekt») и Bilans.
+//
+// section: null — активные/завершённые проекты; 'archived' / 'trash' — системные папки.
+// Ключи раскрытых групп в папках имеют префикс секции, чтобы клиент в «Archiwum» раскрывался
+// независимо от того же клиента в основном списке.
 function TreeClientGroups({
   projects,
+  section = null,
   onRowClick,
   activeProjectId,
   isGroupOpen,
@@ -139,11 +302,16 @@ function TreeClientGroups({
   onOpenBalance,
   onEditClient,
   renderFolders,
+  clientMenuActions,
+  projectMenuActions,
+  trashRowProps,
 }) {
   return groupByClient(projects).map(([clientName, group]) => {
-    const open = isGroupOpen(clientName);
+    const groupKey = sectionGroupKey(section, clientName);
+    const open = isGroupOpen(groupKey);
     const containsActive = group.some((c) => c.id === activeProjectId);
-    const listId = `project-tree-${encodeURIComponent(clientName)}`;
+    const listId = `project-tree-${section ? `${section}-` : ''}${encodeURIComponent(clientName)}`;
+    const clientActions = clientMenuActions?.(group) || [];
     return (
       <div key={clientName} className={s.treeGroup}>
         <div className={`${s.treeClient} ${containsActive ? s.treeClientCurrent : ''}`}>
@@ -152,7 +320,7 @@ function TreeClientGroups({
             className={s.treeClientToggle}
             aria-expanded={open}
             aria-controls={open ? listId : undefined}
-            onClick={() => onToggleGroup(clientName)}
+            onClick={() => onToggleGroup(groupKey)}
             title={clientName}
           >
             <ChevronRight
@@ -183,10 +351,14 @@ function TreeClientGroups({
               Bilans
             </button>
           )}
+          {clientActions.length > 0 && (
+            <RowMenu label={`Działania: ${clientName}`} actions={clientActions} />
+          )}
         </div>
         {open && (
           <div id={listId} className={s.treeChildren}>
             {group.map((c) => {
+              if (trashRowProps) return <TrashProjectRow key={c.id} client={c} {...trashRowProps} />;
               const isActive = c.id === activeProjectId;
               return (
                 <TreeProjectRow
@@ -195,6 +367,7 @@ function TreeClientGroups({
                   onRowClick={onRowClick}
                   isActive={isActive}
                   folders={isActive ? renderFolders?.() : null}
+                  menuActions={projectMenuActions?.([c]) || []}
                 />
               );
             })}
@@ -203,6 +376,37 @@ function TreeClientGroups({
       </div>
     );
   });
+}
+
+// Постоянная системная папка под «Zakończone» (Archiwum / Kosz). Счётчик учитывает поиск и
+// выбранную группу (Firma / Moje), как и основной список.
+function SystemFolder({ id, label, Icon, count, open, onToggle, emptyText, children }) {
+  return (
+    <div className={s.systemFolder}>
+      <button
+        type="button"
+        className={s.systemFolderToggle}
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+      >
+        <ChevronRight
+          size={12}
+          strokeWidth={2.5}
+          className={`${s.treeChevron} ${open ? s.treeChevronOpen : ''}`}
+          aria-hidden="true"
+        />
+        <Icon size={13} strokeWidth={2} aria-hidden="true" />
+        <span className={s.systemFolderLabel}>{label}</span>
+        <span className={s.systemFolderCount}>{count}</span>
+      </button>
+      {open && (
+        <div id={id} className={`${s.systemFolderList} ${s.treeList}`}>
+          {count === 0 ? <div className={s.empty}>{emptyText}</div> : children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Группы «клиент → проекты» — временное представление поверх текущих данных clients
@@ -274,18 +478,39 @@ export default function ProjectListPanel({
   onSelectFileCategory,
   onUploadFile,
   filesUploading = false,
+  // Системные папки «Archiwum» и «Kosz» (только treeLayout). `clients` — только активные
+  // проекты; архив и корзину App передаёт отдельно (utils/projectLifecycle.js).
+  archivedClients = NO_PROJECTS,
+  trashClients = NO_PROJECTS,
+  canManageLifecycle = false,
+  canPurge = false,
+  lifecycleBusy = false,
+  onChangeLifecycle,
+  onPurgeProjects,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
+  // Открытый архивный проект при монтировании — папка «Archiwum» сразу раскрыта.
+  const [archiveOpen, setArchiveOpen] = useState(() => activeProjectId != null
+    && !clients.some((c) => c.id === activeProjectId)
+    && archivedClients.some((c) => c.id === activeProjectId));
+  const [trashOpen, setTrashOpen] = useState(false);
 
   const handleOpen = (client) => {
     onOpenProject(client);
   };
 
   // Аккордеон (treeLayout): по умолчанию все клиенты свёрнуты. Группа активного проекта
-  // раскрывается автоматически, когда проект открывают (из дерева, доски, поиска).
-  const activeProject = clients.find((c) => c.id === activeProjectId) || null;
-  const activeGroupKey = activeProject ? clientGroupKey(activeProject) : null;
+  // раскрывается автоматически, когда проект открывают (из дерева, доски, поиска) — в том
+  // числе внутри папки «Archiwum», если открыт архивный проект.
+  const activeListProject = clients.find((c) => c.id === activeProjectId) || null;
+  const activeArchivedProject = activeListProject
+    ? null
+    : archivedClients.find((c) => c.id === activeProjectId) || null;
+  const activeProject = activeListProject || activeArchivedProject;
+  const activeGroupKey = activeProject
+    ? sectionGroupKey(activeArchivedProject ? PROJECT_LIFECYCLE.ARCHIVED : null, clientGroupKey(activeProject))
+    : null;
   const [openGroups, setOpenGroups] = useState(() => new Set(activeGroupKey ? [activeGroupKey] : []));
   const [revealedProjectId, setRevealedProjectId] = useState(activeProjectId ?? null);
   // Пока идёт поиск, совпавшие группы показаны раскрытыми; здесь — те, что пользователь
@@ -296,7 +521,8 @@ export default function ProjectListPanel({
     setRevealedProjectId(activeProjectId ?? null);
     if (treeLayout && activeGroupKey) {
       if (!openGroups.has(activeGroupKey)) setOpenGroups(new Set(openGroups).add(activeGroupKey));
-      if (COMPLETED_STATUSES.has(activeProject.status)) setCompletedOpen(true);
+      if (activeArchivedProject) setArchiveOpen(true);
+      else if (COMPLETED_STATUSES.has(activeProject.status)) setCompletedOpen(true);
     }
   }
 
@@ -339,16 +565,70 @@ export default function ProjectListPanel({
     )
     : null;
 
-  const renderGroups = (projects) => (treeLayout ? (
+  // Действия меню «⋯». Для клиента действие применяется ко всем его проектам в этом разделе.
+  const lifecycleAction = (target, projects) => ({
+    id: target,
+    label: PROJECT_LIFECYCLE_ACTION_LABELS[target],
+    Icon: target === PROJECT_LIFECYCLE.ARCHIVED
+      ? Archive
+      : target === PROJECT_LIFECYCLE.TRASH ? Trash2 : ArchiveRestore,
+    disabled: lifecycleBusy,
+    onSelect: () => onChangeLifecycle(projects, target),
+  });
+  const lifecycleEnabled = treeLayout && canManageLifecycle && !!onChangeLifecycle;
+  const activeMenuActions = lifecycleEnabled
+    ? (projects) => [
+      lifecycleAction(PROJECT_LIFECYCLE.ARCHIVED, projects),
+      lifecycleAction(PROJECT_LIFECYCLE.TRASH, projects),
+    ]
+    : null;
+  const archivedMenuActions = lifecycleEnabled
+    ? (projects) => [
+      lifecycleAction(PROJECT_LIFECYCLE.ACTIVE, projects),
+      lifecycleAction(PROJECT_LIFECYCLE.TRASH, projects),
+    ]
+    : null;
+  // «Usuń trwale» показываем всем, кто управляет корзиной, но активна кнопка только у owner;
+  // окончательная проверка — RLS-политика clients_delete_owner_trash_only.
+  const purgeHandler = lifecycleEnabled && onPurgeProjects ? onPurgeProjects : null;
+  const trashClientMenuActions = lifecycleEnabled
+    ? (projects) => [
+      { ...lifecycleAction(PROJECT_LIFECYCLE.ACTIVE, projects), Icon: RotateCcw },
+      ...(purgeHandler ? [{
+        id: 'purge',
+        label: 'Usuń trwale',
+        Icon: Trash2,
+        danger: true,
+        disabled: lifecycleBusy || !canPurge,
+        title: canPurge ? undefined : PURGE_FORBIDDEN_TITLE,
+        onSelect: () => purgeHandler(projects),
+      }] : []),
+    ]
+    : null;
+  const trashRowProps = {
+    canRestore: lifecycleEnabled,
+    canPurge,
+    busy: lifecycleBusy,
+    onRestore: (projects) => onChangeLifecycle(projects, PROJECT_LIFECYCLE.ACTIVE),
+    onPurge: purgeHandler,
+  };
+
+  const renderGroups = (projects, section = null) => (treeLayout ? (
     <TreeClientGroups
       projects={projects}
+      section={section}
       onRowClick={handleOpen}
       activeProjectId={activeProjectId}
       isGroupOpen={isGroupOpen}
       onToggleGroup={toggleGroup}
-      onOpenBalance={onOpenBalance}
-      onEditClient={onEditClient}
-      renderFolders={renderFolders}
+      onOpenBalance={section === PROJECT_LIFECYCLE.TRASH ? undefined : onOpenBalance}
+      onEditClient={section ? undefined : onEditClient}
+      renderFolders={section === PROJECT_LIFECYCLE.TRASH ? null : renderFolders}
+      clientMenuActions={section === PROJECT_LIFECYCLE.TRASH
+        ? trashClientMenuActions
+        : section === PROJECT_LIFECYCLE.ARCHIVED ? archivedMenuActions : activeMenuActions}
+      projectMenuActions={section === PROJECT_LIFECYCLE.ARCHIVED ? archivedMenuActions : activeMenuActions}
+      trashRowProps={section === PROJECT_LIFECYCLE.TRASH ? trashRowProps : null}
     />
   ) : (
     <ClientGroups projects={projects} onRowClick={handleOpen} activeProjectId={activeProjectId} onOpenBalance={onOpenBalance} />
@@ -357,24 +637,26 @@ export default function ProjectListPanel({
   // Защитный fallback: если обёртка не передала вычисленную группу, показываем GGS.
   const effectiveScope = scopeView || 'firma';
 
-  const { active, completed } = useMemo(() => {
+  const { active, completed, archived, trashed } = useMemo(() => {
     const q = searchText.trim().toLowerCase();
-    const scoped = clients.filter((c) => (c.project_scope || 'firma') === effectiveScope);
-    const matched = q
-      ? scoped.filter((c) => {
-          const project = (c.project_name || '').toLowerCase();
-          const client = (c.client_name || c.full_name || '').toLowerCase();
-          return project.includes(q) || client.includes(q);
-        })
-      : scoped;
+    const visible = (list) => list.filter((c) => {
+      if ((c.project_scope || 'firma') !== effectiveScope) return false;
+      if (!q) return true;
+      const project = (c.project_name || '').toLowerCase();
+      const client = (c.client_name || c.full_name || '').toLowerCase();
+      return project.includes(q) || client.includes(q);
+    });
+    const matched = visible(clients);
 
     return {
       // Выбор проекта меняет только подсветку и рабочую область. Исходный порядок clients
       // сохраняется: строка не перескакивает вверх ни на desktop, ни на mobile.
       active: matched.filter((c) => !COMPLETED_STATUSES.has(c.status)),
       completed: matched.filter((c) => COMPLETED_STATUSES.has(c.status)),
+      archived: visible(archivedClients),
+      trashed: visible(trashClients),
     };
-  }, [clients, effectiveScope, searchText]);
+  }, [clients, archivedClients, trashClients, effectiveScope, searchText]);
 
   // Mobile Project List v1 (ADR-003) — отдельная, явная ветка разметки только для полноэкранного
   // мобильного экрана Projekty. Ниже, после этого блока, идёт ПОЛНОСТЬЮ НЕТРОНУТАЯ разметка для
@@ -461,6 +743,33 @@ export default function ProjectListPanel({
               {renderGroups(completed)}
             </div>
           )}
+        </div>
+      )}
+
+      {treeLayout && (
+        <div className={s.systemFolders} role="group" aria-label="Foldery systemowe">
+          <SystemFolder
+            id="project-folder-archive"
+            label="Archiwum"
+            Icon={Archive}
+            count={archived.length}
+            open={archiveOpen}
+            onToggle={() => setArchiveOpen((v) => !v)}
+            emptyText="Brak projektów w archiwum."
+          >
+            {renderGroups(archived, PROJECT_LIFECYCLE.ARCHIVED)}
+          </SystemFolder>
+          <SystemFolder
+            id="project-folder-trash"
+            label="Kosz"
+            Icon={Trash2}
+            count={trashed.length}
+            open={trashOpen}
+            onToggle={() => setTrashOpen((v) => !v)}
+            emptyText="Kosz jest pusty."
+          >
+            {renderGroups(trashed, PROJECT_LIFECYCLE.TRASH)}
+          </SystemFolder>
         </div>
       )}
 

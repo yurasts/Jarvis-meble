@@ -20,7 +20,8 @@ CREATE OR REPLACE FUNCTION public.get_portal_data (
     calc_materials::jsonb,
     calc_services::jsonb
   from public.clients
-  where portal_token = p_token;
+  where portal_token = p_token
+    and lifecycle_status <> 'trash';
 $function$;
 
 GRANT EXECUTE ON FUNCTION "public"."get_portal_data"(uuid) TO PUBLIC, "anon", "authenticated";

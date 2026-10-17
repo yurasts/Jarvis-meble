@@ -157,6 +157,18 @@ export const createProjectFilesRepository = ({
       throwIfError(result);
     },
 
+    // Пути объектов проекта в хранилище — собираются ДО удаления строки clients (после него
+    // project_files уже удалены каскадом).
+    async listStoragePaths(clientId) {
+      const result = await client.from('project_files').select('file_path').eq('client_id', clientId);
+      throwIfError(result);
+      return (result.data || []).map(row => row.file_path).filter(Boolean);
+    },
+
+    removeStoragePaths(paths) {
+      return storage.removeMany(paths);
+    },
+
     async download(path) {
       const result = await storage.download(path);
       throwIfError(result);
