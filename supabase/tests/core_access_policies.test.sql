@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(47);
 
 insert into auth.users (id, email)
 values
@@ -139,9 +139,19 @@ select lives_ok(
   $$insert into public.clients (id, full_name) values (2190, 'Temporary owner project')$$,
   'owner can create a client'
 );
+select results_eq(
+  'delete from public.clients where id = 2190 returning id',
+  'select null::bigint where false',
+  'owner cannot permanently delete an active client'
+);
 select lives_ok(
-  $$delete from public.clients where id = 2190$$,
-  'owner can delete a client'
+  $$update public.clients set lifecycle_status = 'trash' where id = 2190$$,
+  'owner can move a client to the trash'
+);
+select results_eq(
+  'delete from public.clients where id = 2190 returning id',
+  'values (2190::bigint)',
+  'owner can permanently delete a trashed client'
 );
 select is((select count(*) from public.clients where id = 2190), 0::bigint, 'owner deletion removes the client');
 select results_eq(
