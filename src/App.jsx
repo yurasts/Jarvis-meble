@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, useRef, useCallback } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useAuth } from './useAuth'
 import Login from './components/Login'
 import Dashboard from './components/Dashboard'
@@ -15,6 +15,15 @@ import catalogRepository from './data/catalogRepository';
 import { BOOTSTRAP_RESOURCES, loadBootstrapData } from './data/bootstrapData';
 import useCashTransactions from './components/useCashTransactions';
 import { DEFAULT_PROJECT_FILE_CATEGORY } from './utils/projectFileCategories';
+import {
+  PROJECT_LIFECYCLE,
+  canManageProjectLifecycle,
+  canPurgeProjects,
+  filterProjectsByLifecycle,
+  getProjectLifecycle,
+} from './utils/projectLifecycle';
+import purgeProject from './data/projectPurge';
+import PurgeProjectsDialog from './components/PurgeProjectsDialog';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
 
@@ -93,6 +102,14 @@ const defaultProjectScope = (profile, session) => {
     : 'firma'
 }
 
+const lifecycleErrorMessage = (error) => {
+  if (error?.code === 'LIFECYCLE_MIGRATION_MISSING' || error?.code === 'PURGE_NOT_ALLOWED') return error.message
+  if (error?.code === '42501') {
+    return 'Brak uprawnie\u0144: archiwizowa\u0107, przenosi\u0107 do kosza i przywraca\u0107 projekty mo\u017ce tylko w\u0142a\u015bciciel lub monter.'
+  }
+  return 'Nie uda\u0142o si\u0119 zmieni\u0107 stanu projektu. Spr\u00f3buj ponownie.'
+}
+
 // Убран с экрана по просьбе (пока, не окончательно) — компонент/код оставлены нетронутыми,
 // включить обратно — просто вернуть true.
 const AI_ASSISTANT_ENABLED = false
@@ -135,6 +152,19 @@ function App() {
   const [servicesList, setServicesList] = useState([])
   const [bootstrapErrors, setBootstrapErrors] = useState({})
   const [bootstrapLoading, setBootstrapLoading] = useState(false)
+  // Archiwum / Kosz: обычные списки (дерево, панель, доска, поиск) показывают только активные
+  // проекты; архив и корзина — только в системных папках левой панели. Bilans учитывает и архив
+  // (деньги архивных проектов реальны), но не корзину.
+  const { activeClients, archivedClients, trashClients, balanceClients } = useMemo(() => ({
+    activeClients: filterProjectsByLifecycle(clients, PROJECT_LIFECYCLE.ACTIVE),
+    archivedClients: filterProjectsByLifecycle(clients, PROJECT_LIFECYCLE.ARCHIVED),
+    trashClients: filterProjectsByLifecycle(clients, PROJECT_LIFECYCLE.TRASH),
+    balanceClients: clients.filter(client => getProjectLifecycle(client) !== PROJECT_LIFECYCLE.TRASH),
+  }), [clients])
+  const [lifecycleBusy, setLifecycleBusy] = useState(false)
+  const [lifecycleNotice, setLifecycleNotice] = useState(null)
+  // Проекты, ожидающие подтверждения «Usuń trwale» (null — диалог закрыт).
+  const [purgeRequest, setPurgeRequest] = useState(null)
   // Mobile / Client Balance / Expanded v1 — единый массив реальных денежных операций всех
   // доступных проектов загружается hook-ом и используется совместно в Bilans klienta
   // (MobileClientBalanceScreen) и вкладки Rozliczenia (mobile ProjectModal) — без копирования
@@ -503,6 +533,90 @@ function App() {
 
   const profile   = authProfile
   const canCreate = profile?.role === 'owner' || profile?.role === 'assembler'
+  const canManageLifecycle = canManageProjectLifecycle(profile?.role)
+  const canPurge = canPurgeProjects(profile?.role)
+
+  // Поля жизненного цикла обновляются и в activeClient, и в originalClient — иначе открытый
+  // проект выглядел бы «изменённым» после архивации.
+  const applyLifecycleRows = (rows) => {
+    const byId = new Map(rows.map(row => [row.id, row]))
+    const merge = (client) => (client && byId.has(client.id) ? { ...client, ...byId.get(client.id) } : client)
+    setClients(current => current.map(merge))
+    setActiveClient(merge)
+    setOriginalClient(merge)
+  }
+
+  const closeRemovedProject = () => {
+    setActiveClient(null)
+    setOriginalClient(null)
+    setWorkspaceDirty(false)
+    setPendingClient(null)
+    if (viewMode === 'project') setViewMode('tab')
+  }
+
+  async function handleChangeLifecycle(projects, lifecycleStatus) {
+    if (!projects?.length || lifecycleBusy) return
+    const ids = projects.map(project => project.id)
+    const touchesOpenProject = !!activeClient && ids.includes(activeClient.id)
+    if (lifecycleStatus === PROJECT_LIFECYCLE.TRASH && touchesOpenProject && workspaceDirty) {
+      setLifecycleNotice('Zapisz lub odrzu\u0107 zmiany w otwartym projekcie, zanim przeniesiesz go do kosza.')
+      return
+    }
+    setLifecycleBusy(true)
+    setLifecycleNotice(null)
+    try {
+      const rows = await clientsRepository.setLifecycle(ids, lifecycleStatus)
+      applyLifecycleRows(rows)
+      if (rows.length < ids.length) {
+        setLifecycleNotice('Nie wszystkie projekty zosta\u0142y przeniesione \u2014 brak uprawnie\u0144 lub projekt ju\u017c nie istnieje.')
+      }
+      if (lifecycleStatus === PROJECT_LIFECYCLE.TRASH && touchesOpenProject && rows.some(row => row.id === activeClient.id)) {
+        closeRemovedProject()
+      }
+    } catch (error) {
+      setLifecycleNotice(lifecycleErrorMessage(error))
+    } finally {
+      setLifecycleBusy(false)
+    }
+  }
+
+  const requestPurgeProjects = (projects) => {
+    if (!canPurge || !projects?.length || lifecycleBusy) return
+    setLifecycleNotice(null)
+    setPurgeRequest(projects)
+  }
+
+  async function confirmPurgeProjects() {
+    const projects = purgeRequest
+    if (!projects || lifecycleBusy) return
+    setLifecycleBusy(true)
+    const deletedIds = new Set()
+    let failure = null
+    let storageFailed = false
+    for (const project of projects) {
+      try {
+        const result = await purgeProject(project.id)
+        deletedIds.add(project.id)
+        if (result.storageError) storageFailed = true
+      } catch (error) {
+        failure = error
+        break
+      }
+    }
+    if (deletedIds.size > 0) {
+      setClients(current => current.filter(client => !deletedIds.has(client.id)))
+      if (activeClient && deletedIds.has(activeClient.id)) closeRemovedProject()
+    }
+    setPurgeRequest(null)
+    setLifecycleBusy(false)
+    if (failure) {
+      setLifecycleNotice(failure.code === 'PURGE_NOT_ALLOWED' || failure.code === 'LIFECYCLE_MIGRATION_MISSING'
+        ? failure.message
+        : 'Nie uda\u0142o si\u0119 trwale usun\u0105\u0107 projektu. Spr\u00f3buj ponownie.')
+    } else if (storageFailed) {
+      setLifecycleNotice('Projekt usuni\u0119to, ale cz\u0119\u015bci plik\u00f3w nie uda\u0142o si\u0119 usun\u0105\u0107 z magazynu.')
+    }
+  }
   const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
   const failedBootstrapResources = BOOTSTRAP_RESOURCES.filter(resource => bootstrapErrors[resource])
   const retryFailedBootstrapResources = () => {
@@ -578,7 +692,7 @@ function App() {
         tabs={TABS}
         activeTab={activeTab}
         onSelectTab={goToTab}
-        clients={clients}
+        clients={activeClients}
         scopeView={effectiveScope}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
@@ -593,6 +707,13 @@ function App() {
         onSelectFileCategory={setFileCategory}
         onUploadFile={() => fileUploadTriggerRef.current?.()}
         filesUploading={filesUploading}
+        archivedClients={archivedClients}
+        trashClients={trashClients}
+        canManageLifecycle={canManageLifecycle}
+        canPurge={canPurge}
+        lifecycleBusy={lifecycleBusy}
+        onChangeLifecycle={handleChangeLifecycle}
+        onPurgeProjects={requestPurgeProjects}
       />
 
       {/* ======== МОБАЙЛ: топбар + dropdown ======== */}
@@ -652,7 +773,7 @@ function App() {
             {/* Lista projektów — dostępna też na wąskim ekranie (drawer), nie znika */}
             <div style={{ maxHeight: '50vh', overflowY: 'auto', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
               <ProjectListPanel
-                clients={clients}
+                clients={activeClients}
                 scopeView={effectiveScope}
                 canCreate={canCreate}
                 onNewProject={() => { setMenuOpen(false); setIsModalOpen(true); }}
@@ -670,7 +791,7 @@ function App() {
       <div className={s.contentWrapper}>
         <div className={s.topHeader}>
           <GlobalSearch
-            clients={clients}
+            clients={activeClients}
             materials={materials}
             onNavigate={(action) => {
               if (action.type === 'project') {
@@ -706,6 +827,12 @@ function App() {
             </button>
           </div>
         )}
+        {lifecycleNotice && (
+          <div className={s.bootstrapNotice} role="alert">
+            <span>{lifecycleNotice}</span>
+            <button type="button" onClick={() => setLifecycleNotice(null)}>Zamknij</button>
+          </div>
+        )}
         <div className="main-content" style={(showWorkspace || showDesktopBalance || showDesktopLibrary) ? { display: 'flex', flexDirection: 'column' } : undefined}>
         <Suspense fallback={<ContentLoading />}>
         {showDesktopLibrary ? (
@@ -714,7 +841,7 @@ function App() {
           <MobileClientBalanceScreen
             desktopLayout
             clientName={balanceClientName}
-            clients={clients}
+            clients={balanceClients}
             transactions={cashTransactions}
             onSaveTransaction={saveCashTransaction}
             onDeleteTransaction={deleteCashTransaction}
@@ -763,7 +890,7 @@ function App() {
         <>
         {activeTab === 'dashboard' && (
           <Dashboard
-            clients={clients}
+            clients={activeClients}
             updateClient={updateClientFields}
             openProjectModal={requestOpenProject}
             setIsModalOpen={setIsModalOpen}
@@ -777,7 +904,7 @@ function App() {
         )}
         {activeTab === 'board' && (
           <KanbanBoard
-            clients={clients}
+            clients={activeClients}
             setActiveClient={requestOpenProject}
             handleDragStart={handleDragStart}
             handleDragOver={handleDragOver}
@@ -865,6 +992,16 @@ function App() {
         </Suspense>
       )}
 
+      {/* «Usuń trwale» из корзины — только owner (повторно проверяется RLS в БД). */}
+      {purgeRequest && (
+        <PurgeProjectsDialog
+          projects={purgeRequest}
+          busy={lifecycleBusy}
+          onConfirm={confirmPurgeProjects}
+          onCancel={() => setPurgeRequest(null)}
+        />
+      )}
+
       {/* Модал: новый материал */}
       {isMaterialModalOpen && (
         <div className="modal-overlay" onClick={() => setIsMaterialModalOpen(false)}>
@@ -928,7 +1065,7 @@ function App() {
           при переходах между нижними разделами. На 768px и выше всегда скрыт. */}
       <MobileProjectsScreen
         visible={showMobileProjects}
-        clients={clients}
+        clients={activeClients}
         scopeView={effectiveScope}
         canCreate={canCreate}
         onNewProject={() => setIsModalOpen(true)}
@@ -945,7 +1082,7 @@ function App() {
         <Suspense fallback={<OverlayLoading />}>
         <MobileClientBalanceScreen
           clientName={balanceClientName}
-          clients={clients}
+          clients={balanceClients}
           transactions={cashTransactions}
           onSaveTransaction={saveCashTransaction}
           onDeleteTransaction={deleteCashTransaction}

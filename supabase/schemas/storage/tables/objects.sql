@@ -8,6 +8,20 @@ CREATE POLICY "project_files_storage_visible_project_access" ON "storage"."objec
    FROM public.clients visible_client
   WHERE ((visible_client.id)::text = (storage.foldername(objects.name))[1])))));
 
+CREATE POLICY "project_files_storage_owner_delete_orphans" ON "storage"."objects"
+  FOR DELETE
+  TO "authenticated"
+  USING (((bucket_id = 'project-files'::text) AND (public.current_role_name() = 'owner'::text) AND (NOT (EXISTS ( SELECT 1
+   FROM public.clients existing_client
+  WHERE ((existing_client.id)::text = (storage.foldername(objects.name))[1]))))));
+
+CREATE POLICY "project_files_storage_owner_select_orphans" ON "storage"."objects"
+  FOR SELECT
+  TO "authenticated"
+  USING (((bucket_id = 'project-files'::text) AND (public.current_role_name() = 'owner'::text) AND (NOT (EXISTS ( SELECT 1
+   FROM public.clients existing_client
+  WHERE ((existing_client.id)::text = (storage.foldername(objects.name))[1]))))));
+
 CREATE POLICY "pro100_library_storage_delete_authenticated" ON "storage"."objects"
   FOR DELETE
   TO "authenticated"

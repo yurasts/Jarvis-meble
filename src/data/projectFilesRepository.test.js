@@ -20,6 +20,32 @@ describe('projectFilesRepository', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
+  it('lists the storage paths of a project before it is purged', async () => {
+    const eq = vi.fn(async () => ({ data: [{ file_path: '7/a.jpg' }, { file_path: '' }, { file_path: '7/sto/b.sto' }], error: null }));
+    const select = vi.fn(() => ({ eq }));
+    const client = { storage: { from: vi.fn() }, from: vi.fn(() => ({ select })) };
+
+    await expect(createProjectFilesRepository({ client }).listStoragePaths(7)).resolves.toEqual(['7/a.jpg', '7/sto/b.sto']);
+    expect(select).toHaveBeenCalledWith('file_path');
+    expect(eq).toHaveBeenCalledWith('client_id', 7);
+  });
+
+  it('removes storage objects in batches and reports the first error', async () => {
+    const bucket = createBucket();
+    const storageError = new Error('storage down');
+    bucket.remove
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({ error: storageError });
+    const client = { storage: { from: vi.fn(() => bucket) }, from: vi.fn() };
+    const paths = Array.from({ length: 101 }, (_, index) => `7/${index}.jpg`);
+
+    await expect(createProjectFilesRepository({ client }).removeStoragePaths([...paths, '7/0.jpg']))
+      .resolves.toBe(storageError);
+    expect(bucket.remove).toHaveBeenCalledTimes(2);
+    expect(bucket.remove.mock.calls[0][0]).toHaveLength(100);
+    expect(bucket.remove.mock.calls[1][0]).toEqual(['7/100.jpg']);
+  });
+
   it('removes a newly uploaded object when inserting its row fails', async () => {
     const bucket = createBucket();
     const databaseError = new Error('insert failed');

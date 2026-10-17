@@ -33,6 +33,7 @@
     "public/functions/match_knowledge_base.sql",
     "public/functions/pro100_library_files_guard_update.sql",
     "public/functions/project_cash_transactions_set_updated_at.sql",
+    "public/functions/protect_lifecycle_column.sql",
     "public/functions/protect_role_column.sql",
     "public/functions/set_updated_meta.sql",
     "public/default_privileges.sql"
@@ -51,6 +52,7 @@
     "public/functions/match_knowledge_base.sql",
     "public/functions/pro100_library_files_guard_update.sql",
     "public/functions/project_cash_transactions_set_updated_at.sql",
+    "public/functions/protect_lifecycle_column.sql",
     "public/functions/protect_role_column.sql",
     "public/functions/set_updated_meta.sql",
     "public/schema.sql",

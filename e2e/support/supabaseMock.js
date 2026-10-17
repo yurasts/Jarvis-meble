@@ -70,6 +70,15 @@ const requestBody = (request) => {
 
 const idFilter = (url) => url.searchParams.get('id')?.replace(/^eq\./, '');
 
+// id=eq.X или id=in.(X,Y) — оба вида фильтра, которые шлёт клиент.
+const idsFilter = (url) => {
+  const raw = url.searchParams.get('id') || '';
+  if (raw.startsWith('in.(')) return raw.slice(4, -1).split(',').map(value => value.replace(/^"|"$/g, ''));
+  return [raw.replace(/^eq\./, '')];
+};
+
+const wantsSingleObject = (request) => (request.headers().accept || '').includes('vnd.pgrst.object');
+
 export async function installAuthenticatedSupabaseMock(page, initialProjects = [], {
   role = 'owner',
   failures = {},
@@ -145,10 +154,34 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
       }
 
       if (request.method() === 'PATCH') {
-        const id = idFilter(url);
-        const index = state.projects.findIndex(project => project.id === id);
-        state.projects[index] = { ...state.projects[index], ...requestBody(request) };
-        await jsonResponse(route, state.projects[index]);
+        const ids = idsFilter(url);
+        const patch = requestBody(request);
+        // Как триггер protect_lifecycle_column: архив/корзину меняют только owner и assembler.
+        if ('lifecycle_status' in patch && !['owner', 'assembler'].includes(role)) {
+          await jsonResponse(route, { code: '42501', details: null, hint: null, message: 'lifecycle denied' }, 403);
+          return;
+        }
+        const lifecycleMeta = 'lifecycle_status' in patch ? { lifecycle_changed_at: '2026-10-17T12:00:00.000Z' } : {};
+        const updated = [];
+        state.projects = state.projects.map((project) => {
+          if (!ids.includes(project.id)) return project;
+          const next = { ...project, ...patch, ...lifecycleMeta };
+          updated.push(next);
+          return next;
+        });
+        await jsonResponse(route, wantsSingleObject(request) ? updated[0] : updated);
+        return;
+      }
+
+      if (request.method() === 'DELETE') {
+        // Как RLS clients_delete_owner_trash_only: owner и только строки из корзины;
+        // в остальных случаях DELETE «успешно» затрагивает 0 строк.
+        const ids = idsFilter(url);
+        const removable = role === 'owner'
+          ? state.projects.filter(project => ids.includes(project.id) && project.lifecycle_status === 'trash')
+          : [];
+        state.projects = state.projects.filter(project => !removable.includes(project));
+        await jsonResponse(route, removable.map(project => ({ id: project.id })));
         return;
       }
     }
