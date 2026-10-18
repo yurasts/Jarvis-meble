@@ -142,6 +142,31 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // немедленного unmount ProjectCashLedger (который иначе тихо теряет черновик). Значение — имя
   // таба, на который хотели переключиться, или null.
   const cashLedgerRef = useRef(null);
+  // Редактируемый współczynnik в desktop Rozliczenia (единственное место редактирования —
+  // прежняя финансовая панель sidebar убрана, см. chore/remove-sidebar-finance-panel-and-ai-fab).
+  // Коммит значения идёт в client.budget_coefficient (setClient) — тот же путь, что и раньше у
+  // убранной панели: budget пересчитывается существующим эффектом ниже, clientFieldsDirty уже
+  // сравнивает budget_coefficient (hasProjectFieldChanges), поэтому обычный Zapisz сохраняет его
+  // без отдельного канала сохранения — никакой новой логики персиста не требуется.
+  const [coefficientEditing, setCoefficientEditing] = useState(false);
+  const [coefficientDraft, setCoefficientDraft] = useState('');
+
+  const handleCoefficientEdit = () => {
+    setCoefficientDraft(String(Number(client.budget_coefficient) || 2));
+    setCoefficientEditing(true);
+  };
+
+  const handleCoefficientChange = (value) => setCoefficientDraft(value);
+
+  const handleCoefficientFinish = () => {
+    const value = parseFloat(String(coefficientDraft).replace(',', '.'));
+    if (Number.isFinite(value) && value > 0) {
+      setClient(prev => ({ ...prev, budget_coefficient: value }));
+    }
+    setCoefficientEditing(false);
+  };
+
+  const handleCoefficientCancel = () => setCoefficientEditing(false);
   const projectCashSaldo = summarizeCash(transactionsForProject(cashTransactions, client.id)).saldo;
   const formatDesktopCashMoney = (value) => Number(value || 0)
     .toFixed(2)
@@ -725,6 +750,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             onDirtyChange={setCashDirty}
             status={cashStatus}
             onRetry={onRetryCash}
+            coefficientValue={coefficientDraft}
+            coefficientEditing={coefficientEditing}
+            onCoefficientEdit={handleCoefficientEdit}
+            onCoefficientChange={handleCoefficientChange}
+            onCoefficientFinish={handleCoefficientFinish}
+            onCoefficientCancel={handleCoefficientCancel}
           />
         </div>
       </WorkspaceSection>
