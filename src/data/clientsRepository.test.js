@@ -105,6 +105,44 @@ describe('clientsRepository', () => {
       .rejects.toMatchObject({ code: 'LIFECYCLE_MIGRATION_MISSING' });
   });
 
+  it('renames a client in every project of the group and syncs full_name where it matched', async () => {
+    const calls = [];
+    const client = {
+      from: vi.fn(() => ({
+        update: (fields) => ({
+          in: (column, ids) => ({
+            select: async () => {
+              calls.push({ fields, column, ids });
+              return fields.client_name
+                ? { data: ids.map(id => ({ id, client_name: fields.client_name, full_name: 'Stara' })), error: null }
+                : { data: ids.map(id => ({ id, full_name: fields.full_name })), error: null };
+            },
+          }),
+        }),
+      })),
+    };
+
+    const rows = await createClientsRepository({ client }).renameClientGroup([1, 2, 3], [1, 2], 'Nowa');
+
+    expect(calls).toEqual([
+      { fields: { client_name: 'Nowa' }, column: 'id', ids: [1, 2, 3] },
+      { fields: { full_name: 'Nowa' }, column: 'id', ids: [1, 2] },
+    ]);
+    expect(rows).toEqual([
+      { id: 1, client_name: 'Nowa', full_name: 'Nowa' },
+      { id: 2, client_name: 'Nowa', full_name: 'Nowa' },
+      { id: 3, client_name: 'Nowa', full_name: 'Stara' },
+    ]);
+  });
+
+  it('fails the rename when the client names cannot be updated', async () => {
+    const databaseError = new Error('denied');
+    const select = vi.fn(async () => ({ data: null, error: databaseError }));
+    const client = { from: vi.fn(() => ({ update: () => ({ in: () => ({ select }) }) })) };
+
+    await expect(createClientsRepository({ client }).renameClientGroup([1], [1], 'Nowa')).rejects.toBe(databaseError);
+  });
+
   const deleteClient = (result) => {
     const select = vi.fn(async () => result);
     const eqStatus = vi.fn(() => ({ select }));

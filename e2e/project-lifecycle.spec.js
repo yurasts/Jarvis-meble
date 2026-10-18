@@ -45,8 +45,10 @@ test('owner saves a protected project draft and completes the cash transaction l
   await expect(page.getByText('✓ Zapisano')).toBeVisible();
   expect(state.projects[1].project_name).toBe('Kuchnia E2E po zmianie');
 
-  await page.getByRole('button', { name: 'Rozliczenia' }).click();
-  await page.getByRole('button', { name: /Wp/ }).click();
+  // Rozliczenia — rozwinięta sekcja pod Materiałami i Usługami (bez zakładek).
+  const cashSection = page.getByRole('region', { name: 'Rozliczenia' });
+  await expect(cashSection.getByRole('button', { name: /^Rozliczenia/ })).toHaveAttribute('aria-expanded', 'true');
+  await cashSection.getByRole('button', { name: /Wp/ }).click();
   await page.getByLabel('Nazwa operacji').fill('Zaliczka E2E');
   await page.getByLabel('Kwota operacji').fill('1250');
   await page.getByRole('button', { name: /Zapisz operacj/ }).click();
@@ -72,7 +74,7 @@ test('owner saves a protected project draft and completes the cash transaction l
   });
 
   await page.getByRole('button', { name: /Zaliczka poprawiona/ }).click();
-  await page.getByRole('button', { name: /Usu/ }).click();
+  await cashSection.getByRole('button', { name: /Usu/ }).click();
   await page.getByRole('button', { name: 'Tak' }).click();
 
   await expect(page.getByText('Zaliczka poprawiona')).toHaveCount(0);

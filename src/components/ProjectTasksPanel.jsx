@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Plus } from 'lucide-react';
 import { nextTaskId } from './dashboardHelpers';
+import WorkspaceSection from './WorkspaceSection';
+import { workspaceSectionButtons } from './workspaceSectionButtons';
 import s from './ProjectTasksPanel.module.css';
 
 const formatTaskDate = (date) => {
@@ -9,7 +12,10 @@ const formatTaskDate = (date) => {
   return day && month && year ? day + '.' + month : date;
 };
 
-const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
+// layout='workspace' — desktop-рабочая область: та же сворачиваемая секция, что у Materiały /
+// Usługi / Rozliczenia (WorkspaceSection); open/onToggle задаёт ProjectModal. Без layout —
+// прежняя карточка (мобильный экран проекта).
+const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null, layout, open = true, onToggle }) => {
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -188,31 +194,40 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
     );
   };
 
-  return (
-    <section className={s.panel} aria-label="Zadania projektu">
-      <div className={s.header}>
-        <div className={s.heading}>
-          <h3>Zadania</h3>
-          <span>{openTasks.length} do wykonania</span>
-        </div>
-        <div className={s.headerActions}>
-        {doneTasks.length > 0 && (
-          <button type="button" className={s.doneToggle} onClick={() => setShowDone(value => !value)}>
-            {showDone ? 'Ukryj' : 'Wykonane'} ({doneTasks.length})
-          </button>
-        )}
-          <button
-            type="button"
-            className={s.openAddButton}
-            onClick={openAddModal}
-            aria-label="Dodaj zadanie"
-          >
-            <span aria-hidden="true">+</span>
-            <span className={s.openAddLabel}>Dodaj zadanie</span>
-          </button>
-        </div>
-      </div>
+  const isWorkspace = layout === 'workspace';
+  const headerActions = (
+    <>
+      {doneTasks.length > 0 && (
+        <button type="button" className={isWorkspace ? workspaceSectionButtons.secondary : s.doneToggle} onClick={() => setShowDone(value => !value)}>
+          {showDone ? 'Ukryj' : 'Wykonane'} ({doneTasks.length})
+        </button>
+      )}
+      {isWorkspace ? (
+        <button
+          type="button"
+          className={workspaceSectionButtons.iconAdd}
+          onClick={openAddModal}
+          aria-label="Dodaj zadanie"
+          title="Dodaj zadanie"
+        >
+          <Plus size={13} strokeWidth={2.75} aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={s.openAddButton}
+          onClick={openAddModal}
+          aria-label="Dodaj zadanie"
+        >
+          <span aria-hidden="true">+</span>
+          <span className={s.openAddLabel}>Dodaj zadanie</span>
+        </button>
+      )}
+    </>
+  );
 
+  const content = (
+    <>
       {showAddModal && createPortal((
         <div
           className={s.modalBackdrop}
@@ -277,6 +292,37 @@ const ProjectTasksPanel = ({ tasks = [], onChange, currentProfile = null }) => {
           {doneTasks.map(renderTask)}
         </div>
       )}
+    </>
+  );
+
+  if (isWorkspace) {
+    return (
+      <WorkspaceSection
+        title="Zadania"
+        label="Zadania projektu"
+        meta={`${openTasks.length} do wykonania`}
+        actions={headerActions}
+        open={open}
+        onToggle={onToggle}
+        flush
+      >
+        {content}
+      </WorkspaceSection>
+    );
+  }
+
+  return (
+    <section className={s.panel} aria-label="Zadania projektu">
+      <div className={s.header}>
+        <div className={s.heading}>
+          <h3>Zadania</h3>
+          <span>{openTasks.length} do wykonania</span>
+        </div>
+        <div className={s.headerActions}>
+          {headerActions}
+        </div>
+      </div>
+      {content}
     </section>
   );
 };

@@ -7,6 +7,8 @@ import MobileProjectItemRow from './MobileProjectItemRow';
 import MaterialPicker from './MaterialPicker';
 import ServicePicker from './ServicePicker';
 import DesktopProjectItemsTable from './DesktopProjectItemsTable';
+import WorkspaceSection from './WorkspaceSection';
+import useWorkspaceSections from './useWorkspaceSections';
 import useProjectItemEditor from './useProjectItemEditor';
 import useProjectItemPickers from './useProjectItemPickers';
 import useProjectSaveLifecycle from './useProjectSaveLifecycle';
@@ -124,7 +126,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const [mobileServicesOpen, setMobileServicesOpen] = useState(() => (client.status || 'new') === 'new');
   const [desktopMaterialsOpen, setDesktopMaterialsOpen] = useState(true);
   const [desktopServicesOpen, setDesktopServicesOpen] = useState(true);
-  const [desktopCashOpen, setDesktopCashOpen] = useState(true);
+  // Desktop workspace (embedded) 2026-10: вкладок нет — Materiały, Usługi, Rozliczenia, Zadania и
+  // Informacje идут друг под другом сворачиваемыми секциями; что свёрнуто, запоминается
+  // (useWorkspaceSections, localStorage) и сохраняется при переключении проектов.
+  const workspaceSections = useWorkspaceSections();
 
   // Mobile / Client Balance / Expanded v1 — открытый (несохранённый) редактор денежной операции
   // во вкладке Rozliczenia (ProjectCashLedger — неконтролируемое использование, сам репортит сюда
@@ -237,6 +242,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const handleToggleDesktopServices = () => {
     if (desktopServicesOpen) finishEditing();
     setDesktopServicesOpen(open => !open);
+  };
+  // Сворачивание секции рабочей области: как и раньше у Materiały/Usługi — сначала закрыть
+  // редактор строки и выпадающий список выбора, потом скрыть секцию.
+  const toggleWorkspaceSection = (id) => {
+    if (workspaceSections.isOpen(id)) {
+      if (id === 'materials' || id === 'services') finishEditing();
+      if (id === 'materials') closeMaterialPicker();
+      if (id === 'services') closeServicePicker();
+    }
+    workspaceSections.toggle(id);
   };
   const handleCustomAdd = (field, currentItems) => {
     const name = prompt('Wpisz nazwę:');
@@ -593,7 +608,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     />
   );
 
-  const renderDesktopItemsTable = ({ kind, entries, items, field, headerBackground, headerText, headerBorder, accent, rowBackground, footer = null, replacingIndex = null }) => (
+  const renderDesktopItemsTable = ({ kind, entries, items, field, headerBackground, headerText, headerBorder, accent, rowBackground, footer = null, replacingIndex = null, bordered = true, showHeader = true }) => (
     <DesktopProjectItemsTable
       kind={kind}
       entries={entries}
@@ -630,7 +645,108 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       onQuantityChange={handleQtyChange}
       onQuantityCommit={(index, stateKey) => handleQtyCommit(field, items, index, stateKey)}
       renderDeleteCell={index => renderDeleteBtn(field, items, index)}
+      bordered={bordered}
+      showHeader={showHeader}
     />
+  );
+
+  // Desktop workspace (embedded): пять секций одинаковой ширины друг под другом.
+  const renderWorkspaceSections = () => (
+    <div className={ms.workspaceSections}>
+      <WorkspaceSection
+        title="Materiały"
+        meta={calcMaterials.length > 0 ? `${calcMaterials.length} poz.` : null}
+        summary={`${totalMaterials.toFixed(2)} zł`}
+        open={workspaceSections.isOpen('materials')}
+        onToggle={() => toggleWorkspaceSection('materials')}
+        flush
+      >
+        {renderDesktopItemsTable({
+          kind: 'materials',
+          entries: sortedCalcMaterialEntries,
+          items: calcMaterials,
+          field: 'calc_materials',
+          headerBackground: bgHeader,
+          headerText: textLight,
+          headerBorder: border,
+          accent: c('#2b6cb0', '#63b3ed'),
+          rowBackground: bgMatRow,
+          footer: renderMaterialPicker(false),
+          replacingIndex: replacingMaterialIndex,
+          bordered: false,
+          showHeader: false,
+        })}
+      </WorkspaceSection>
+
+      <WorkspaceSection
+        title="Usługi"
+        meta={calcServices.length > 0 ? `${calcServices.length} poz.` : null}
+        summary={`${totalServices.toFixed(2)} zł`}
+        open={workspaceSections.isOpen('services')}
+        onToggle={() => toggleWorkspaceSection('services')}
+        flush
+      >
+        {renderDesktopItemsTable({
+          kind: 'services',
+          entries: calcServices.map((item, index) => ({ item, index })),
+          items: calcServices,
+          field: 'calc_services',
+          headerBackground: bgSrvRow,
+          headerText: c('#276749', '#68d391'),
+          headerBorder: borderSrv,
+          accent: c('#276749', '#68d391'),
+          // Строки услуг с заливкой, как строки материалов (зелёный тон раздела).
+          rowBackground: 'var(--section-services-tint)',
+          footer: renderServicePicker(false),
+          bordered: false,
+          showHeader: false,
+        })}
+      </WorkspaceSection>
+
+      {/* Rozliczenia — тот же ProjectCashLedger, что в Bilans klienta; смонтирован всегда (в т.ч.
+          в свёрнутой секции), поэтому несохранённая операция не теряется при сворачивании. */}
+      <WorkspaceSection
+        title="Rozliczenia"
+        summary={`Saldo ${formatDesktopCashMoney(projectCashSaldo)} zł`}
+        open={workspaceSections.isOpen('cash')}
+        onToggle={() => toggleWorkspaceSection('cash')}
+        flush
+      >
+        <div className={ms.workspaceCash}>
+          <ProjectCashLedger
+            ref={cashLedgerRef}
+            client={client}
+            transactions={cashTransactions}
+            onSaveTransaction={onSaveCashTransaction}
+            onDeleteTransaction={onDeleteCashTransaction}
+            showProjectHeader
+            desktopLayout
+            compactHeader
+            onDirtyChange={setCashDirty}
+            status={cashStatus}
+            onRetry={onRetryCash}
+          />
+        </div>
+      </WorkspaceSection>
+
+      <ProjectTasksPanel
+        layout="workspace"
+        open={workspaceSections.isOpen('tasks')}
+        onToggle={() => toggleWorkspaceSection('tasks')}
+        tasks={client.tasks || []}
+        currentProfile={currentProfile}
+        onChange={(tasks) => setClient(prev => ({ ...prev, tasks }))}
+      />
+
+      <ProjectImportantPoints
+        layout="workspace"
+        open={workspaceSections.isOpen('info')}
+        onToggle={() => toggleWorkspaceSection('info')}
+        points={client.important_points || []}
+        currentProfile={currentProfile}
+        onChange={(importantPoints) => setClient(prev => ({ ...prev, important_points: importantPoints }))}
+      />
+    </div>
   );
 
   // Firma/Moje + Zapisz (+ статус сохранения) — общий блок для modal-fallback (справа в шапке
@@ -921,18 +1037,19 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             ms.tab); третья вкладка сохраняет внутренний id 'expenses' (данные/схема не трогаются),
             меняется только подпись — "Rozliczenia" вместо "Wydatki". desktop/embedded сохраняют
             emoji и суммы в названиях без изменений. */}
+        {!isEmbedded && (
         <div className={cx(ms.tabBar, isMobileVariant && ms.tabBarMobile)}>
           <button onClick={() => handleTabChange('materials')} className={tabClassName('materials', ms.tabMaterials)}>
 
-            {(isMobileVariant || isEmbedded) ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
+            {isMobileVariant ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
           </button>
           <button onClick={() => handleTabChange('services')} className={tabClassName('services', ms.tabServices)}>
 
-            {(isMobileVariant || isEmbedded) ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
+            {isMobileVariant ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
           </button>
           <button onClick={() => handleTabChange('expenses')} className={tabClassName('expenses', ms.tabExpenses)}>
 
-            {(isMobileVariant || isEmbedded) ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
+            {isMobileVariant ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
           </button>
           {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
               (полка в контенте, feat/mobile-files-zoom) — только у настоящего modal-fallback
@@ -943,7 +1060,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </button>
           )}
         </div>
+        )}
 
+        {isEmbedded ? renderWorkspaceSections() : (
         <div style={{ minHeight: isMobileVariant ? '350px' : 0 }}>
 
           {/* МАТЕРИАЛЫ */}
@@ -1050,27 +1169,20 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               расходы; Wpłaty/Saldo — настоящие, из project_cash_transactions, не имитация.
               cashDirty (см. выше) примешивается в общий isDirty через onDirtyChange ниже —
               неконтролируемое использование (без editingKey/onEditingKeyChange пропсов), у этой
-              единственной карточки собственный, локальный editingKey. Embedded включает отдельный
-              desktopLayout по Figma; обычный modal-fallback ниже сохраняет calc_expenses. */}
+              единственной карточки собственный, локальный editingKey. Embedded (desktop) — секция
+              Rozliczenia в renderWorkspaceSections; обычный modal-fallback ниже сохраняет calc_expenses. */}
           {activeTab === 'expenses' && (
-            (isMobileVariant || isEmbedded) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: isEmbedded ? '8px' : 0 }}>
-                {isEmbedded && renderSectionHeader(desktopCashOpen, () => setDesktopCashOpen(open => !open), projectCashSaldo, 'Faktyczne przepływy pieniężne', 'Saldo ')}
-                <div style={{ display: !isEmbedded || desktopCashOpen ? 'block' : 'none' }}>
-                <ProjectCashLedger
-                  ref={cashLedgerRef}
-                  client={client}
-                  transactions={cashTransactions}
-                  onSaveTransaction={onSaveCashTransaction}
-                  onDeleteTransaction={onDeleteCashTransaction}
-                  showProjectHeader={isEmbedded}
-                  desktopLayout={isEmbedded}
-                  onDirtyChange={setCashDirty}
-                  status={cashStatus}
-                  onRetry={onRetryCash}
-                />
-                </div>
-              </div>
+            isMobileVariant ? (
+              <ProjectCashLedger
+                ref={cashLedgerRef}
+                client={client}
+                transactions={cashTransactions}
+                onSaveTransaction={onSaveCashTransaction}
+                onDeleteTransaction={onDeleteCashTransaction}
+                onDirtyChange={setCashDirty}
+                status={cashStatus}
+                onRetry={onRetryCash}
+              />
             ) : (
             <div>
               <div style={{ marginBottom: '15px' }}>
@@ -1105,7 +1217,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             <FilesTab variant="tab" clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
           )}
 
-          {(isEmbedded || isMobileVariant) && (
+          {isMobileVariant && (
             <ProjectTasksPanel
               tasks={client.tasks || []}
               currentProfile={currentProfile}
@@ -1113,7 +1225,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             />
           )}
 
-          {(isEmbedded || isMobileVariant) && (
+          {isMobileVariant && (
             <ProjectImportantPoints
               points={client.important_points || []}
               currentProfile={currentProfile}
@@ -1121,6 +1233,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             />
           )}
         </div>
+        )}
 
         </div>
         {/* /ms.contentMobile — koniec jedynego przewijanego obszaru mobile */}

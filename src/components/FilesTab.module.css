@@ -211,10 +211,12 @@
   cursor: default;
 }
 
+/* Размер превью на desktop-полке (2026-10-17: 112 → 224 px, вдвое крупнее). */
 .desktopCarousel {
+  --desktop-thumb-size: 224px;
   display: flex;
-  gap: 8px;
-  min-height: 112px;
+  gap: 10px;
+  min-height: var(--desktop-thumb-size);
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -225,9 +227,9 @@
 
 .desktopCarouselImg,
 .desktopCarouselDoc {
-  width: 112px;
-  height: 112px;
-  flex: 0 0 112px;
+  width: var(--desktop-thumb-size);
+  height: var(--desktop-thumb-size);
+  flex: 0 0 var(--desktop-thumb-size);
   box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -253,7 +255,7 @@
 }
 
 .desktopCarouselDocIcon {
-  font-size: 11px;
+  font-size: var(--font-size-base);
   font-weight: 600;
 }
 
@@ -261,7 +263,7 @@
   max-width: 100%;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -340,9 +342,9 @@
 
 .desktopCarouselItem {
   position: relative;
-  width: 112px;
-  height: 112px;
-  flex: 0 0 112px;
+  width: var(--desktop-thumb-size);
+  height: var(--desktop-thumb-size);
+  flex: 0 0 var(--desktop-thumb-size);
   min-width: 0;
 }
 
