@@ -48,6 +48,18 @@ test('owner saves a protected project draft and completes the cash transaction l
   // Rozliczenia — rozwinięta sekcja pod Materiałami i Usługami (bez zakładek).
   const cashSection = page.getByRole('region', { name: 'Rozliczenia' });
   await expect(cashSection.getByRole('button', { name: /^Rozliczenia/ })).toHaveAttribute('aria-expanded', 'true');
+
+  // Współczynnik budżetu — jedyne miejsce edycji po usunięciu panelu finansowego sidebar
+  // (chore/remove-sidebar-finance-panel-and-ai-fab): przycisk "×2" w nagłówku Rozliczenia.
+  await cashSection.getByRole('button', { name: 'Zmień współczynnik, obecnie 2' }).click();
+  const coefficientInput = page.getByLabel('Współczynnik projektu');
+  await coefficientInput.fill('2.5');
+  await coefficientInput.press('Enter');
+  await expect(cashSection.getByRole('button', { name: 'Zmień współczynnik, obecnie 2.5' })).toBeVisible();
+
+  await page.locator('.main-content').getByRole('button', { name: /Zapisz/ }).first().click();
+  await expect(page.getByText('✓ Zapisano')).toBeVisible();
+  expect(state.projects[1].budget_coefficient).toBe(2.5);
   await cashSection.getByRole('button', { name: /Wp/ }).click();
   await page.getByLabel('Nazwa operacji').fill('Zaliczka E2E');
   await page.getByLabel('Kwota operacji').fill('1250');
