@@ -512,13 +512,16 @@ export default function ProjectListPanel({
     ? sectionGroupKey(activeArchivedProject ? PROJECT_LIFECYCLE.ARCHIVED : null, clientGroupKey(activeProject))
     : null;
   const [openGroups, setOpenGroups] = useState(() => new Set(activeGroupKey ? [activeGroupKey] : []));
-  const [revealedProjectId, setRevealedProjectId] = useState(activeProjectId ?? null);
+  // Раскрываем группу заново и при смене проекта, и при смене имени его клиента (после
+  // переименования проект оказывается в группе с новым ключом).
+  const revealToken = `${activeProjectId ?? ''}|${activeGroupKey ?? ''}`;
+  const [revealedToken, setRevealedToken] = useState(revealToken);
   // Пока идёт поиск, совпавшие группы показаны раскрытыми; здесь — те, что пользователь
   // свернул вручную во время текущего поиска.
   const [searchClosedGroups, setSearchClosedGroups] = useState(() => new Set());
 
-  if ((activeProjectId ?? null) !== revealedProjectId) {
-    setRevealedProjectId(activeProjectId ?? null);
+  if (revealToken !== revealedToken) {
+    setRevealedToken(revealToken);
     if (treeLayout && activeGroupKey) {
       if (!openGroups.has(activeGroupKey)) setOpenGroups(new Set(openGroups).add(activeGroupKey));
       if (activeArchivedProject) setArchiveOpen(true);

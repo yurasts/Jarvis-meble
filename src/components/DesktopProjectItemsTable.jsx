@@ -1,3 +1,11 @@
+// Ширины колонок без строки заголовков (секции рабочей области). Сумма правых колонок одинакова
+// у материалов и услуг (424 px), поэтому цена, количество и сумма стоят друг под другом.
+const COLUMN_WIDTHS = {
+  materials: [null, 110, 60, 90, 120, 44],
+  services: [null, 170, 90, 120, 44],
+  expenses: [null, 170, 90, 120, 44],
+};
+
 const TABLE_CONFIG = {
   materials: {
     headers: ['Nazwa materiału', 'Cena j.', 'Jm', 'Ilość', 'Suma'],
@@ -38,14 +46,26 @@ const DesktopProjectItemsTable = ({
   onQuantityChange,
   onQuantityCommit,
   renderDeleteCell,
+  // false — таблица внутри секции рабочей области (WorkspaceSection): рамку даёт сама секция.
+  bordered = true,
+  // false — без строки заголовков колонок (секции рабочей области: смысл колонок ясен из данных).
+  showHeader = true,
 }) => {
   const config = TABLE_CONFIG[kind];
   const isMaterial = kind === 'materials';
   const columnCount = config.showUnit ? 6 : 5;
 
   return (
-    <div style={{ overflow: footer ? 'visible' : undefined, overflowX: footer ? undefined : 'auto', border: `1px solid ${colors.border}`, borderRadius: '6px' }}>
+    <div style={{ overflow: footer ? 'visible' : undefined, overflowX: footer ? undefined : 'auto', ...(bordered ? { border: `1px solid ${colors.border}`, borderRadius: '6px' } : {}) }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', whiteSpace: 'nowrap' }}>
+        {!showHeader && (
+          <colgroup>
+            {COLUMN_WIDTHS[kind].map((width, index) => (
+              <col key={index} style={width ? { width: `${width}px` } : undefined} />
+            ))}
+          </colgroup>
+        )}
+        {showHeader && (
         <thead>
           <tr style={{ background: colors.headerBackground, textAlign: 'left', color: colors.headerText }}>
             {config.headers.map((header, index) => (
@@ -63,6 +83,7 @@ const DesktopProjectItemsTable = ({
             <th style={{ padding: '6px 8px', borderBottom: `2px solid ${colors.headerBorder}` }} />
           </tr>
         </thead>
+        )}
         <tbody>
           {entries.map(({ item, index }) => {
             const itemKey = item.id ?? index;

@@ -278,6 +278,20 @@
   min-width: 0;
 }
 
+/* Секции рабочей области (Materiały, Usługi, Rozliczenia, Zadania, Informacje) — колонка
+   одинаковой ширины. */
+.workspaceSections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Карточка ProjectCashLedger уже внутри рамки секции — собственная рамка не нужна. */
+.workspaceCash > :first-child {
+  border: 0;
+  border-radius: 0 0 calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px);
+}
+
 /* ---------- Действия: Firma/Moje + Zapisz ---------- */
 .actions {
   display: flex;

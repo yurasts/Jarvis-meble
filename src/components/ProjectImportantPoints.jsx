@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Plus } from 'lucide-react';
+import WorkspaceSection from './WorkspaceSection';
+import { workspaceSectionButtons } from './workspaceSectionButtons';
 import s from './ProjectImportantPoints.module.css';
 
 const nextPointId = (points) => {
@@ -7,7 +10,8 @@ const nextPointId = (points) => {
   return numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
 };
 
-const ProjectImportantPoints = ({ points = [], onChange, currentProfile = null }) => {
+// layout='workspace' — сворачиваемая секция desktop-рабочей области (как ProjectTasksPanel).
+const ProjectImportantPoints = ({ points = [], onChange, currentProfile = null, layout, open = true, onToggle }) => {
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
@@ -62,18 +66,25 @@ const ProjectImportantPoints = ({ points = [], onChange, currentProfile = null }
     if (editingId === pointId) cancelEditing();
   };
 
-  return (
-    <section className={s.panel} aria-label="Informacje">
-      <div className={s.header}>
-        <div className={s.heading}>
-          <h3>Informacje</h3>
-          <span>{points.length}</span>
-        </div>
-        <button type="button" className={s.addOpenButton} onClick={() => setShowAddModal(true)} aria-label="Dodaj ważną informację">
-          <span aria-hidden="true">+</span>
-          <span>Dodaj</span>
-        </button>
-      </div>
+  const addButton = layout === 'workspace' ? (
+    <button
+      type="button"
+      className={workspaceSectionButtons.iconAdd}
+      onClick={() => setShowAddModal(true)}
+      aria-label="Dodaj ważną informację"
+      title="Dodaj ważną informację"
+    >
+      <Plus size={13} strokeWidth={2.75} aria-hidden="true" />
+    </button>
+  ) : (
+    <button type="button" className={s.addOpenButton} onClick={() => setShowAddModal(true)} aria-label="Dodaj ważną informację">
+      <span aria-hidden="true">+</span>
+      <span>Dodaj</span>
+    </button>
+  );
+
+  const content = (
+    <>
       {/* Без записей остаётся только шапка с «+ Dodaj» — пустую рамку-заглушку не рисуем. */}
       {points.length > 0 && (
         <div className={s.list}>
@@ -149,6 +160,34 @@ const ProjectImportantPoints = ({ points = [], onChange, currentProfile = null }
         </div>,
         document.body,
       )}
+    </>
+  );
+
+  if (layout === 'workspace') {
+    return (
+      <WorkspaceSection
+        title="Informacje"
+        meta={points.length}
+        actions={addButton}
+        open={open}
+        onToggle={onToggle}
+        flush
+      >
+        {content}
+      </WorkspaceSection>
+    );
+  }
+
+  return (
+    <section className={s.panel} aria-label="Informacje">
+      <div className={s.header}>
+        <div className={s.heading}>
+          <h3>Informacje</h3>
+          <span>{points.length}</span>
+        </div>
+        {addButton}
+      </div>
+      {content}
     </section>
   );
 };

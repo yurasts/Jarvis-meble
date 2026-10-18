@@ -23,6 +23,7 @@ import {
   getProjectLifecycle,
 } from './utils/projectLifecycle';
 import purgeProject from './data/projectPurge';
+import { planClientGroupRename } from './utils/clientGroupRename';
 import PurgeProjectsDialog from './components/PurgeProjectsDialog';
 import { LayoutDashboard, FolderKanban, Package, Settings as SettingsIcon } from 'lucide-react'
 import s from './App.module.css'
@@ -423,9 +424,18 @@ function App() {
 
   async function handleUpdateClient(e) {
     if (e && e.preventDefault) e.preventDefault()
+    // Новое имя клиента записывается во все проекты его группы (utils/clientGroupRename.js) —
+    // до сохранения самого проекта: если переименование не прошло, проект не сохраняется и
+    // группа не распадается; повторное «Zapisz» сделает всё заново.
+    const rename = planClientGroupRename({ clients, original: originalClient, draft: activeClient })
     try {
+      if (rename) {
+        const renamedRows = await clientsRepository.renameClientGroup(rename.ids, rename.fullNameIds, rename.nextName)
+        const renamedById = new Map(renamedRows.map(row => [row.id, row]))
+        setClients(current => current.map(c => (renamedById.has(c.id) ? { ...c, ...renamedById.get(c.id) } : c)))
+      }
       const saved = await clientsRepository.updateAndGet(activeClient.id, {
-        client_name:        activeClient.client_name,
+        client_name:        rename ? rename.nextName : activeClient.client_name,
         project_name:       activeClient.project_name,
         project_scope:      activeClient.project_scope || 'firma',
         notes:              activeClient.notes,
@@ -442,6 +452,13 @@ function App() {
       })
       setClients(current => current.map(c => c.id === activeClient.id ? saved : c))
       setOriginalClient(JSON.parse(JSON.stringify(saved)))
+      if (rename) {
+        // Имя без лишних пробелов и обновлённый full_name — в открытый черновик, иначе проект
+        // сразу после сохранения выглядел бы изменённым.
+        setActiveClient(prev => (prev?.id === saved.id
+          ? { ...prev, client_name: saved.client_name, full_name: saved.full_name }
+          : prev))
+      }
       return { error: null }
     } catch (error) {
       return { error }

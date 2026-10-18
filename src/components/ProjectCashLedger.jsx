@@ -56,6 +56,9 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   onRetry,
   desktopLayout = false,
   showDesktopSaldo = false,
+  // Рабочая область проекта (desktop): строка проекта с суммами в одну строку, без подписей
+  // над суммами (подпись — во всплывающей подсказке), вдвое ниже.
+  compactHeader = false,
   coefficientValue,
   coefficientEditing = false,
   onCoefficientEdit,
@@ -483,14 +486,16 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
           {showDesktopSaldo && status === 'ready' && (
             <div className={s.desktopSaldoRow}>Saldo <strong>{formatDesktopMoney(saldo)} zł</strong></div>
           )}
-          <div className={s.desktopProjectHeader}>
+          <div className={`${s.desktopProjectHeader} ${compactHeader ? s.desktopProjectHeaderCompact : ''}`}>
             <span className={s.desktopProjectName} title={projectName}>
               <span className={s.projectStatusDot} style={{ background: statusColor }} />
               {projectName}
             </span>
             {plannedMetrics.map((metric) => (
-              <span key={metric.key} className={s.desktopMetric}>
-                <span className={s.desktopMetricLabel}>{metric.label}</span>
+              <span key={metric.key} className={s.desktopMetric} title={compactHeader ? metric.label : undefined}>
+                {compactHeader
+                  ? <span className={s.visuallyHidden}>{metric.label}</span>
+                  : <span className={s.desktopMetricLabel}>{metric.label}</span>}
                 {renderMetricValue(metric)}
               </span>
             ))}

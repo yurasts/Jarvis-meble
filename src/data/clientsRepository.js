@@ -82,6 +82,30 @@ export const createClientsRepository = ({ client = supabase } = {}) => {
       return selectWithFallback(columns => client.from('clients').update(fields).eq('id', id).select(columns).single());
     },
 
+    // Переименование клиента: client_name во всех проектах группы одним запросом, full_name — там,
+    // где он совпадал со старым именем. Возвращает изменённые строки (RLS может пропустить
+    // недоступные). Ошибка второго запроса не отменяет первый: full_name — только для портала.
+    async renameClientGroup(ids, fullNameIds, clientName, logger = console) {
+      const renamed = unwrap(await client
+        .from('clients')
+        .update({ client_name: clientName })
+        .in('id', ids)
+        .select('id,client_name,full_name')) || [];
+      if (!fullNameIds?.length) return renamed;
+      try {
+        const updated = unwrap(await client
+          .from('clients')
+          .update({ full_name: clientName })
+          .in('id', fullNameIds)
+          .select('id,full_name')) || [];
+        const fullNames = new Map(updated.map(row => [row.id, row.full_name]));
+        return renamed.map(row => (fullNames.has(row.id) ? { ...row, full_name: fullNames.get(row.id) } : row));
+      } catch (error) {
+        logger.error(error);
+        return renamed;
+      }
+    },
+
     // Archiwum / Kosz / Przywróć для одного или нескольких проектов. Возвращает реально
     // изменённые строки: RLS может молча пропустить недоступные, а триггер БД отклоняет
     // смену статуса для ролей кроме owner/assembler (42501).
