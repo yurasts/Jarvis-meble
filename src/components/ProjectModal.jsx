@@ -13,7 +13,6 @@ import useProjectItemEditor from './useProjectItemEditor';
 import useProjectItemPickers from './useProjectItemPickers';
 import useProjectSaveLifecycle from './useProjectSaveLifecycle';
 import useProjectCloseLifecycle from './useProjectCloseLifecycle';
-import useProjectTabLifecycle from './useProjectTabLifecycle';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
@@ -115,15 +114,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     removeItem: handleRemoveItem,
   } = useProjectItemEditor({ updateItems });
 
-  // Mobile Project Workspace v1: секции "Dodane pozycje" (Materiały) и Usługi — свёрнуты/развёрнуты
-  // по статусу проекта (ленивая инициализация, тот же паттерн, что и раньше был у coefficient —
-  // при смене проекта весь ProjectModal перемонтируется, см. key в App.jsx). Чисто локальный UI-стейт,
-  // не пишется в Supabase. status === 'new' — открыто сразу; на более поздних этапах пользователь
-  // раскрывает вручную кнопкой-toggle.
-  // (client.status || 'new') — проект без заполненного статуса ведёт себя как "Nowy" (открыто),
-  // а не как поздний этап (закрыто).
-  const [mobileMaterialsOpen, setMobileMaterialsOpen] = useState(() => (client.status || 'new') === 'new');
-  const [mobileServicesOpen, setMobileServicesOpen] = useState(() => (client.status || 'new') === 'new');
   const [desktopMaterialsOpen, setDesktopMaterialsOpen] = useState(true);
   const [desktopServicesOpen, setDesktopServicesOpen] = useState(true);
   // Desktop workspace (embedded) 2026-10: вкладок нет — Materiały, Usługi, Rozliczenia, Zadania и
@@ -138,9 +128,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // подтверждения" должно работать одинаково для обоих видов несохранённых изменений, поэтому
   // ниже примешивается в общий isDirty через ||.
   const [cashDirty, setCashDirty] = useState(false);
-  // Смена вкладки прочь от Rozliczenia при cashDirty=true (review P1) — ждёт подтверждения вместо
-  // немедленного unmount ProjectCashLedger (который иначе тихо теряет черновик). Значение — имя
-  // таба, на который хотели переключиться, или null.
+  // Ref на открытую карточку Rozliczenia — императивное сохранение черновика (saveActiveDraft)
+  // из общего диалога "Masz niezapisane zmiany" (useProjectSaveLifecycle.saveAllDirty) при закрытии
+  // всего ProjectModal. Секции Materiały/Usługi/Rozliczenia на desktop/embedded и mobile теперь
+  // аккордеон (WorkspaceSection), а не вкладки — сворачивание секции НЕ демонтирует её содержимое
+  // (hidden, не unmount), поэтому отдельная защита "не потерять черновик при смене таба" (была
+  // нужна раньше, пока Rozliczenia была одной из переключаемых вкладок на mobile) здесь больше не
+  // нужна — переключать уже нечего.
   const cashLedgerRef = useRef(null);
   // Редактируемый współczynnik в desktop Rozliczenia (единственное место редактирования —
   // прежняя финансовая панель sidebar убрана, см. chore/remove-sidebar-finance-panel-and-ai-fab).
@@ -248,18 +242,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       updateItems(field, [...currentItems, { ...item, quantity: 1, ...authorMeta() }]);
     }
   };
-  // Сворачивание секции Materiały/Usługi (hotfix, п.3): если секция сейчас ОТКРЫТА (мы её
-  // закрываем) — сначала finishEditing() (коммит активного input + полный сброс редактора), и
-  // только потом toggle. При повторном раскрытии секции раскрытых строк/delete-confirm уже нет.
-  // Открытие (сейчас закрыта) не нуждается в finishEditing — закрывать нечего.
-  const handleToggleMobileMaterials = () => {
-    if (mobileMaterialsOpen) finishEditing();
-    setMobileMaterialsOpen(o => !o);
-  };
-  const handleToggleMobileServices = () => {
-    if (mobileServicesOpen) finishEditing();
-    setMobileServicesOpen(o => !o);
-  };
+  // Сворачивание секции Materiały/Usługi (modal-fallback, hotfix п.3): если секция сейчас
+  // ОТКРЫТА (мы её закрываем) — сначала finishEditing() (коммит активного input + полный сброс
+  // редактора), и только потом toggle. При повторном раскрытии секции раскрытых строк/
+  // delete-confirm уже нет. Открытие (сейчас закрыта) не нуждается в finishEditing — закрывать нечего.
   const handleToggleDesktopMaterials = () => {
     if (desktopMaterialsOpen) finishEditing();
     setDesktopMaterialsOpen(open => !open);
@@ -341,24 +327,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     handleKeyDown: handleServicePickerKeyDown,
     select: addServiceFromPicker,
   } = servicePicker;
-  const {
-    pendingTabChange,
-    cashTabSaveError,
-    handleTabChange,
-    cancelTabChange,
-    discardTabChange,
-    saveAndChangeTab,
-  } = useProjectTabLifecycle({
-    activeTab,
-    setActiveTab,
-    isMobileVariant,
-    isEmbedded,
-    cashDirty,
-    setCashDirty,
-    cashLedgerRef,
-    finishEditing,
-    resetPickers,
-  });
+  // Смена вкладки — только настоящий modal-fallback (variant='modal'): desktop/embedded и mobile
+  // переключают видимость через аккордеон-секции (WorkspaceSection), а не через табы, поэтому
+  // здесь больше нет "отложенной" смены таба при несохранённом черновике Rozliczenia — сам сценарий
+  // (уйти с вкладки Rozliczenia, не потеряв черновик) исчез вместе с табами на этих двух вариантах;
+  // modal-fallback Rozliczenia не монтирует ProjectCashLedger вовсе (calc_expenses), так что там
+  // несохранённого денежного черновика в принципе не бывает — раньше здесь была отдельная логика
+  // (useProjectTabLifecycle) под этот сценарий, удалена как окончательно недостижимая.
+  const handleTabChange = (tab) => {
+    if (tab !== activeTab) resetPickers();
+    setActiveTab(tab);
+  };
 
   const rowStripe = (item) => item.addedByColor || '#e2e8f0';
 
@@ -384,12 +363,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   };
 
   // Класс вкладки: цвета активной вкладки задаются токенами раздела (--section-*) в
-  // ProjectModal.module.css, тёмные значения — в src/index.css, без isDark в JS.
+  // ProjectModal.module.css, тёмные значения — в src/index.css, без isDark в JS. Используется
+  // только настоящим modal-fallback (variant='modal') — mobile с 2026-10-18 на аккордеоне.
   const tabClassName = (tab, sectionClass) => cx(
     ms.tab,
     sectionClass,
     activeTab === tab && ms.tabActive,
-    isMobileVariant && ms.tabMobile,
   );
 
   // variant='mobile' (ADR-003, Mobile Field Mode faza 2): pełnoekranowy widok do 767px, zastępuje
@@ -421,7 +400,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   // Etykiety/komunikat dialogu potwierdzenia — wyliczone raz, bez IIFE w JSX (ostatnie powodowało
   // fałszywy błąd react-hooks/refs, bo finalizeClose zamyka się nad refem historii).
-  const closeLabels = (pendingProjectLabel || pendingTabChange)
+  const closeLabels = pendingProjectLabel
     ? { discard: 'Odrzuć zmiany', save: 'Zapisz i przejdź dalej', cancel: 'Anuluj' }
     : isMobileVariant
       ? { discard: 'Odrzuć zmiany', save: 'Zapisz i wróć', cancel: 'Anuluj' }
@@ -429,11 +408,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
   const closeMessage = pendingProjectLabel
     ? `Chcesz otworzyć „${pendingProjectLabel}” — odrzucić niezapisane zmiany w tym projekcie?`
-    : pendingTabChange
-      ? 'Masz niezapisaną operację w Rozliczeniach — odrzucić ją?'
-      : isMobileVariant
-        ? 'Chcesz wrócić do listy projektów — odrzucić niezapisane zmiany?'
-        : 'Czy na pewno chcesz zamknąć bez zapisania?';
+    : isMobileVariant
+      ? 'Chcesz wrócić do listy projektów — odrzucić niezapisane zmiany?'
+      : 'Czy na pewno chcesz zamknąć bez zapisania?';
 
   // ==================== Mobile Project Workspace v1 (p.5/6/7) ====================
   // Общий render-helper для компактных строк Materiały/Usługi/Rozliczenia(Wydatki) на mobile —
@@ -676,6 +653,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   );
 
   // Desktop workspace (embedded): пять секций одинаковой ширины друг под другом.
+  // Общие для desktop/embedded и mobile аккордеон-секции (redesign 2026-10-18 — mobile получает
+  // точно такой же WorkspaceSection-дизайн заголовков, что и desktop; внутри Materiały/Usługi/
+  // Rozliczenia различается только СОДЕРЖИМОЕ секции — desktop-таблица vs mobile-карточки/
+  // ProjectCashLedger без desktopLayout, тот же компонент, что и раньше был во вкладке Rozliczenia).
+  // Zadania/Informacje ниже уже были variant-agnostic (layout="workspace") — без изменений.
   const renderWorkspaceSections = () => (
     <div className={ms.workspaceSections}>
       <WorkspaceSection
@@ -686,7 +668,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         onToggle={() => toggleWorkspaceSection('materials')}
         flush
       >
-        {renderDesktopItemsTable({
+        {isMobileVariant ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '10px' }}>
+            {calcMaterials.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych materiałów</div>
+            )}
+            {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
+            {renderMaterialPicker(true)}
+          </div>
+        ) : renderDesktopItemsTable({
           kind: 'materials',
           entries: sortedCalcMaterialEntries,
           items: calcMaterials,
@@ -711,7 +701,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         onToggle={() => toggleWorkspaceSection('services')}
         flush
       >
-        {renderDesktopItemsTable({
+        {isMobileVariant ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '10px' }}>
+            {calcServices.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych usług</div>
+            )}
+            {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
+            {renderServicePicker(true)}
+          </div>
+        ) : renderDesktopItemsTable({
           kind: 'services',
           entries: calcServices.map((item, index) => ({ item, index })),
           items: calcServices,
@@ -729,7 +727,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       </WorkspaceSection>
 
       {/* Rozliczenia — тот же ProjectCashLedger, что в Bilans klienta; смонтирован всегда (в т.ч.
-          в свёрнутой секции), поэтому несохранённая операция не теряется при сворачивании. */}
+          в свёрнутой секции), поэтому несохранённая операция не теряется при сворачивании.
+          Mobile: без desktopLayout/compactHeader/współczynnika — тот же набор пропсов, что раньше
+          был во вкладке Rozliczenia (коэффициент на mobile по-прежнему не редактируется). */}
       <WorkspaceSection
         title="Rozliczenia"
         summary={`Saldo ${formatDesktopCashMoney(projectCashSaldo)} zł`}
@@ -738,25 +738,38 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         flush
       >
         <div className={ms.workspaceCash}>
-          <ProjectCashLedger
-            ref={cashLedgerRef}
-            client={client}
-            transactions={cashTransactions}
-            onSaveTransaction={onSaveCashTransaction}
-            onDeleteTransaction={onDeleteCashTransaction}
-            showProjectHeader
-            desktopLayout
-            compactHeader
-            onDirtyChange={setCashDirty}
-            status={cashStatus}
-            onRetry={onRetryCash}
-            coefficientValue={coefficientDraft}
-            coefficientEditing={coefficientEditing}
-            onCoefficientEdit={handleCoefficientEdit}
-            onCoefficientChange={handleCoefficientChange}
-            onCoefficientFinish={handleCoefficientFinish}
-            onCoefficientCancel={handleCoefficientCancel}
-          />
+          {isMobileVariant ? (
+            <ProjectCashLedger
+              ref={cashLedgerRef}
+              client={client}
+              transactions={cashTransactions}
+              onSaveTransaction={onSaveCashTransaction}
+              onDeleteTransaction={onDeleteCashTransaction}
+              onDirtyChange={setCashDirty}
+              status={cashStatus}
+              onRetry={onRetryCash}
+            />
+          ) : (
+            <ProjectCashLedger
+              ref={cashLedgerRef}
+              client={client}
+              transactions={cashTransactions}
+              onSaveTransaction={onSaveCashTransaction}
+              onDeleteTransaction={onDeleteCashTransaction}
+              showProjectHeader
+              desktopLayout
+              compactHeader
+              onDirtyChange={setCashDirty}
+              status={cashStatus}
+              onRetry={onRetryCash}
+              coefficientValue={coefficientDraft}
+              coefficientEditing={coefficientEditing}
+              onCoefficientEdit={handleCoefficientEdit}
+              onCoefficientChange={handleCoefficientChange}
+              onCoefficientFinish={handleCoefficientFinish}
+              onCoefficientCancel={handleCoefficientCancel}
+            />
+          )}
         </div>
       </WorkspaceSection>
 
@@ -834,30 +847,29 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             ms.contentMobile, więc zawsze widoczny i nigdy nie zasłania ostatniego wiersza treści. */}
         {isMobileVariant && (
           <div className={ms.mobileHeader}>
-            <button onClick={handleClose} className={ms.mobileBackBtn}>
-              ← Projekty
-            </button>
-            <div className={ms.mobileTitleRow}>
-              <div className={ms.mobileTitleText}>
-                <div className={ms.mobileClientRow}>
-                  <span className={ms.mobileClientName}>
-                    {client.client_name || 'Klient'}
-                  </span>
-                  <button
-                    onClick={() => setClientInfoOpen(true)}
-                    title="Informacje o kliencie"
-                    className={ms.infoIconBtn}
-                  >
-                    ℹ️
-                  </button>
-                </div>
-                <div className={ms.mobileProjectName}>
-                  {client.project_name || 'Projekt'}
-                </div>
-              </div>
+            <div className={ms.mobileHeaderTopRow}>
+              <button onClick={handleClose} className={ms.mobileBackBtn}>
+                ← Projekty
+              </button>
               <span className={ms.statusPill}>
                 {statusLabel(client.status)}
               </span>
+            </div>
+            <div className={ms.mobileTitleInline}>
+              <span className={ms.mobileClientName}>
+                {client.client_name || 'Klient'}
+              </span>
+              <button
+                onClick={() => setClientInfoOpen(true)}
+                title="Informacje o kliencie"
+                className={ms.infoIconBtn}
+              >
+                ℹ️
+              </button>
+              <span className={ms.mobileTitleSep} aria-hidden="true">·</span>
+              <h1 className={ms.mobileProjectName}>
+                {client.project_name || 'Projekt'}
+              </h1>
             </div>
           </div>
         )}
@@ -1063,58 +1075,35 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             </div>
           </div>
         )}
-        {/* Табы — тёмная тема. На mobile (Mobile Project Workspace v1, p.4) — три РАВНЫЕ по ширине
-            вкладки без emoji и без сумм в названиях (flex:1 через ms.tabMobile поверх общего
-            ms.tab); третья вкладка сохраняет внутренний id 'expenses' (данные/схема не трогаются),
-            меняется только подпись — "Rozliczenia" вместо "Wydatki". desktop/embedded сохраняют
-            emoji и суммы в названиях без изменений. */}
-        {!isEmbedded && (
-        <div className={cx(ms.tabBar, isMobileVariant && ms.tabBarMobile)}>
+        {/* Табы — только настоящий modal-fallback (variant='modal'). Desktop/embedded и mobile
+            (с 2026-10-18 — redesign: аккордеон-секции вместо вкладок, см. renderWorkspaceSections)
+            больше не используют табы вовсе. */}
+        {!isEmbedded && !isMobileVariant && (
+        <div className={ms.tabBar}>
           <button onClick={() => handleTabChange('materials')} className={tabClassName('materials', ms.tabMaterials)}>
-
-            {isMobileVariant ? 'Materiały' : `📦 Materiały (${totalMaterials.toFixed(2)} zł)`}
+            📦 Materiały ({totalMaterials.toFixed(2)} zł)
           </button>
           <button onClick={() => handleTabChange('services')} className={tabClassName('services', ms.tabServices)}>
-
-            {isMobileVariant ? 'Usługi' : `🛠 Usługi (${totalServices.toFixed(2)} zł)`}
+            🛠 Usługi ({totalServices.toFixed(2)} zł)
           </button>
           <button onClick={() => handleTabChange('expenses')} className={tabClassName('expenses', ms.tabExpenses)}>
-
-            {isMobileVariant ? 'Rozliczenia' : `💸 Wydatki (${totalExpenses.toFixed(2)} zł)`}
+            💸 Wydatki ({totalExpenses.toFixed(2)} zł)
           </button>
-          {/* Pliki — не отдельная вкладка ни на desktop/embedded (полка в шапке), ни на mobile
-              (полка в контенте, feat/mobile-files-zoom) — только у настоящего modal-fallback
-              (variant='modal', вне embedded/mobile), где полки нет вовсе. */}
-          {!isEmbedded && !isMobileVariant && (
-            <button onClick={() => setActiveTab('files')} className={tabClassName('files', ms.tabFiles)}>
-              📎 Pliki
-            </button>
-          )}
+          <button onClick={() => setActiveTab('files')} className={tabClassName('files', ms.tabFiles)}>
+            📎 Pliki
+          </button>
         </div>
         )}
 
-        {isEmbedded ? renderWorkspaceSections() : (
-        <div style={{ minHeight: isMobileVariant ? '350px' : 0 }}>
+        {/* Аккордеон-секции (Materiały/Usługi/Rozliczenia/Zadania/Informacje) — общие для
+            desktop/embedded и mobile (redesign 2026-10-18, параметр соответствия десктопному
+            стандарту). Настоящий modal-fallback (variant='modal') ниже сохраняет старые
+            вкладки/calc_expenses без изменений. */}
+        {(isEmbedded || isMobileVariant) ? renderWorkspaceSections() : (
+        <div>
 
           {/* МАТЕРИАЛЫ */}
           {activeTab === 'materials' && (
-            isMobileVariant ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {renderSectionHeader(mobileMaterialsOpen, handleToggleMobileMaterials, totalMaterials)}
-                {mobileMaterialsOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {/* Dodane materiały */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      {calcMaterials.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych materiałów</div>
-                      )}
-                      {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
-                    </div>
-                    {renderMaterialPicker(true)}
-                  </div>
-                )}
-              </div>
-            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {renderSectionHeader(desktopMaterialsOpen, handleToggleDesktopMaterials, totalMaterials)}
               <div style={{ display: desktopMaterialsOpen ? 'block' : 'none' }}>
@@ -1141,27 +1130,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 )}
               </div>
             </div>
-            )
           )}
 
           {/* УСЛУГИ */}
           {activeTab === 'services' && (
-            isMobileVariant ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {renderSectionHeader(mobileServicesOpen, handleToggleMobileServices, totalServices)}
-                {mobileServicesOpen && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {renderServicePicker(true)}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      {calcServices.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych usług</div>
-                      )}
-                      {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {renderSectionHeader(desktopServicesOpen, handleToggleDesktopServices, totalServices)}
               <div style={{ display: desktopServicesOpen ? 'block' : 'none' }}>
@@ -1186,35 +1158,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   })
                 )}
               </div>
-
-
             </div>
-            )
           )}
 
-          {/* Rozliczenia mobile/embedded: тот же
-              ProjectCashLedger, что и в MobileClientBalanceScreen (Bilans klienta), тот же
-              cashTransactions/onSaveCashTransaction/onDeleteCashTransaction из App.jsx (единый
-              источник, без копирования) — отфильтрован здесь по activeClient.id. calc_expenses
-              (legacy/расчётные позиции) сюда не подмешиваются и не трактуются как реальные
-              расходы; Wpłaty/Saldo — настоящие, из project_cash_transactions, не имитация.
-              cashDirty (см. выше) примешивается в общий isDirty через onDirtyChange ниже —
-              неконтролируемое использование (без editingKey/onEditingKeyChange пропсов), у этой
-              единственной карточки собственный, локальный editingKey. Embedded (desktop) — секция
-              Rozliczenia в renderWorkspaceSections; обычный modal-fallback ниже сохраняет calc_expenses. */}
+          {/* Wydatki — только настоящий modal-fallback (legacy calc_expenses). Rozliczenia
+              (ProjectCashLedger, реальные операции) — только на embedded/mobile, через
+              renderWorkspaceSections выше. */}
           {activeTab === 'expenses' && (
-            isMobileVariant ? (
-              <ProjectCashLedger
-                ref={cashLedgerRef}
-                client={client}
-                transactions={cashTransactions}
-                onSaveTransaction={onSaveCashTransaction}
-                onDeleteTransaction={onDeleteCashTransaction}
-                onDirtyChange={setCashDirty}
-                status={cashStatus}
-                onRetry={onRetryCash}
-              />
-            ) : (
             <div>
               <div style={{ marginBottom: '15px' }}>
                 <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
@@ -1238,30 +1188,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               })
               )}
             </div>
-            )
           )}
 
           {/* ФАЙЛЫ — только настоящий modal-fallback; на desktop/embedded и на mobile FilesTab
               уже смонтирован как полка (variant="shelf") выше, и activeTab никогда не равен
               'files' в этих двух вариантах (см. initialTab выше). */}
-          {!isEmbedded && !isMobileVariant && activeTab === 'files' && (
+          {activeTab === 'files' && (
             <FilesTab variant="tab" clientId={client.id} currentProfile={currentProfile} coverUrl={client.cover_url} onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }} />
-          )}
-
-          {isMobileVariant && (
-            <ProjectTasksPanel
-              tasks={client.tasks || []}
-              currentProfile={currentProfile}
-              onChange={(tasks) => setClient(prev => ({ ...prev, tasks }))}
-            />
-          )}
-
-          {isMobileVariant && (
-            <ProjectImportantPoints
-              points={client.important_points || []}
-              currentProfile={currentProfile}
-              onChange={(importantPoints) => setClient(prev => ({ ...prev, important_points: importantPoints }))}
-            />
           )}
         </div>
         )}
@@ -1291,32 +1224,26 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
         {/* Подтверждение закрытия / переключения на другой проект / возврата к списку на mobile
             (тот же диалог, ADR-002 UX-faza 2.1 + ADR-003 faza 2 — не дублируется). */}
-        {(confirmClose || pendingProjectLabel || pendingTabChange) && (
+        {(confirmClose || pendingProjectLabel) && (
           <div className={cx(ms.confirmOverlay, isMobileVariant && ms.confirmOverlayMobile)}>
             <div className={ms.confirmCard}>
               <div className={ms.confirmIcon}>⚠️</div>
               <h3 className={ms.confirmTitle}>Masz niezapisane zmiany</h3>
               <p className={ms.confirmText}>{closeMessage}</p>
-              {saveStatus === 'error' && !pendingTabChange && (
+              {saveStatus === 'error' && (
                 <p className={ms.confirmError}>
                   Nie udało się zapisać zmian. Spróbuj ponownie.
                 </p>
               )}
-              {pendingTabChange && cashTabSaveError && (
-                <p className={ms.confirmError}>
-                  Nie udało się zapisać operacji. Spróbuj ponownie.
-                </p>
-              )}
               <div className={ms.confirmActions}>
                 <button
-                  onClick={() => { if (pendingTabChange) { discardTabChange(); } else if (pendingProjectLabel) { onConfirmSwitch?.({ saved: false }); } else { finalizeClose(); } }}
+                  onClick={() => { if (pendingProjectLabel) { onConfirmSwitch?.({ saved: false }); } else { finalizeClose(); } }}
                   className={ms.confirmDiscard}
                 >
                   {closeLabels.discard}
                 </button>
                 <button
                   onClick={async () => {
-                    if (pendingTabChange) { await saveAndChangeTab(); return; }
                     const result = await saveAllDirty();
                     if (result?.error) { return; }
                     setConfirmClose(false);
@@ -1327,7 +1254,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                   {closeLabels.save}
                 </button>
                 <button
-                  onClick={() => { if (pendingTabChange) { cancelTabChange(); } else if (pendingProjectLabel) { onCancelSwitch?.(); } else { setConfirmClose(false); } }}
+                  onClick={() => { if (pendingProjectLabel) { onCancelSwitch?.(); } else { setConfirmClose(false); } }}
                   className={ms.confirmCancel}
                 >
                   {closeLabels.cancel}
