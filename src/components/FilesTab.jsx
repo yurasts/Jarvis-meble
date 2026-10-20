@@ -331,74 +331,59 @@ export default function FilesTab({
   }
 
   if (isShelf && mobileWorkspaceLayout) {
-    // Mobile Project Workspace v1 (p.3): вместо <select> + Rozwiń/Zwiń — ряд из 4 кнопок-папок
-    // (FOLDER_CATEGORIES, те же id) + "+", и ПОСТОЯННО видимая горизонтальная карусель миниатюр
-    // 132×132px (без промежуточного свёрнутого/развёрнутого состояния — просто нет отдельного
-    // "развёрнутого" вида в этом варианте). Один и тот же activeCategory одновременно фильтрует
-    // видимые файлы и служит категорией загрузки — тот же принцип, что и в остальных вариантах,
-    // переключение папки не делает новый Supabase fetch (files/loading общие с variant='shelf').
+    // Mobile Project Workspace v1 (redesign 2026-10-18 — parytet z desktopem): ten sam
+    // DesktopProjectFileCarousel co na desktop-polce (ten sam rozmiar 224×224px, ten sam przycisk
+    // usuwania z potwierdzeniem) zamiast osobnej, mniejszej (132px) karuzeli bez usuwania — duże,
+    // czytelne miniatury. Rząd przycisków-folderów NIE jest już osobnym wierszem NAD karuzelą (p.2
+    // starego układu) — to wąska pionowa kolumna PO PRAWEJ stronie karuzeli (ikona + skrócona
+    // podpis, min-height 40px), żeby duże zdjęcia miały maksimum szerokości. Ten sam activeCategory
+    // jednocześnie filtruje widoczne pliki i służy kategorii uploadu — bez zmian.
     return (
       <div className={fs.root}>
-        <div className={fs.folderRow}>
-          {FOLDER_CATEGORIES.map(cat => (
+        <div className={fs.mobileFilesRow}>
+          <div className={fs.mobileCarouselWrap}>
+            <DesktopProjectFileCarousel
+              files={visible}
+              loading={loading}
+              coverUrl={coverUrl}
+              deletingFileId={deletingFileId}
+              confirmDeleteId={confirmDeleteId}
+              onOpenImage={setLightboxFileId}
+              onConfirmDelete={beginDelete}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              onDelete={handleDeleteFile}
+            />
+            <FileActionError message={fileActionError} />
+          </div>
+
+          <div className={fs.mobileFolderCol}>
+            {FOLDER_CATEGORIES.map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                disabled={uploading}
+                className={`${fs.mobileFolderBtn} ${activeCategory === cat.id ? fs.mobileFolderBtnActive : ''}`}
+                onClick={() => selectFolder(cat.id)}
+                aria-label={cat.label}
+                title={cat.label}
+              >
+                <span aria-hidden="true" className={fs.mobileFolderIcon}>{cat.icon}</span>
+                <span className={fs.mobileFolderLabel}>{cat.label}</span>
+              </button>
+            ))}
             <button
-              key={cat.id}
               type="button"
               disabled={uploading}
-              className={`${fs.folderBtn} ${activeCategory === cat.id ? fs.folderBtnActive : ''}`}
-              onClick={() => selectFolder(cat.id)}
+              className={fs.mobileUploadBtn}
+              onClick={() => fileInputRef.current.click()}
+              aria-label="Dodaj plik lub zdjęcie"
+              title="Dodaj plik lub zdjęcie"
             >
-              {cat.label}
+              {uploading ? '⏳' : '+'}
             </button>
-          ))}
-          <button
-            type="button"
-            disabled={uploading}
-            className={fs.uploadBtn}
-            onClick={() => fileInputRef.current.click()}
-            aria-label="Dodaj plik lub zdjęcie"
-            title="Dodaj plik lub zdjęcie"
-          >
-            {uploading ? '⏳' : '+'}
-          </button>
-          <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
-        </div>
-
-        <FileActionError message={fileActionError} />
-
-        {loading ? (
-          <div className={fs.emptyHint}>Ładowanie...</div>
-        ) : visible.length === 0 ? (
-          <div className={fs.emptyHint}>Brak plików w tym folderze.</div>
-        ) : (
-          <div className={fs.carousel}>
-            {visible.map(file => (
-              isImage(file.file_type) ? (
-                <img
-                  key={file.id}
-                  src={getProjectFileDisplayUrl(file)}
-                  alt={file.file_name}
-                  draggable={false}
-                  onClick={() => setLightboxFileId(file.id)}
-                  className={fs.carouselImg}
-                  style={coverUrl === file.file_url ? { borderColor: '#f6ad55', borderWidth: '2px' } : undefined}
-                />
-              ) : (
-                <a
-                  key={file.id}
-                  href={getProjectFileDisplayUrl(file)}
-                  target="_blank"
-                  rel="noreferrer"
-                  title={file.file_name}
-                  className={fs.carouselDoc}
-                >
-                  <span className={fs.carouselDocIcon}>{isPdf(file.file_type) ? '📄' : '📁'}</span>
-                  <span className={fs.carouselDocName}>{shortenFileName(file.file_name, 18)}</span>
-                </a>
-              )
-            ))}
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
           </div>
-        )}
+        </div>
 
         {renderLightbox()}
       </div>

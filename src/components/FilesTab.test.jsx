@@ -152,11 +152,14 @@ describe('FilesTab', () => {
   });
 
   it('keeps the mobile workspace folders in the same order as desktop', () => {
+    // Redesign 2026-10-18: kolumna folderów obok dużej karuzeli jest wąska (54px), więc przyciski
+    // pokazują ikonę + skróconą etykietę zamiast samego tekstu jak na desktopie — nazwa folderu
+    // nadal jest dostępna przez aria-label (tu porównywane zamiast textContent).
     renderFilesTab({ variant: 'shelf', mobileWorkspaceLayout: true });
 
     const labels = ['Projekt', 'Zadanie', 'Krój', 'Montaż'];
-    const buttons = screen.getAllByRole('button').filter(button => labels.includes(button.textContent));
-    expect(buttons.map(button => button.textContent)).toEqual(labels);
+    const buttons = screen.getAllByRole('button').filter(button => labels.includes(button.getAttribute('aria-label')));
+    expect(buttons.map(button => button.getAttribute('aria-label'))).toEqual(labels);
   });
 
   it('lets the sidebar control the folder and upload in external-controls mode', async () => {

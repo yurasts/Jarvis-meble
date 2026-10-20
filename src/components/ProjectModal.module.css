@@ -102,21 +102,33 @@
   padding: 10px 15px 16px;
 }
 
-/* ---------- Мобильная шапка ---------- */
+/* ---------- Мобильная шапка (dwa zwarte wiersze: powrót+status, klient·projekt) ---------- */
 .mobileHeader {
   flex-shrink: 0;
   box-sizing: border-box;
-  padding: 10px 15px 8px;
-  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  padding: 8px 15px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
   border-bottom: 2px solid var(--border);
   background: var(--modal-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Wiersz 1 — powrót i status na całej szerokości, nie konkurują z nazwą o miejsce. */
+.mobileHeaderTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .mobileBackBtn {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 6px;
-  margin-bottom: 6px;
+  min-height: 40px;
   padding: 4px 2px;
   border: none;
   background: none;
@@ -126,37 +138,40 @@
   cursor: pointer;
 }
 
-.mobileTitleRow {
+/* Wiersz 2 — klient · projekt, cała szerokość nagłówka dla siebie (review: wcześniejsza wersja
+   ściskała oba pola obok przycisku powrotu i plakietki statusu, obcinając je jednocześnie do
+   nieczytelności). Ellipsis zostaje tylko jako zabezpieczenie dla naprawdę długich nazw. */
+.mobileTitleInline {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.mobileTitleText {
-  flex: 1;
+  align-items: baseline;
+  gap: 4px;
   min-width: 0;
 }
 
-.mobileClientRow {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .mobileClientName,
-.mobileProjectName {
+.mobileProjectName,
+.mobileTitleSep {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .mobileClientName {
+  flex-shrink: 1;
+  min-width: 0;
   color: var(--text-muted);
   font-size: var(--font-size-xs);
 }
 
+.mobileTitleSep {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
 .mobileProjectName {
+  flex-shrink: 2;
+  min-width: 0;
+  margin: 0;
   color: var(--text-main);
   font-size: var(--font-size-lg);
   font-weight: 700;
@@ -164,6 +179,11 @@
 
 .infoIconBtn {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
   padding: 0;
   border: none;
   background: none;
@@ -177,7 +197,6 @@
 
 .statusPill {
   flex-shrink: 0;
-  margin-top: 1px;
   padding: 3px 9px;
   border-radius: var(--radius-pill);
   background: var(--project-status-color);
