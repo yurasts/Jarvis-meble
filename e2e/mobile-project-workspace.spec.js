@@ -10,12 +10,15 @@ test('mobile project workspace uses accordion sections instead of tabs', async (
   await installAuthenticatedSupabaseMock(page, [existingProject]);
 
   await page.goto('/');
-  await page.getByRole('button', { name: /Szafa istniejąca/ }).click();
+  // feat/mobile-project-list-parity (2026-10): lista Projekty jest teraz drzewem jak na desktopie —
+  // klient zwinięty domyślnie, projekt trzeba najpierw rozwinąć.
+  await page.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
+  await page.getByRole('button', { name: 'Szafa istniejąca', exact: true }).click();
 
   // Kompaktowy nagłówek: wiersz 1 — powrót + status, wiersz 2 — klient · projekt (osobny od
   // przycisku powrotu/status, żeby nazwy nie obcinały się nawzajem — review). Lista projektów
-  // zostaje zamontowana pod spodem (ten sam "Anna Kowalska" widnieje też tam), więc zakres
-  // sprawdzania zawężamy do wspólnego kontenera obu wierszy nagłówka.
+  // zostaje zamontowana pod spodem (to samo drzewo z "Anna Kowalska" widnieje też tam), więc
+  // zakres sprawdzania zawężamy do wspólnego kontenera obu wierszy nagłówka.
   const backButton = page.getByRole('button', { name: '← Projekty' });
   await expect(backButton).toBeVisible();
   const header = backButton.locator('xpath=../..');
@@ -48,7 +51,8 @@ test('mobile file shelf shows a large carousel with a folder column beside it', 
   await installAuthenticatedSupabaseMock(page, [existingProject]);
 
   await page.goto('/');
-  await page.getByRole('button', { name: /Szafa istniejąca/ }).click();
+  await page.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
+  await page.getByRole('button', { name: 'Szafa istniejąca', exact: true }).click();
 
   // Cztery przyciski folderów (ikona + etykieta, dostępna nazwa przez aria-label) plus "+" —
   // kolumna PO PRAWEJ stronie karuzeli, a nie osobny wiersz nad nią.

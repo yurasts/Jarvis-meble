@@ -22,35 +22,12 @@ import s from './ProjectListPanel.module.css';
 // что в «Legenda statusów projektów»). Устаревшие «завершённые» значения ('Zrealizowane',
 // 'Zakończone') — COMPLETED_STATUSES оттуда же.
 
-function ProjectRow({ client, onRowClick, isActive, mobileLayout }) {
+// Плоский список без аккордеона — используется только мобильным dropdown-меню в шапке
+// (App.jsx, ни treeLayout, ни mobileLayout); desktop-дерево — TreeClientGroups/TreeProjectRow
+// ниже, с 2026-10 общее для ProjectNav и полноэкранного мобильного экрана Projekty.
+function ProjectRow({ client, onRowClick, isActive }) {
   const projectName = client.project_name || client.full_name || '—';
   const openTasks = (client.tasks || []).filter((t) => !t.isDone).length;
-
-  if (mobileLayout) {
-    // Mobile Project List v1: та же логика открытия/подсветки, что и в desktop-строке ниже, но
-    // COMPLETED_STATUSES здесь трактуется явно (в отличие от desktop-фолбэка ниже, который для
-    // устаревших "завершённых" значений вроде 'Zrealizowane' попадает в STATUS_COLOR.new/красный) —
-    // требование "status dot зелёный" для завершённых проектов на mobile обязано выполняться для
-    // ЛЮБОГО значения из COMPLETED_STATUSES, не только 'done'. Desktop-ветка ниже не тронута.
-    const mobileColor = statusColorVar(resolveDisplayStatus(client.status));
-    return (
-      <div
-        className={`${s.mobileRow} ${isActive ? s.mobileRowActive : ''}`}
-        role="button"
-        tabIndex={0}
-        aria-current={isActive ? 'page' : undefined}
-        onClick={() => onRowClick(client)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(client); }
-        }}
-      >
-        <span className={s.mobileRowName}>{projectName}</span>
-        {openTasks > 0 && <span className={s.mobileRowTasks}>{openTasks}</span>}
-        <span className={s.mobileStatusDot} style={{ background: mobileColor }} />
-      </div>
-    );
-  }
-
   const color = statusColorVar(client.status);
 
   return (
@@ -254,7 +231,11 @@ function TrashProjectRow({ client, canRestore, canPurge, busy, onRestore, onPurg
 function TreeProjectRow({ client, onRowClick, isActive, folders, menuActions = [] }) {
   const projectName = client.project_name || client.full_name || '—';
   const openTasks = (client.tasks || []).filter((t) => !t.isDone).length;
-  const color = statusColorVar(client.status);
+  // resolveDisplayStatus — legacy «завершённые» значения ('Zrealizowane'/'Zakończone') тоже
+  // должны показывать зелёную точку 'done', а не статус по умолчанию 'new' (statusColorVar сам
+  // не разворачивает их, см. utils/projectStatuses.js). Теперь дерево общее для desktop и mobile
+  // (feat/mobile-project-list-parity) — раньше это учитывал только отдельный мобильный ProjectRow.
+  const color = statusColorVar(resolveDisplayStatus(client.status));
   const hasMenu = menuActions.length > 0;
 
   return (
@@ -305,12 +286,16 @@ function TreeClientGroups({
   clientMenuActions,
   projectMenuActions,
   trashRowProps,
+  // Desktop (ProjectNav) и mobile (MobileProjectsScreen) рендерят дерево одновременно (desktop
+  // скрыт только CSS-медиазапросом, не unmount) — без префикса id у строк клиента совпадали бы
+  // (project-tree-...) между двумя деревьями, что невалидно для DOM/aria-controls.
+  idPrefix = '',
 }) {
   return groupByClient(projects).map(([clientName, group]) => {
     const groupKey = sectionGroupKey(section, clientName);
     const open = isGroupOpen(groupKey);
     const containsActive = group.some((c) => c.id === activeProjectId);
-    const listId = `project-tree-${section ? `${section}-` : ''}${encodeURIComponent(clientName)}`;
+    const listId = `project-tree-${idPrefix}${section ? `${section}-` : ''}${encodeURIComponent(clientName)}`;
     const clientActions = clientMenuActions?.(group) || [];
     return (
       <div key={clientName} className={s.treeGroup}>
@@ -409,41 +394,25 @@ function SystemFolder({ id, label, Icon, count, open, onToggle, emptyText, child
   );
 }
 
-// Группы «клиент → проекты» — временное представление поверх текущих данных clients
-// (тот же group-by, что уже используется в Dashboard.jsx через dashboardHelpers.groupByClient).
-// Никакой новой сущности «клиент» не создаётся.
-function ClientGroups({ projects, onRowClick, activeProjectId, mobileLayout, onOpenBalance }) {
+// Плоские группы «клиент → проекты», без аккордеона — используется только мобильным
+// dropdown-меню в шапке (App.jsx). Тот же group-by, что в Dashboard.jsx (dashboardHelpers).
+function ClientGroups({ projects, onRowClick, activeProjectId, onOpenBalance }) {
   return groupByClient(projects).map(([clientName, group]) => (
-    <div key={clientName} className={mobileLayout ? s.mobileClientGroup : s.clientGroup}>
-      {mobileLayout ? (
-        <div className={s.mobileClientGroupHeader}>
-          <span className={s.mobileClientGroupName}>{clientName}</span>
-          {onOpenBalance && (
-            <button
-              type="button"
-              className={s.mobileBalanceBtn}
-              onClick={(e) => { e.stopPropagation(); onOpenBalance(clientName); }}
-            >
-              Bilans
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className={s.clientGroupHeaderRow}>
-          <div className={s.clientGroupHeader}>{clientName}</div>
-          {onOpenBalance && (
-            <button
-              type="button"
-              className={s.desktopBalanceBtn}
-              onClick={(e) => { e.stopPropagation(); onOpenBalance(clientName); }}
-            >
-              Bilans
-            </button>
-          )}
-        </div>
-      )}
+    <div key={clientName} className={s.clientGroup}>
+      <div className={s.clientGroupHeaderRow}>
+        <div className={s.clientGroupHeader}>{clientName}</div>
+        {onOpenBalance && (
+          <button
+            type="button"
+            className={s.desktopBalanceBtn}
+            onClick={(e) => { e.stopPropagation(); onOpenBalance(clientName); }}
+          >
+            Bilans
+          </button>
+        )}
+      </div>
       {group.map((c) => (
-        <ProjectRow key={c.id} client={c} onRowClick={onRowClick} isActive={c.id === activeProjectId} mobileLayout={mobileLayout} />
+        <ProjectRow key={c.id} client={c} onRowClick={onRowClick} isActive={c.id === activeProjectId} />
       ))}
     </div>
   ));
@@ -460,17 +429,20 @@ export default function ProjectListPanel({
   // где список перекрывался бы закреплённой нижней навигацией. На desktop/в мобильном
   // dropdown (существующие вызовы) не передаётся — поведение там не меняется.
   extraBottomPadding = false,
-  // Mobile Project List v1 — явный вариант разметки только для полноэкранного мобильного
-  // экрана Projekty (MobileProjectsScreen). Desktop (ProjectNav) и мобильный dropdown
-  // (App.jsx) продолжают вызывать компонент без этого пропа — их разметка не затронута.
+  // Mobile Project List — явный вариант разметки только для полноэкранного мобильного экрана
+  // Projekty (MobileProjectsScreen). Desktop (ProjectNav) и мобильный dropdown (App.jsx)
+  // продолжают вызывать компонент без этого пропа — их разметка не затронута. С 2026-10
+  // (feat/mobile-project-list-parity) рендерится тем же деревом, что и treeLayout — см.
+  // renderGroups ниже — только без папок файлов и с touch-размерами (s.mobileTree, CSS).
   mobileLayout = false,
-  // Mobile / Client Balance / Expanded v1 — кнопка "Bilans" в заголовке группы клиента (только
-  // mobileLayout). Не передаётся desktop (ProjectNav) и мобильным dropdown — там кнопки нет.
+  // Mobile / Client Balance / Expanded v1 — кнопка "Bilans" в заголовке группы клиента (treeLayout
+  // и mobileLayout). Не передаётся мобильным dropdown — там кнопки нет.
   onOpenBalance,
   onOpenLibrary,
   libraryActive = false,
-  // Desktop sidebar (ProjectNav) 2026-10: дерево-аккордеон клиентов, карандаш редактирования и
-  // папки файлов под активным проектом. Мобильный dropdown и mobileLayout его не используют.
+  // Desktop sidebar (ProjectNav) — дерево-аккордеон клиентов. Папки файлов под активным проектом
+  // (renderFolders) — desktop-only (workspaceOpen/onSelectFileCategory не передаются мобильным
+  // вызовом); карандаш/Bilans/меню «⋯»/Archiwum/Kosz общие с mobileLayout, см. renderGroups.
   treeLayout = false,
   onEditClient,
   workspaceOpen = false,
@@ -478,7 +450,7 @@ export default function ProjectListPanel({
   onSelectFileCategory,
   onUploadFile,
   filesUploading = false,
-  // Системные папки «Archiwum» и «Kosz» (только treeLayout). `clients` — только активные
+  // Системные папки «Archiwum» и «Kosz» (treeLayout и mobileLayout). `clients` — только активные
   // проекты; архив и корзину App передаёт отдельно (utils/projectLifecycle.js).
   archivedClients = NO_PROJECTS,
   trashClients = NO_PROJECTS,
@@ -487,6 +459,10 @@ export default function ProjectListPanel({
   lifecycleBusy = false,
   onChangeLifecycle,
   onPurgeProjects,
+  // Ошибка операции архивации/корзины/удаления (App.jsx, lifecycleNotice) — только mobileLayout:
+  // desktop показывает её сам в общей полосе над контентом (App.jsx), а полноэкранный мобильный
+  // экран её перекрывает (position: fixed), поэтому показывает сам.
+  lifecycleNotice = null,
 }) {
   const [searchText, setSearchText] = useState('');
   const [completedOpen, setCompletedOpen] = useState(false);
@@ -522,7 +498,7 @@ export default function ProjectListPanel({
 
   if (revealToken !== revealedToken) {
     setRevealedToken(revealToken);
-    if (treeLayout && activeGroupKey) {
+    if ((treeLayout || mobileLayout) && activeGroupKey) {
       if (!openGroups.has(activeGroupKey)) setOpenGroups(new Set(openGroups).add(activeGroupKey));
       if (activeArchivedProject) setArchiveOpen(true);
       else if (COMPLETED_STATUSES.has(activeProject.status)) setCompletedOpen(true);
@@ -534,7 +510,7 @@ export default function ProjectListPanel({
   const [seenClients, setSeenClients] = useState(clients);
   if (clients !== seenClients) {
     setSeenClients(clients);
-    if (treeLayout && seenClients.length > 0) {
+    if ((treeLayout || mobileLayout) && seenClients.length > 0) {
       const seenIds = new Set(seenClients.map((c) => c.id));
       const addedKeys = clients.filter((c) => !seenIds.has(c.id)).map(clientGroupKey);
       if (addedKeys.some((key) => !openGroups.has(key))) setOpenGroups(new Set([...openGroups, ...addedKeys]));
@@ -578,7 +554,7 @@ export default function ProjectListPanel({
     disabled: lifecycleBusy,
     onSelect: () => onChangeLifecycle(projects, target),
   });
-  const lifecycleEnabled = treeLayout && canManageLifecycle && !!onChangeLifecycle;
+  const lifecycleEnabled = (treeLayout || mobileLayout) && canManageLifecycle && !!onChangeLifecycle;
   const activeMenuActions = lifecycleEnabled
     ? (projects) => [
       lifecycleAction(PROJECT_LIFECYCLE.ARCHIVED, projects),
@@ -616,10 +592,18 @@ export default function ProjectListPanel({
     onPurge: purgeHandler,
   };
 
-  const renderGroups = (projects, section = null) => (treeLayout ? (
+  // Mobile Project List v2 (feat/mobile-project-list-parity, 2026-10): мобильный экран Projekty
+  // теперь тоже дерево клиент→проекты — та же ветка, что и desktop treeLayout (карандаш, Bilans,
+  // меню «⋯», Archiwum/Kosz); отличие только в touch-размерах (CSS, s.mobileTree) и в том, что
+  // renderFolders здесь всегда null (mobileLayout-вызов не передаёт workspaceOpen/
+  // onSelectFileCategory) — папки файлов в списке на mobile сознательно не показываются (п.2
+  // задания). Старый плоский ClientGroups/ProjectRow остаётся только для мобильного dropdown
+  // в шапке (App.jsx) — единственного вызова без treeLayout и без mobileLayout.
+  const renderGroups = (projects, section = null) => ((treeLayout || mobileLayout) ? (
     <TreeClientGroups
       projects={projects}
       section={section}
+      idPrefix={mobileLayout ? 'mobile-' : ''}
       onRowClick={handleOpen}
       activeProjectId={activeProjectId}
       isGroupOpen={isGroupOpen}
@@ -661,10 +645,16 @@ export default function ProjectListPanel({
     };
   }, [clients, archivedClients, trashClients, effectiveScope, searchText]);
 
-  // Mobile Project List v1 (ADR-003) — отдельная, явная ветка разметки только для полноэкранного
-  // мобильного экрана Projekty. Ниже, после этого блока, идёт ПОЛНОСТЬЮ НЕТРОНУТАЯ разметка для
-  // desktop (ProjectNav) и мобильного dropdown (App.jsx) — эта ветка её не переиспользует и не
-  // затрагивает, чтобы гарантированно не менять их визуально/функционально.
+  // Mobile Project List v2 (feat/mobile-project-list-parity, 2026-10) — отдельная, явная ветка
+  // разметки только для полноэкранного мобильного экрана Projekty. Унифицирована с левой панелью
+  // desktop (ProjectNav, treeLayout): то же дерево клиент→проекты (renderGroups → TreeClientGroups),
+  // те же Zakończone/Archiwum/Kosz — кроме папок файлов, которые на mobile в списке не показываются
+  // (renderFolders здесь всегда null, т.к. workspaceOpen/onSelectFileCategory не передаются). В
+  // отличие от desktop, где Zakończone/Archiwum/Kosz — блоки под списком со своим внутренним
+  // скроллом (сайдбар ограничен по высоте), на mobile они внутри ОДНОГО общего скролла списка
+  // (s.list) — на весь экран отдельный вложенный скролл внутри скролла был бы неудобен тач-жестом.
+  // Ниже, после этого блока, идёт ПОЛНОСТЬЮ НЕТРОНУТАЯ разметка для desktop (ProjectNav) и
+  // мобильного dropdown (App.jsx) — эта ветка её не переиспользует и не затрагивает.
   if (mobileLayout) {
     // Отдельный корень (не s.panel — у него общий padding:12px, из-за которого App Bar не был бы
     // полноширинным): mobileAppBar сам управляет своим горизонтальным padding (16px) и border-bottom
@@ -680,6 +670,10 @@ export default function ProjectListPanel({
           )}
         </div>
 
+        {lifecycleNotice && (
+          <div className={s.mobileNotice} role="alert">{lifecycleNotice}</div>
+        )}
+
         <div className={s.mobileBody}>
           <input
             type="text"
@@ -690,10 +684,52 @@ export default function ProjectListPanel({
             aria-label="Szukaj projektu"
           />
 
-          <div className={`${s.list} ${s.listExtraBottom}`}>
-            {active.length === 0 && completed.length === 0 && <div className={s.empty}>Brak projektów.</div>}
-            <ClientGroups projects={active} onRowClick={handleOpen} activeProjectId={activeProjectId} mobileLayout onOpenBalance={onOpenBalance} />
-            <ClientGroups projects={completed} onRowClick={handleOpen} activeProjectId={activeProjectId} mobileLayout onOpenBalance={onOpenBalance} />
+          <div className={`${s.list} ${s.treeList} ${s.mobileTree} ${s.listExtraBottom}`}>
+            {active.length === 0 && <div className={s.empty}>Brak projektów.</div>}
+            {renderGroups(active)}
+
+            {completed.length > 0 && (
+              <div className={s.completedSection}>
+                <button
+                  type="button"
+                  className={s.completedToggle}
+                  onClick={() => setCompletedOpen((v) => !v)}
+                  aria-expanded={completedOpen}
+                >
+                  {completedOpen ? '▾' : '▸'} Zakończone ({completed.length})
+                </button>
+                {completedOpen && (
+                  <div className={`${s.completedList} ${s.treeList}`}>
+                    {renderGroups(completed)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className={s.systemFolders} role="group" aria-label="Foldery systemowe">
+              <SystemFolder
+                id="project-folder-archive-mobile"
+                label="Archiwum"
+                Icon={Archive}
+                count={archived.length}
+                open={archiveOpen}
+                onToggle={() => setArchiveOpen((v) => !v)}
+                emptyText="Brak projektów w archiwum."
+              >
+                {renderGroups(archived, PROJECT_LIFECYCLE.ARCHIVED)}
+              </SystemFolder>
+              <SystemFolder
+                id="project-folder-trash-mobile"
+                label="Kosz"
+                Icon={Trash2}
+                count={trashed.length}
+                open={trashOpen}
+                onToggle={() => setTrashOpen((v) => !v)}
+                emptyText="Kosz jest pusty."
+              >
+                {renderGroups(trashed, PROJECT_LIFECYCLE.TRASH)}
+              </SystemFolder>
+            </div>
           </div>
         </div>
       </div>

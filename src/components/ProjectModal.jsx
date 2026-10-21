@@ -76,10 +76,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // строкой Klient/.../Zapisz); один и тот же стейт переиспользуется для mobile, т.к. варианты
   // взаимно исключают друг друга — в любой момент активен ровно один.
   const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
-  // Окно «Klient i projekt»: в embedded управляется из App (карандаш в левой панели), в
-  // mobile/modal — локально (кнопка с именем клиента / ℹ️ в шапке).
+  // Окно «Klient i projekt»: в embedded и mobile управляется из App (карандаш в левой панели /
+  // мобильном дереве Projekty — feat/mobile-project-list-parity), когда App передаёт проп; иначе
+  // (modal-fallback, или mobile без внешнего управления) — локально (ℹ️ в шапке).
   const [localClientInfoOpen, setLocalClientInfoOpen] = useState(false);
-  const isClientInfoControlled = isEmbedded && clientInfoOpenProp !== undefined;
+  const isClientInfoControlled = (isEmbedded || isMobileVariant) && clientInfoOpenProp !== undefined;
   const clientInfoOpen = isClientInfoControlled ? clientInfoOpenProp : localClientInfoOpen;
   const setClientInfoOpen = (open) => {
     if (isClientInfoControlled) onClientInfoOpenChange?.(open);
@@ -980,12 +981,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setClientInfoOpen(false); } }}
             >
               <div className={ms.dialogHeader}>
-                <span id="client-info-title">{isEmbedded ? '✏️ Klient i projekt' : '👤 Informacje o kliencie'}</span>
+                <span id="client-info-title">{(isEmbedded || isMobileVariant) ? '✏️ Klient i projekt' : '👤 Informacje o kliencie'}</span>
                 <button type="button" aria-label="Zamknij" onClick={() => setClientInfoOpen(false)} className={ms.dialogClose}>✕</button>
               </div>
               <div className={ms.dialogBody}>
-                {/* В embedded строки Klient/Projekt в шапке больше нет — имена редактируются здесь. */}
-                {isEmbedded && (
+                {/* В embedded строки Klient/Projekt в шапке больше нет; на mobile их вообще нигде
+                    больше нет (статический текст в ms.mobileHeader) — в обоих случаях имена
+                    редактируются здесь (карандаш в левой панели desktop / дереве Projekty mobile). */}
+                {(isEmbedded || isMobileVariant) && (
                   <>
                     <div className={ms.dialogField}>
                       <span className={ms.dialogLabel}>Klient:</span>
@@ -1059,7 +1062,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     className={ms.dialogInput}
                   />
                 </div>
-                {isEmbedded && (
+                {(isEmbedded || isMobileVariant) && (
                   <div className={ms.dialogFooter}>
                     <span className={ms.dialogHint}>Zmiany zapisz przyciskiem „Zapisz”.</span>
                     <button
