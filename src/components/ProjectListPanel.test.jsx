@@ -305,3 +305,108 @@ describe('ProjectListPanel Archiwum and Kosz', () => {
     expect(screen.getByRole('button', { name: /^Kosz/ })).toHaveTextContent('Kosz1');
   });
 });
+
+// feat/mobile-project-list-parity (2026-10): mobileLayout теперь рендерится тем же деревом
+// клиент→проекты, что и desktop treeLayout (карандаш, Bilans, меню «⋯», Archiwum/Kosz) — кроме
+// папок файлов, которые на mobile в списке сознательно не показываются (п.2 задания).
+describe('ProjectListPanel mobile layout', () => {
+  const renderMobile = (props = {}) => renderPanel({ treeLayout: false, mobileLayout: true, ...props });
+
+  it('renders the same accordion tree as desktop, without file folders', () => {
+    // workspaceOpen не передаётся: настоящий мобильный экран (MobileProjectsScreen) не управляет
+    // открытой папкой файлов из списка — это сознательное исключение (п.2 задания).
+    renderMobile({ activeProjectId: 1 });
+
+    expect(screen.getByRole('button', { name: /^CZERNIECHOWKA/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'fuha1' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('group', { name: 'Foldery plików projektu' })).not.toBeInTheDocument();
+  });
+
+  it('toggles a client accordion and opens a project, same as desktop', async () => {
+    const user = userEvent.setup();
+    const { handlers } = renderMobile();
+
+    await user.click(screen.getByRole('button', { name: /^CZERNIECHOWKA/ }));
+    expect(screen.getByRole('button', { name: /^CZERNIECHOWKA/ })).toHaveAttribute('aria-expanded', 'true');
+    await user.click(screen.getByRole('button', { name: 'Przedpokój' }));
+    expect(handlers.onOpenProject).toHaveBeenCalledWith(clients[2]);
+  });
+
+  it('edits a client and opens Bilans from the tree row, same actions as desktop', async () => {
+    const user = userEvent.setup();
+    const { handlers } = renderMobile();
+
+    await user.click(screen.getByRole('button', { name: 'Edytuj dane: YURA' }));
+    expect(handlers.onEditClient).toHaveBeenCalledWith('YURA', [clients[3]]);
+
+    const yuraRow = screen.getByRole('button', { name: /^YURA/ }).parentElement;
+    await user.click(within(yuraRow).getByRole('button', { name: 'Bilans' }));
+    expect(handlers.onOpenBalance).toHaveBeenCalledWith('YURA');
+  });
+
+  it('shows Zakończone, Archiwum and Kosz with working lifecycle actions', async () => {
+    const user = userEvent.setup();
+    const onChangeLifecycle = vi.fn();
+    const archived = [project(30, 'ARCH_M', 'Mobilny archiwalny', { lifecycle_status: 'archived' })];
+    const { handlers } = renderMobile({ archivedClients: archived, canManageLifecycle: true, onChangeLifecycle });
+
+    const folders = screen.getByRole('group', { name: 'Foldery systemowe' });
+    expect(within(folders).getByRole('button', { name: /^Archiwum/ })).toHaveTextContent('Archiwum1');
+    expect(within(folders).getByRole('button', { name: /^Kosz/ })).toHaveTextContent('Kosz0');
+
+    await user.click(screen.getByRole('button', { name: /^CZERNIECHOWKA/ }));
+    const row = screen.getByRole('button', { name: 'Kuchnia' }).parentElement;
+    await user.click(within(row).getByRole('button', { name: 'Więcej działań' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Do kosza' }));
+    expect(onChangeLifecycle).toHaveBeenCalledWith([clients[1]], 'trash');
+
+    await user.click(within(folders).getByRole('button', { name: /^Archiwum/ }));
+    await user.click(screen.getByRole('button', { name: /^ARCH_M/ }));
+    await user.click(screen.getByRole('button', { name: 'Mobilny archiwalny' }));
+    expect(handlers.onOpenProject).toHaveBeenLastCalledWith(archived[0]);
+  });
+
+  it('shows a lifecycle error banner inline, unlike desktop which relies on the App.jsx banner', () => {
+    renderMobile({ lifecycleNotice: 'Nie udało się zmienić stanu projektu.' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Nie udało się zmienić stanu projektu.');
+  });
+
+  it('does not duplicate DOM ids when desktop and mobile trees are mounted at the same time', async () => {
+    // Desktop (ProjectNav) и mobile (MobileProjectsScreen) рендерятся одновременно в App.jsx —
+    // desktop скрыт только CSS-медиазапросом, не unmount (см. idPrefix в TreeClientGroups).
+    const user = userEvent.setup();
+    const archived = [project(31, 'CZERNIECHOWKA', 'W archiwum', { lifecycle_status: 'archived' })];
+    render(
+      <>
+        <ProjectListPanel
+          clients={clients}
+          archivedClients={archived}
+          scopeView="firma"
+          canCreate
+          onNewProject={vi.fn()}
+          onOpenProject={vi.fn()}
+          treeLayout
+        />
+        <ProjectListPanel
+          clients={clients}
+          archivedClients={archived}
+          scopeView="firma"
+          canCreate
+          onNewProject={vi.fn()}
+          onOpenProject={vi.fn()}
+          mobileLayout
+        />
+      </>,
+    );
+
+    const [desktopToggle, mobileToggle] = screen.getAllByRole('button', { name: /^CZERNIECHOWKA/ });
+    await user.click(desktopToggle);
+    await user.click(mobileToggle);
+    const [desktopArchive, mobileArchive] = screen.getAllByRole('button', { name: /^Archiwum/ });
+    await user.click(desktopArchive);
+    await user.click(mobileArchive);
+
+    const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});

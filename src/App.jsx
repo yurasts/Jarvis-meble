@@ -660,14 +660,19 @@ function App() {
 
   const showDesktopLibrary = isDesktop && viewMode === 'library'
 
+  // Открыт проект — desktop (рабочая область) или mobile (полноэкранная модалка, variant="mobile");
+  // от showWorkspace отличается тем, что НЕ требует isDesktop — нужно для «Klient i projekt» ниже,
+  // который на mobile открывается карандашом из дерева Projekty (feat/mobile-project-list-parity).
+  const projectWorkspaceActive = viewMode === 'project' && !!activeClient
+
   // Отложенное открытие окна «Klient i projekt» — как только нужный проект стал активным.
-  if (pendingEditProjectId !== null && showWorkspace && activeClient?.id === pendingEditProjectId) {
+  if (pendingEditProjectId !== null && projectWorkspaceActive && activeClient?.id === pendingEditProjectId) {
     setPendingEditProjectId(null)
     setClientEditOpen(true)
   }
   // Ушли из рабочей области (доска, Bilans, библиотека) — очищаем и открытое, и
   // отложенное состояние, чтобы редактор не «всплыл» при позднейшем возврате.
-  if (!showWorkspace) {
+  if (!projectWorkspaceActive) {
     if (clientEditOpen) setClientEditOpen(false)
     if (pendingEditProjectId !== null) setPendingEditProjectId(null)
   }
@@ -1005,6 +1010,8 @@ function App() {
           onDeleteCashTransaction={deleteCashTransaction}
           cashStatus={cashStatus}
           onRetryCash={loadCashTransactions}
+          clientInfoOpen={clientEditOpen}
+          onClientInfoOpenChange={setClientEditOpen}
         />
         </Suspense>
       )}
@@ -1089,6 +1096,15 @@ function App() {
         onOpenProject={requestOpenProject}
         activeProjectId={activeClient?.id}
         onOpenBalance={openClientBalance}
+        onEditClient={requestEditClient}
+        archivedClients={archivedClients}
+        trashClients={trashClients}
+        canManageLifecycle={canManageLifecycle}
+        canPurge={canPurge}
+        lifecycleBusy={lifecycleBusy}
+        onChangeLifecycle={handleChangeLifecycle}
+        onPurgeProjects={requestPurgeProjects}
+        lifecycleNotice={lifecycleNotice}
       />
 
       {/* Mobile / Client Balance / Expanded v1 — отдельный полноэкранный экран (кнопка "Bilans" в
