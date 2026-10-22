@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from '../useAuth';
 import { STATUS_LEGEND, statusColorVar } from '../utils/projectStatuses';
+import useOwnerUserActivity from './useOwnerUserActivity';
+import OwnerUserActivityPanel, { UserPresenceBadge } from './OwnerUserActivityPanel';
 import s from './Settings.module.css';
 
 const PALETTE = [
@@ -36,7 +38,7 @@ const initials = (name) =>
 
 const Settings = ({
   profile, profilesById, scopeView, setScopeView,
-  onlineUsers = [], tabLabels = {}, onSignOut,
+  onSignOut,
 }) => {
   const { isDark, theme, updateTheme, refreshProfiles } = useAuth();
   const [newName, setNewName] = useState('');
@@ -50,6 +52,8 @@ const Settings = ({
   const [addSuccess, setAddSuccess] = useState(false);
   const [employeeSavingId, setEmployeeSavingId] = useState(null);
   const [employeeNotice, setEmployeeNotice] = useState(null);
+  const isOwner = profile?.role === 'owner';
+  const ownerActivity = useOwnerUserActivity({ enabled: isOwner });
 
   const allProfiles = Object.values(profilesById)
     .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'pl'));
@@ -233,6 +237,7 @@ const Settings = ({
                     <div className={s.employeeText}>
                       <strong>{employee.full_name || 'Bez nazwy'}</strong>
                       <span>{isSelf ? 'Twoje konto' : 'Pracownik'}</span>
+                      <UserPresenceBadge presence={ownerActivity.presenceByUserId[employee.id]} />
                     </div>
                   </div>
 
@@ -367,6 +372,17 @@ const Settings = ({
         </div>
       )}
 
+      {isOwner && (
+        <OwnerUserActivityPanel
+          profiles={allProfiles}
+          presenceByUserId={ownerActivity.presenceByUserId}
+          logs={ownerActivity.logs}
+          status={ownerActivity.status}
+          error={ownerActivity.error}
+          onRetry={ownerActivity.reload}
+        />
+      )}
+
       {/* ЛЕГЕНДА */}
       <div className={s.section}>
         <h3 className={s.sectionTitle}>👥 Legenda — kolory pracowników</h3>
@@ -426,7 +442,7 @@ const Settings = ({
 
       {/* Служебный блок убран из боковой панели и собран в одном месте. */}
       <div className={s.section}>
-        <h3 className={s.sectionTitle}>Konto i obecność</h3>
+        <h3 className={s.sectionTitle}>Konto</h3>
 
         <div className={s.accountCard}>
           <div className={s.accountAvatar} style={{ background: profile.color || '#718096' }}>
@@ -439,23 +455,6 @@ const Settings = ({
           <button type="button" className={s.settingsLogoutBtn} onClick={onSignOut}>Wyloguj</button>
         </div>
 
-        <div className={s.onlineSettingsBlock}>
-          <div className={s.onlineSettingsTitle}>Online ({onlineUsers.length})</div>
-          {onlineUsers.length === 0 ? (
-            <div className={s.sectionDesc}>Brak użytkowników online.</div>
-          ) : onlineUsers.map((user) => (
-            <div key={user.userId} className={s.onlineSettingsRow}>
-              <span className={s.onlineDot} />
-              <div className={s.onlineSettingsAvatar} style={{ background: user.color || '#718096' }}>
-                {initials(user.fullName)}
-              </div>
-              <div className={s.onlineSettingsText}>
-                <strong>{user.userId === profile.id ? 'Ja' : user.fullName}</strong>
-                <span>{tabLabels[user.activeTab] || user.activeTab}</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
       {/* Выбор рабочей группы намеренно расположен последним: это настройка, а не ежедневная навигация. */}
       <div className={`${s.section} ${s.scopeSection}`}>

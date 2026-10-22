@@ -51,15 +51,6 @@ function OverlayLoading() {
     </div>
   )
 }
-// "Panel", а не "Dzisiaj" — отдельный экран "на сегодня" пока не реализован (см. ADR-002).
-const TAB_LABELS = {
-  dashboard:  'Panel',
-  board:      'Tablica projektów',
-  materials:  'Materiały',
-  settings:   'Ustawienia',
-  library:    'Biblioteka PRO100',
-}
-
 const TABS = [
   { id: 'dashboard',  label: 'Panel',              Icon: LayoutDashboard },
   { id: 'board',      label: 'Tablica projektów',  Icon: FolderKanban    },
@@ -116,7 +107,7 @@ const lifecycleErrorMessage = (error) => {
 const AI_ASSISTANT_ENABLED = false
 
 function App() {
-  const { session, profile: authProfile, profilesById, isDark, theme, loadingSession, awaitingAccess, signOut, updatePresenceTab, onlineUsers } = useAuth()
+  const { session, profile: authProfile, profilesById, isDark, theme, loadingSession, awaitingAccess, signOut } = useAuth()
   // Forest — тоже тёмная по духу тема: компонентам, красящим себя через
   // свой light/dark-хелпер (ProjectModal, Kanban, MaterialsList),
   // передаём именно этот флаг, чтобы они не "светлели" в Forest.
@@ -362,7 +353,6 @@ function App() {
     setPendingClient(null) // не оставляем «зависший» диалог переключения, если он был открыт
     setShowMobileHome(false) // уходя на конкретную вкладку — скрываем мобильный экран Projekty (ADR-003)
     setMenuOpen(false) // закрываем dropdown топбара, если он был открыт
-    updatePresenceTab?.(id)
   }
 
   const openPro100Library = () => {
@@ -372,7 +362,6 @@ function App() {
     setViewMode('library')
     setShowMobileHome(false)
     setMenuOpen(false)
-    updatePresenceTab?.('library')
   }
 
   // Мобильная нижняя навигация (ADR-003): "Projekty" возвращает к мобильному экрану списка
@@ -649,10 +638,6 @@ function App() {
       scope: nextScope === 'personal' ? 'personal' : 'firma',
     })
   }
-  // Онлайн-пользователи кроме себя
-  const othersOnline = Object.values(onlineUsers || {}).filter(u => u.userId !== profile?.id)
-  const allOnline    = Object.values(onlineUsers || {})
-
   // Рабочая область проекта справа — только desktop (ADR-002, UX-фаза 2). На узком экране
   // всегда используется прежняя модалка (ниже, отдельным условием с !isDesktop).
   const showWorkspace = isDesktop && viewMode === 'project' && !!activeClient
@@ -757,23 +742,8 @@ function App() {
         {/* Правая часть — кнопка нового проекта + аватар */}
         <div className={s.topbarRight}>
 
-          {/* Онлайн-пользователи — мобайл */}
-          {othersOnline.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-              {othersOnline.slice(0, 3).map(u => (
-                <div key={u.userId} style={{ position: 'relative' }} title={`${u.fullName} — ${TAB_LABELS[u.activeTab] || u.activeTab}`}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: u.color || '#718096', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 'bold' }}>
-                    {(u.fullName || '?').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2)}
-                  </div>
-                  <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '7px', height: '7px', borderRadius: '50%', background: '#38a169', border: '1.5px solid var(--bg-sidebar)' }} />
-                </div>
-              ))}
-            </div>
-          )}
-          <div className={s.topbarAvatar} style={{ background: profile?.color || '#718096', position: 'relative' }}>
+          <div className={s.topbarAvatar} style={{ background: profile?.color || '#718096' }}>
             {initials(profile?.full_name)}
-            {/* Своя зелёная точка */}
-            <div style={{ position: 'absolute', bottom: '-1px', right: '-1px', width: '8px', height: '8px', borderRadius: '50%', background: '#38a169', border: '1.5px solid var(--bg-sidebar)' }} />
           </div>
         </div>
 
@@ -949,8 +919,6 @@ function App() {
             profilesById={profilesById}
             scopeView={effectiveScope}
             setScopeView={setScopeView}
-            onlineUsers={allOnline}
-            tabLabels={TAB_LABELS}
             onSignOut={signOut}
           />
         )}
