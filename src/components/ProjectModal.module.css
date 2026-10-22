@@ -563,6 +563,121 @@
   font-size: var(--font-size-md);
 }
 
+/* ---------- Списки добавленных позиций на mobile (Materiały/Usługi, workspace) ----------
+   refactor/design-tokens-cleanup: раньше style={{display:flex,flexDirection:column,...}}. */
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+}
+
+.itemListEmpty {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+/* ---------- Табы modal-fallback (legacy, variant="modal") ----------
+   Materiały/Usługi/Wydatki — та же разметка списка, но без padding секции (своя) и с чуть
+   другими отступами/цветом пустого состояния (так было в исходной вёрстке). */
+.fallbackSection {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.fallbackSectionBody {
+  display: none;
+}
+.fallbackSectionBody[data-open="true"] {
+  display: block;
+}
+
+.fallbackItemList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fallbackItemListEmpty {
+  text-align: center;
+  padding: 15px;
+  color: var(--palette-gray-500);
+  font-size: var(--font-size-md);
+}
+
+.addExpenseRow {
+  margin-bottom: 15px;
+}
+
+.addExpenseBtn {
+  background: var(--tone-danger);
+  color: var(--ink-on-accent);
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: bold;
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Подтверждение удаления добавленной позиции (desktop-таблица, legacy) ---------- */
+.deleteConfirmCell {
+  padding: 4px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.deleteConfirmLabel {
+  font-size: var(--font-size-xs);
+  color: var(--tone-danger);
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+.deleteConfirmYesBtn {
+  background: var(--tone-danger);
+  color: var(--ink-on-accent);
+  border: none;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+.deleteConfirmNoBtn {
+  background: var(--palette-gray-200);
+  color: var(--palette-gray-700);
+  border: none;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+}
+
+.deleteCellIdle {
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: var(--palette-gray-300);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  padding: 0;
+  line-height: 1;
+}
+.deleteBtn:hover {
+  color: var(--tone-danger);
+}
+
 /* ---------- Нижняя панель «Zapisz» на mobile ---------- */
 .saveBar {
   flex-shrink: 0;

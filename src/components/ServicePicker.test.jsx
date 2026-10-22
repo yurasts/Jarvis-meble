@@ -2,17 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ServicePicker from './ServicePicker';
 
-const colors = {
-  bgInput: '#fff',
-  bgHeader: '#eee',
-  border: '#ccc',
-  text: '#111',
-  textLight: '#666',
-  highlightBackground: '#def',
-  selectedBackground: '#efe',
-  accent: '#167',
-};
-
 const renderPicker = (overrides = {}) => {
   const props = {
     compact: true,
@@ -28,7 +17,6 @@ const renderPicker = (overrides = {}) => {
     pickerRef: { current: null },
     searchInputRef: { current: null },
     optionRefs: { current: [] },
-    colors,
     onClose: vi.fn(),
     onOpen: vi.fn(),
     onManualAdd: vi.fn(),

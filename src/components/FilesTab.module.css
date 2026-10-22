@@ -80,7 +80,7 @@
   justify-content: center;
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 18px;
   font-weight: 700;
 }
@@ -94,7 +94,7 @@
   box-sizing: border-box;
   padding: 10px 12px;
   overflow: hidden;
-  border: 1px solid #0f172a;
+  border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-card);
 }
@@ -155,14 +155,14 @@
 .desktopFolderBtnActive {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
 }
 
 .desktopUploadBtn {
   width: 40px;
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 18px;
 }
 
@@ -289,7 +289,7 @@
 .stoDownloadBtn {
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
 }
 
 .stoReplaceBtn {
@@ -299,7 +299,7 @@
 }
 
 .stoError {
-  color: var(--danger, #e53e3e);
+  color: var(--danger);
   font-size: 11px;
 }
 
@@ -326,10 +326,10 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--ring-on-scrim);
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.82);
-  color: #fff;
+  background: var(--scrim-navy-medium);
+  color: var(--ink-on-accent);
   font-size: 17px;
   line-height: 24px;
   font-weight: 700;
@@ -338,7 +338,7 @@
 
 .desktopDeleteBtn:hover,
 .desktopDeleteBtn:focus-visible {
-  background: #e53e3e;
+  background: var(--tone-danger);
   outline: none;
 }
 
@@ -357,8 +357,8 @@
   justify-content: center;
   gap: 8px;
   border-radius: 7px;
-  background: rgba(15, 23, 42, 0.92);
-  color: #fff;
+  background: var(--scrim-navy-strong);
+  color: var(--ink-on-accent);
   font-size: 12px;
   font-weight: 700;
 }
@@ -372,18 +372,18 @@
   min-width: 38px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--ring-on-scrim-soft);
   border-radius: 5px;
   background: transparent;
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .desktopDeleteActions button:first-child {
-  border-color: #e53e3e;
-  background: #e53e3e;
+  border-color: var(--tone-danger);
+  background: var(--tone-danger);
 }
 
 .desktopDeleteActions button:disabled {
@@ -392,7 +392,7 @@
 }
 
 .desktopFileError {
-  color: #e53e3e;
+  color: var(--tone-danger);
   font-size: 11px;
   font-weight: 600;
 }
@@ -661,4 +661,232 @@
   color: var(--ink-faint);
   font-size: var(--font-size-md);
   text-align: center;
+}
+
+/* ================================================
+   Компактная полка (variant="shelf", без mobileWorkspaceLayout — обычный mobile dropdown/tab
+   заголовок и desktop/embedded-fallback полка до redesign 2026-10-18) + variant="tab".
+   refactor/design-tokens-cleanup: раньше style={{}} на каждой из них. mobileLayout и desktop-
+   fallback отличаются только размерами (touch target 40px vs компактные 24-26px) — через
+   [data-mobile], не отдельными классами.
+   ================================================ */
+.compactShelf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.compactShelf[data-mobile="true"] { gap: 8px; }
+
+.compactRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.compactRow[data-mobile="true"] { gap: 8px; }
+
+.compactLabel {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text-main);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.compactSelect {
+  padding: 3px 5px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--input-border);
+  font-size: var(--font-size-xs);
+  background: var(--input-bg);
+  color: var(--text-main);
+  flex-shrink: 1;
+  min-width: 0;
+}
+.compactSelectMobile {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 9px 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--input-border);
+  font-size: var(--font-size-md);
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+
+.compactCount {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.compactUploadBtn {
+  padding: 3px 9px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--palette-blue-500);
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.compactUploadBtnMobile {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  border: none;
+  background: var(--palette-blue-500);
+  color: var(--ink-on-accent);
+  font-size: var(--font-size-icon);
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compactToggleBtn {
+  padding: 3px 9px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.compactToggleBtnMobile {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compactStateText {
+  font-size: var(--font-size-xs);
+  color: var(--palette-gray-500);
+}
+
+.compactStrip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+.compactStripImg {
+  height: 60px;
+  width: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.compactStripImg[data-mobile="true"] { height: 68px; width: 68px; }
+.compactStripImgCover {
+  border: 2px solid var(--tone-highlight);
+}
+
+.compactStripDoc {
+  height: 60px;
+  min-width: 56px;
+  max-width: 80px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-decoration: none;
+  padding: 4px;
+  box-sizing: border-box;
+}
+.compactStripDoc[data-mobile="true"] { height: 68px; }
+
+.compactStripDocIcon { font-size: var(--font-size-base); }
+
+.compactStripDocName {
+  font-size: 9px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.compactExpanded {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+/* ---------- variant="tab" (desktop/embedded modal-fallback) ---------- */
+.tabRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tabTopRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tabSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--palette-gray-300);
+  font-size: var(--font-size-sm);
+}
+
+.tabUploadBtn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: var(--palette-blue-500);
+  color: var(--ink-on-accent);
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: bold;
+  font-size: var(--font-size-sm);
+}
+
+.tabCoverHint {
+  font-size: var(--font-size-xs);
+  color: var(--palette-gray-500);
+}
+
+.hiddenFileInput {
+  display: none;
 }

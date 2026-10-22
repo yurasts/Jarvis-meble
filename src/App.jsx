@@ -885,8 +885,6 @@ function App() {
             onSave={handleUpdateClient}
             onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
             currentProfile={profile}
-            isDark={isDarkish}
-            theme={theme}
             initialTab={projectModalTab}
             onDirtyChange={setWorkspaceDirty}
             pendingProjectLabel={pendingClient
@@ -1001,8 +999,6 @@ function App() {
           onSave={handleUpdateClient}
           onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
           currentProfile={profile}
-          isDark={isDarkish}
-          theme={theme}
           initialTab={projectModalTab}
           onDirtyChange={setWorkspaceDirty}
           cashTransactions={cashTransactions}

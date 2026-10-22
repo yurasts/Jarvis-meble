@@ -23,7 +23,7 @@ import ms from './ProjectModal.module.css';
 // Статусы (подписи и цвета) — utils/projectStatuses.js + токены --status-* в src/index.css.
 const cx = (...classNames) => classNames.filter(Boolean).join(' ');
 
-const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, isDark = false, theme = 'light', onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch,
+const ProjectModal = ({ client, originalClient, setClient, materials, servicesList, onClose, onSave, currentProfile = null, onCoverChange, initialTab = 'materials', variant = 'modal', onDirtyChange, pendingProjectLabel = null, onConfirmSwitch, onCancelSwitch,
   // Единый project_cash_transactions используется в Rozliczenia на mobile и embedded desktop;
   // modal-fallback сохраняет прежний calc_expenses для обратной совместимости.
   cashTransactions = [], onSaveCashTransaction, onDeleteCashTransaction, cashStatus = 'ready', onRetryCash,
@@ -43,21 +43,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Zapisz zostawia ekran otwarty (nie zamyka) zarówno w embedded, jak i w mobile — tylko
   // "zwykły" modal zamyka się po zapisaniu (zachowanie sprzed UX-fazy 2.1).
   const staysOpenOnSave = isEmbedded || isMobileVariant;
-
-  // ✅ Нейтральный "хром" — через переменные темы (Jasny/Ciemny/Forest)
-  const c = (light, dark) => isDark ? dark : light;
-  const bg        = 'var(--modal-bg)';
-  const bgHeader  = 'var(--bg-kanban-col)';
-  const bgMatRow  = theme === 'forest' ? '#4f7057' : c('#ebf8ff', '#0f2236');
-  const bgSrvRow  = c('#f0fff4', '#0f2a1a');
-  const bgExpRow  = c('#fff5f5', '#2d1515');
-  const bgInput   = 'var(--input-bg)';
-  const text      = 'var(--text-main)';
-  const textLight = 'var(--text-muted)';
-  const border    = 'var(--border)';
-  const borderMat = c('#bee3f8', '#1a3a5c');
-  const borderSrv = c('#c6f6d5', '#1a4a2e');
-  const borderExp = c('#fed7d7', '#7b2020');
 
   // Вызывающий код всегда передаёт key вида `${client.id}-${initialTab}` (App.jsx), поэтому
   // при смене проекта/initialTab весь ProjectModal перемонтируется — ленивая инициализация
@@ -340,7 +325,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     setActiveTab(tab);
   };
 
-  const rowStripe = (item) => item.addedByColor || '#e2e8f0';
+  const rowStripe = (item) => item.addedByColor || 'var(--palette-gray-200)';
 
   // Кнопка удаления с подтверждением. Tag='td' (по умолчанию, для таблиц) или 'span' (для
   // мобильных карточек, где обёртка — flex-row <div>, а не <table>/<tr> — ADR-003, Mobile Field
@@ -349,16 +334,15 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const renderDeleteBtn = (field, currentItems, index, Tag = 'td') => {
     const key = `${field}-${index}`;
     if (confirmDeleteKey === key) return (
-      <Tag style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: '11px', color: '#e53e3e', fontWeight: 'bold', marginRight: '4px' }}>Usunąć?</span>
-        <button onClick={() => handleRemoveItem(field, currentItems, index)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', marginRight: '2px' }}>Tak</button>
-        <button onClick={() => setConfirmDeleteKey(null)} style={{ background: '#e2e8f0', color: '#2d3748', border: 'none', padding: '2px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
+      <Tag className={ms.deleteConfirmCell}>
+        <span className={ms.deleteConfirmLabel}>Usunąć?</span>
+        <button onClick={() => handleRemoveItem(field, currentItems, index)} className={ms.deleteConfirmYesBtn}>Tak</button>
+        <button onClick={() => setConfirmDeleteKey(null)} className={ms.deleteConfirmNoBtn}>Nie</button>
       </Tag>
     );
     return (
-      <Tag style={{ padding: '4px 8px', textAlign: 'center' }}>
-        <button onClick={() => setConfirmDeleteKey(key)} style={{ background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
-          onMouseEnter={e => e.target.style.color = '#e53e3e'} onMouseLeave={e => e.target.style.color = '#cbd5e0'} title="Usuń">✖</button>
+      <Tag className={ms.deleteCellIdle}>
+        <button onClick={() => setConfirmDeleteKey(key)} className={ms.deleteBtn} title="Usuń">✖</button>
       </Tag>
     );
   };
@@ -422,11 +406,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // qtyDraft) — те же самые price/qty/Enter/onBlur/evalQty/dirty-механизмы, что и в desktop-таблице
   // и в isMobile-карточках выше, без дублирования их логики.
   const MOBILE_ROW_PREFIX = { calc_materials: 'mat', calc_services: 'srv', calc_expenses: 'exp' };
-  const MOBILE_ROW_ACCENT = {
-    calc_materials: { text: c('#2b6cb0', '#63b3ed'), bg: bgMatRow, border: borderMat },
-    calc_services:  { text: c('#276749', '#68d391'), bg: bgSrvRow, border: borderSrv },
-    calc_expenses:  { text: c('#c53030', '#fc8181'), bg: bgExpRow, border: borderExp },
-  };
 
   const renderMobileRow = (field, items, index) => {
     const item = items[index];
@@ -435,7 +414,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     const rowKey = `${prefix}-${itemKey}`;
     const stateKey = `${prefix}-${index}`;
     const deleteKey = `${field}-${index}`;
-    const accent = MOBILE_ROW_ACCENT[field];
 
     const openRow = () => {
       finishEditing();
@@ -453,16 +431,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         isReplacingMaterial={field === 'calc_materials' && replacingMaterialIndex === index}
         priceDraft={priceDraft}
         quantityDraft={qtyDraft[stateKey]}
-        accent={accent}
-        colors={{
-          bgHeader,
-          bgInput,
-          border,
-          text,
-          textLight,
-          rowStripe: rowStripe(item),
-          replacementBackground: c('#dbeafe', '#17365c'),
-        }}
+        rowStripe={rowStripe(item)}
         onOpen={openRow}
         onFinishEditing={finishEditing}
         onPriceDraftChange={setPriceDraft}
@@ -521,19 +490,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       searchInputRef={materialSearchInputRef}
       optionRefs={materialOptionRefs}
       offerButtonRefs={materialOfferButtonRefs}
-      colors={{
-        bgInput,
-        bgHeader,
-        bgMaterialRow: bgMatRow,
-        border,
-        text,
-        textLight,
-        replacementBackground: c('#ebf8ff', '#17365c'),
-        highlightBackground: c('#dbeafe', '#17365c'),
-        expandedBackground: c('#f8fafc', '#162232'),
-        blueText: c('#2b6cb0', '#63b3ed'),
-        blueButton: c('#2b6cb0', '#3182ce'),
-      }}
       onClose={closeMaterialPicker}
       onOpen={() => {
         setHighlightedMaterialIndex(0);
@@ -580,16 +536,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       pickerRef={servicePickerRef}
       searchInputRef={serviceSearchInputRef}
       optionRefs={serviceOptionRefs}
-      colors={{
-        bgInput,
-        bgHeader,
-        border,
-        text,
-        textLight,
-        selectedBackground: bgSrvRow,
-        highlightBackground: c('#dcfce7', '#17452b'),
-        accent: c('#276749', '#68d391'),
-      }}
       onClose={closeServicePicker}
       onOpen={() => {
         setHighlightedServiceIndex(0);
@@ -611,7 +557,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     />
   );
 
-  const renderDesktopItemsTable = ({ kind, entries, items, field, headerBackground, headerText, headerBorder, accent, rowBackground, footer = null, replacingIndex = null, bordered = true, showHeader = true }) => (
+  const renderDesktopItemsTable = ({ kind, entries, items, field, sectionTint, footer = null, replacingIndex = null, bordered = true, showHeader = true }) => (
     <DesktopProjectItemsTable
       kind={kind}
       entries={entries}
@@ -620,19 +566,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       priceDraft={priceDraft}
       quantityDrafts={qtyDraft}
       replacingIndex={replacingIndex}
-      colors={{
-        border,
-        text,
-        mutedText: textLight,
-        inputBackground: bgInput,
-        headerBackground,
-        headerText,
-        headerBorder,
-        accent,
-        rowBackground,
-        replacementBackground: c('#dbeafe', '#17365c'),
-        nameText: kind === 'materials' ? accent : text,
-      }}
+      sectionTint={sectionTint}
       rowStripe={rowStripe}
       footer={footer}
       onToggleExpanded={toggleExpandedItem}
@@ -670,9 +604,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         flush
       >
         {isMobileVariant ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '10px' }}>
+          <div className={ms.itemList}>
             {calcMaterials.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych materiałów</div>
+              <div className={ms.itemListEmpty}>Brak dodanych materiałów</div>
             )}
             {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
             {renderMaterialPicker(true)}
@@ -682,11 +616,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           entries: sortedCalcMaterialEntries,
           items: calcMaterials,
           field: 'calc_materials',
-          headerBackground: bgHeader,
-          headerText: textLight,
-          headerBorder: border,
-          accent: c('#2b6cb0', '#63b3ed'),
-          rowBackground: bgMatRow,
           footer: renderMaterialPicker(false),
           replacingIndex: replacingMaterialIndex,
           bordered: false,
@@ -703,9 +632,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         flush
       >
         {isMobileVariant ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '10px' }}>
+          <div className={ms.itemList}>
             {calcServices.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '12px', color: textLight, fontSize: '12.5px' }}>Brak dodanych usług</div>
+              <div className={ms.itemListEmpty}>Brak dodanych usług</div>
             )}
             {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
             {renderServicePicker(true)}
@@ -715,12 +644,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           entries: calcServices.map((item, index) => ({ item, index })),
           items: calcServices,
           field: 'calc_services',
-          headerBackground: bgSrvRow,
-          headerText: c('#276749', '#68d391'),
-          headerBorder: borderSrv,
-          accent: c('#276749', '#68d391'),
-          // Строки услуг с заливкой, как строки материалов (зелёный тон раздела).
-          rowBackground: 'var(--section-services-tint)',
+          // Строки услуг с заливкой, как строки материалов (зелёный тон раздела) — sectionTint
+          // по умолчанию true, явно не передаём.
           footer: renderServicePicker(false),
           bordered: false,
           showHeader: false,
@@ -1107,12 +1032,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
           {/* МАТЕРИАЛЫ */}
           {activeTab === 'materials' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div className={ms.fallbackSection}>
               {renderSectionHeader(desktopMaterialsOpen, handleToggleDesktopMaterials, totalMaterials)}
-              <div style={{ display: desktopMaterialsOpen ? 'block' : 'none' }}>
+              <div className={ms.fallbackSectionBody} data-open={desktopMaterialsOpen}>
                 {isMobile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {calcMaterials.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych materia&#322;&#243;w</div>}
+                  <div className={ms.fallbackItemList}>
+                    {calcMaterials.length === 0 && <div className={ms.fallbackItemListEmpty}>Brak dodanych materia&#322;&#243;w</div>}
                     {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
                     {renderMaterialPicker(true)}
                   </div>
@@ -1122,11 +1047,6 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     entries: sortedCalcMaterialEntries,
                     items: calcMaterials,
                     field: 'calc_materials',
-                    headerBackground: bgHeader,
-                    headerText: textLight,
-                    headerBorder: border,
-                    accent: c('#2b6cb0', '#63b3ed'),
-                    rowBackground: bgMatRow,
                     footer: renderMaterialPicker(false),
                     replacingIndex: replacingMaterialIndex,
                   })
@@ -1137,12 +1057,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
           {/* УСЛУГИ */}
           {activeTab === 'services' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div className={ms.fallbackSection}>
               {renderSectionHeader(desktopServicesOpen, handleToggleDesktopServices, totalServices)}
-              <div style={{ display: desktopServicesOpen ? 'block' : 'none' }}>
+              <div className={ms.fallbackSectionBody} data-open={desktopServicesOpen}>
                 {isMobile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {calcServices.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodanych us&#322;ug</div>}
+                  <div className={ms.fallbackItemList}>
+                    {calcServices.length === 0 && <div className={ms.fallbackItemListEmpty}>Brak dodanych us&#322;ug</div>}
                     {calcServices.map((item, index) => renderMobileRow('calc_services', calcServices, index))}
                     {renderServicePicker(true)}
                   </div>
@@ -1152,11 +1072,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                     entries: calcServices.map((item, index) => ({ item, index })),
                     items: calcServices,
                     field: 'calc_services',
-                    headerBackground: bgSrvRow,
-                    headerText: c('#276749', '#68d391'),
-                    headerBorder: borderSrv,
-                    accent: c('#276749', '#68d391'),
-                    rowBackground: bg,
+                    // modal-fallback (legacy вкладки) — без заливки тоном раздела, в отличие от
+                    // рабочей области выше (так было и в исходной вёрстке: rowBackground: bg).
+                    sectionTint: false,
                     footer: renderServicePicker(false),
                   })
                 )}
@@ -1169,12 +1087,12 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
               renderWorkspaceSections выше. */}
           {activeTab === 'expenses' && (
             <div>
-              <div style={{ marginBottom: '15px' }}>
-                <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} style={{ background: '#e53e3e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
+              <div className={ms.addExpenseRow}>
+                <button onClick={() => handleCustomAdd('calc_expenses', calcExpenses)} className={ms.addExpenseBtn}>+ Dodaj wydatek (Paliwo, Zakupy itp.)</button>
               </div>
               {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {calcExpenses.length === 0 && <div style={{ textAlign: 'center', padding: '15px', color: '#a0aec0', fontSize: '13px' }}>Brak dodatkowych wydatk&#243;w</div>}
+                <div className={ms.fallbackItemList}>
+                  {calcExpenses.length === 0 && <div className={ms.fallbackItemListEmpty}>Brak dodatkowych wydatk&#243;w</div>}
                   {calcExpenses.map((item, index) => renderMobileRow('calc_expenses', calcExpenses, index))}
                 </div>
                 ) : (
@@ -1183,11 +1101,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 entries: calcExpenses.map((item, index) => ({ item, index })),
                 items: calcExpenses,
                 field: 'calc_expenses',
-                headerBackground: bgExpRow,
-                headerText: c('#c53030', '#fc8181'),
-                headerBorder: borderExp,
-                accent: c('#c53030', '#fc8181'),
-                rowBackground: bg,
+                // Как и services в modal-fallback — без заливки тоном раздела.
+                sectionTint: false,
               })
               )}
             </div>

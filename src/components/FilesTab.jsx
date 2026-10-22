@@ -381,7 +381,7 @@ export default function FilesTab({
             >
               {uploading ? '⏳' : '+'}
             </button>
-            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" className={fs.hiddenFileInput} onChange={handleUpload} />
           </div>
         </div>
 
@@ -391,12 +391,11 @@ export default function FilesTab({
   }
 
   if (isShelf) {
-    const thumbSize = mobileLayout ? '68px' : '60px';
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: mobileLayout ? '8px' : '6px', minWidth: 0 }}>
+      <div className={fs.compactShelf} data-mobile={mobileLayout}>
         {/* Компактная строка — всегда видна */}
         {mobileLayout ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap', minWidth: 0 }}>
+          <div className={fs.compactRow} data-mobile="true">
             <FileCategorySelect
               categories={FOLDER_CATEGORIES}
               files={files}
@@ -405,14 +404,14 @@ export default function FilesTab({
               onChange={setActiveCategory}
               showCounts
               ariaLabel="Folder plików projektu"
-              style={{ flex: 1, minWidth: 0, minHeight: '40px', boxSizing: 'border-box', padding: '9px 8px', borderRadius: '8px', border: '1px solid var(--input-border)', fontSize: '13px', background: 'var(--input-bg)', color: 'var(--text-main)' }}
+              className={fs.compactSelectMobile}
             />
             <button
               onClick={() => fileInputRef.current.click()}
               disabled={uploading}
               title="Dodaj plik lub zdjęcie"
               aria-label="Dodaj plik lub zdjęcie"
-              style={{ flexShrink: 0, width: '40px', height: '40px', boxSizing: 'border-box', borderRadius: '8px', border: 'none', background: '#3182ce', color: '#fff', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              className={fs.compactUploadBtnMobile}
             >
               {uploading ? '⏳' : '+'}
             </button>
@@ -420,40 +419,40 @@ export default function FilesTab({
               onClick={() => setShelfExpanded(v => !v)}
               title={shelfExpanded ? 'Zwiń pliki' : 'Rozwiń pliki'}
               aria-label={shelfExpanded ? 'Zwiń pliki' : 'Rozwiń pliki'}
-              style={{ flexShrink: 0, width: '40px', height: '40px', boxSizing: 'border-box', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              className={fs.compactToggleBtnMobile}
             >
               {shelfExpanded ? '⌃' : '⌄'}
             </button>
-            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" className={fs.hiddenFileInput} onChange={handleUpload} />
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap', minWidth: 0 }}>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-main)', whiteSpace: 'nowrap', flexShrink: 0 }}>📎 Pliki</span>
+          <div className={fs.compactRow}>
+            <span className={fs.compactLabel}>📎 Pliki</span>
             <FileCategorySelect
               categories={FOLDER_CATEGORIES}
               files={files}
               value={activeCategory}
               disabled={uploading}
               onChange={setActiveCategory}
-              style={{ padding: '3px 5px', borderRadius: '6px', border: '1px solid var(--input-border)', fontSize: '11px', background: 'var(--input-bg)', color: 'var(--text-main)', flexShrink: 1, minWidth: 0 }}
+              className={fs.compactSelect}
             />
-            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <span className={fs.compactCount}>
               {loading ? '…' : `${visible.length} ${pluralPliki(visible.length)}`}
             </span>
             <button
               onClick={() => fileInputRef.current.click()}
               disabled={uploading}
-              style={{ padding: '3px 9px', borderRadius: '6px', border: 'none', background: '#3182ce', color: '#fff', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+              className={fs.compactUploadBtn}
             >
               {uploading ? '⏳' : '+ Dodaj'}
             </button>
             <button
               onClick={() => setShelfExpanded(v => !v)}
-              style={{ padding: '3px 9px', borderRadius: '6px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+              className={fs.compactToggleBtn}
             >
               {shelfExpanded ? 'Zwiń' : 'Rozwiń'}
             </button>
-            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
+            <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" className={fs.hiddenFileInput} onChange={handleUpload} />
           </div>
         )}
 
@@ -465,11 +464,11 @@ export default function FilesTab({
             преждевременного "Brak plików". */}
         {!shelfExpanded && (
           loading ? (
-            <div style={{ fontSize: '11px', color: '#a0aec0' }}>Ładowanie...</div>
+            <div className={fs.compactStateText}>Ładowanie...</div>
           ) : visible.length === 0 ? (
-            <div style={{ fontSize: '11px', color: '#a0aec0' }}>Brak plików w tym folderze.</div>
+            <div className={fs.compactStateText}>Brak plików w tym folderze.</div>
           ) : (
-            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '2px' }}>
+            <div className={fs.compactStrip}>
               {visible.map(file => (
                 isImage(file.file_type) ? (
                   <img
@@ -477,11 +476,8 @@ export default function FilesTab({
                     src={getProjectFileDisplayUrl(file)}
                     alt={file.file_name}
                     onClick={() => setLightboxFileId(file.id)}
-                    style={{
-                      height: thumbSize, width: thumbSize, objectFit: 'cover', borderRadius: '4px',
-                      cursor: 'zoom-in', flexShrink: 0,
-                      border: coverUrl === file.file_url ? '2px solid #f6ad55' : '1px solid var(--border)',
-                    }}
+                    data-mobile={mobileLayout}
+                    className={`${fs.compactStripImg} ${coverUrl === file.file_url ? fs.compactStripImgCover : ''}`}
                   />
                 ) : (
                   <a
@@ -490,15 +486,11 @@ export default function FilesTab({
                     target="_blank"
                     rel="noreferrer"
                     title={file.file_name}
-                    style={{
-                      height: thumbSize, minWidth: '56px', maxWidth: '80px', flexShrink: 0,
-                      borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--input-bg)',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      gap: '2px', textDecoration: 'none', padding: '4px', boxSizing: 'border-box',
-                    }}
+                    data-mobile={mobileLayout}
+                    className={fs.compactStripDoc}
                   >
-                    <span style={{ fontSize: '16px' }}>{isPdf(file.file_type) ? '📄' : '📁'}</span>
-                    <span style={{ fontSize: '9px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                    <span className={fs.compactStripDocIcon}>{isPdf(file.file_type) ? '📄' : '📁'}</span>
+                    <span className={fs.compactStripDocName}>
                       {shortenFileName(file.file_name)}
                     </span>
                   </a>
@@ -511,7 +503,7 @@ export default function FilesTab({
         {/* Развёрнутый вид — те же карточки/документы, что и в variant='tab' (комментарии,
             удаление, обложка, lightbox) — без второго монтирования или Supabase-запроса. */}
         {shelfExpanded && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '2px' }}>
+          <div className={fs.compactExpanded}>
             {renderDetailedList()}
           </div>
         )}
@@ -530,10 +522,10 @@ export default function FilesTab({
   // не помещается рядом с select (flex:1) — допустимое сокращение до "+ Dodaj".
   const narrowUpload = typeof window !== 'undefined' && window.innerWidth < 400;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className={fs.tabRoot}>
 
       {/* Компактная верхняя строка: [ ⚠ Projekt (2) ▾ ][ + Dodaj plik / zdjęcie ] */}
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <div className={fs.tabTopRow}>
         <FileCategorySelect
           categories={FOLDER_CATEGORIES}
           files={files}
@@ -542,21 +534,21 @@ export default function FilesTab({
           onChange={setActiveCategory}
           showCounts
           ariaLabel="Folder plików projektu"
-          style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e0', fontSize: '12px' }}
+          className={fs.tabSelect}
         />
         <button
           onClick={() => fileInputRef.current.click()}
           disabled={uploading}
-          style={{ flexShrink: 0, whiteSpace: 'nowrap', background: '#3182ce', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+          className={fs.tabUploadBtn}
         >
           {uploading ? '⏳ Wgrywanie...' : (narrowUpload ? '+ Dodaj' : '+ Dodaj plik / zdjęcie')}
         </button>
-        <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" style={{ display: 'none' }} onChange={handleUpload} />
+        <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.pms,.pr0" className={fs.hiddenFileInput} onChange={handleUpload} />
       </div>
 
       {/* Подсказка про обложку */}
       {images.length > 0 && (
-        <span style={{ fontSize: '11px', color: '#a0aec0' }}>
+        <span className={fs.tabCoverHint}>
           ⭐ = okładka na Dashboard
         </span>
       )}

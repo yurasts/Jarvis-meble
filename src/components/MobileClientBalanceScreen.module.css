@@ -91,8 +91,8 @@
 }
 .summaryLabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
 .summaryValue { font-size: 14px; font-weight: 700; margin-top: 2px; }
-.inflow { color: #38a169; }
-.outflow { color: #e53e3e; }
+.inflow { color: var(--tone-success); }
+.outflow { color: var(--tone-danger); }
 
 .loadError {
   display: flex;
@@ -151,7 +151,7 @@
   border-radius: 8px;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -187,7 +187,7 @@
 .confirmOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: var(--scrim-dialog);
   z-index: 10;
   display: flex;
   align-items: center;
@@ -198,7 +198,7 @@
   background: var(--modal-bg);
   border-radius: 10px;
   padding: 24px 26px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-dialog);
   text-align: center;
   max-width: 340px;
   border: 1px solid var(--border);
@@ -207,7 +207,7 @@
 .confirmText { margin: 0 0 14px 0; color: var(--text-muted); font-size: 13px; }
 .confirmActions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .confirmDiscard {
-  background: #e53e3e; color: #fff; border: none; padding: 9px 18px; border-radius: 7px;
+  background: var(--tone-danger); color: var(--ink-on-accent); border: none; padding: 9px 18px; border-radius: 7px;
   cursor: pointer; font-weight: 700; font-size: 13px; min-height: 40px;
 }
 .confirmDiscard:disabled { opacity: 0.6; cursor: default; }
@@ -218,11 +218,11 @@
 .confirmCancel:disabled { opacity: 0.6; cursor: default; }
 /* "Zapisz" w dialogu "masz niezapisaną operację" (przełączanie między operacjami — review P1). */
 .confirmSave {
-  background: #38a169; color: #fff; border: none; padding: 9px 18px; border-radius: 7px;
+  background: var(--tone-success); color: var(--ink-on-accent); border: none; padding: 9px 18px; border-radius: 7px;
   cursor: pointer; font-weight: 700; font-size: 13px; min-height: 40px;
 }
 .confirmSave:disabled { opacity: 0.6; cursor: default; }
-.switchError { margin: 0 0 12px 0; color: #e53e3e; font-size: 12px; font-weight: 700; }
+.switchError { margin: 0 0 12px 0; color: var(--tone-danger); font-size: 12px; font-weight: 700; }
 
 
 /* Desktop / Client Balance / Expanded v1 — Figma node 3101:28. */
@@ -313,7 +313,7 @@
   border: 0;
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;
@@ -379,7 +379,7 @@
 }
 
 .coefficientSaveError {
-  color: #e53e3e;
+  color: var(--tone-danger);
   font-size: 12px;
   line-height: 18px;
   text-align: right;
@@ -388,7 +388,7 @@
 .mobileCoefficientSaveError {
   flex-shrink: 0;
   padding: 6px 15px;
-  color: #e53e3e;
+  color: var(--tone-danger);
   background: var(--modal-bg);
   font-size: 12px;
   line-height: 18px;

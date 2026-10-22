@@ -27,7 +27,7 @@
   border-radius: 6px;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 15px;
   line-height: 1;
   font-weight: 700;
@@ -37,7 +37,7 @@
   justify-content: center;
   transition: background-color 0.15s ease;
 }
-.addBtn:hover { background: #1d4ed8; }
+.addBtn:hover { background: var(--accent-hover); }
 
 .search {
   width: 100%;
@@ -166,14 +166,14 @@
   border: none;
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
-.mobileAddBtn:hover { background: #1d4ed8; }
+.mobileAddBtn:hover { background: var(--accent-hover); }
 
 /* Ошибка операции архивации/корзины/удаления (lifecycleNotice) — экран Projekty position: fixed
    перекрывает полосу на desktop (App.jsx), поэтому показывает её сам, тем же стилем (amber). */
@@ -181,8 +181,8 @@
   flex-shrink: 0;
   padding: 8px 16px;
   color: var(--text-main);
-  background: color-mix(in srgb, #d97706 12%, var(--bg-card));
-  border-bottom: 1px solid #d97706;
+  background: color-mix(in srgb, var(--tone-warning) 12%, var(--bg-card));
+  border-bottom: 1px solid var(--tone-warning);
   font-size: 12.5px;
 }
 
@@ -280,7 +280,7 @@
 .rowTasks {
   font-size: 10px;
   font-weight: 700;
-  color: #fff;
+  color: var(--ink-on-accent);
   background: var(--text-muted);
   border-radius: 8px;
   padding: 0 5px;
@@ -551,7 +551,7 @@
 .folderBtnActive,
 .folderBtnActive:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
 }
 
 .folderUploadBtn {

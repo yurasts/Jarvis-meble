@@ -1,3 +1,8 @@
+import s from './MobileProjectItemRow.module.css';
+
+// Цвета раздела (Materiały/Usługi/Rozliczenia) — через data-kind=field в CSS (--section-*
+// токены из src/index.css), не через prop-drilling colors/accent (refactor/design-tokens-cleanup).
+// rowStripe — единственное, что действительно динамическое (item.addedByColor, цвет сотрудника).
 const MobileProjectItemRow = ({
   field,
   item,
@@ -6,8 +11,7 @@ const MobileProjectItemRow = ({
   isReplacingMaterial,
   priceDraft,
   quantityDraft,
-  accent,
-  colors,
+  rowStripe,
   onOpen,
   onFinishEditing,
   onPriceDraftChange,
@@ -21,18 +25,15 @@ const MobileProjectItemRow = ({
   onStartMaterialReplacement,
 }) => {
   const total = (Number(item.price) * Number(item.quantity || 1)).toFixed(2);
-  const rowBackground = isReplacingMaterial ? colors.replacementBackground : accent.bg;
-  const replacementShadow = isReplacingMaterial ? 'inset 0 0 0 2px #3182ce' : 'none';
+  const rowStyle = { '--row-stripe': rowStripe };
 
   if (isConfirmingDelete) {
     return (
-      <div style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '6px', padding: '6px 8px', borderRadius: '5px', borderLeft: `3px solid ${colors.rowStripe}`, background: rowBackground, boxShadow: replacementShadow }}>
-        <span style={{ fontSize: '12px', color: colors.text, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-          Usunąć „{item.name}”?
-        </span>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button type="button" onClick={onRemove} style={{ flexShrink: 0, background: '#e53e3e', color: '#fff', border: 'none', padding: '3px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Tak</button>
-          <button type="button" onClick={onCancelDelete} style={{ flexShrink: 0, background: colors.bgHeader, color: colors.text, border: `1px solid ${colors.border}`, padding: '3px 10px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>Nie</button>
+      <div className={s.deleteConfirm} data-kind={field} data-replacing={isReplacingMaterial || undefined} style={rowStyle}>
+        <span className={s.deleteConfirmText}>Usunąć „{item.name}”?</span>
+        <div className={s.deleteConfirmActions}>
+          <button type="button" onClick={onRemove} className={s.deleteConfirmYes}>Tak</button>
+          <button type="button" onClick={onCancelDelete} className={s.deleteConfirmNo}>Nie</button>
         </div>
       </div>
     );
@@ -40,22 +41,18 @@ const MobileProjectItemRow = ({
 
   if (isExpanded) {
     return (
-      <div style={{ width: '100%', maxWidth: '100%', minWidth: 0, overflow: 'hidden', minHeight: '64px', boxSizing: 'border-box', background: rowBackground, border: `1px solid ${accent.border}`, borderLeft: `4px solid ${colors.rowStripe}`, borderRadius: '6px', padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center', boxShadow: replacementShadow }}>
-        <button
-          type="button"
-          onClick={onFinishEditing}
-          style={{ display: 'block', width: '100%', maxWidth: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 0, font: 'inherit', fontWeight: 'bold', fontSize: '12.5px', color: accent.text, cursor: 'pointer', whiteSpace: 'normal', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-        >
+      <div className={s.expanded} data-kind={field} data-replacing={isReplacingMaterial || undefined} style={rowStyle}>
+        <button type="button" onClick={onFinishEditing} className={s.expandedName}>
           {item.name}
         </button>
-        <div style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className={s.expandedControls}>
           {field === 'calc_materials' && (
             <button
               type="button"
               aria-label={`Zamień materiał ${item.name}`}
               title="Zamień materiał"
               onClick={(event) => { event.stopPropagation(); onStartMaterialReplacement(); }}
-              style={{ flexShrink: 0, width: '22px', height: '22px', padding: 0, border: `1px solid ${colors.border}`, borderRadius: '4px', background: colors.bgInput, color: accent.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
+              className={s.expandedReplaceBtn}
             >
               ✎
             </button>
@@ -74,7 +71,7 @@ const MobileProjectItemRow = ({
                 onFinishEditing();
               }
             }}
-            style={{ width: '64px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: '1px solid #4da6ff', borderRadius: '4px', fontSize: '16px', background: colors.bgInput, color: colors.text }}
+            className={s.priceInput}
           />
           <input
             type="text"
@@ -92,27 +89,20 @@ const MobileProjectItemRow = ({
                 onFinishEditing();
               }
             }}
-            style={{ width: '46px', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', flexShrink: 0, padding: '3px 5px', border: `1px solid ${colors.border}`, borderRadius: '4px', fontSize: '16px', background: colors.bgInput, color: colors.text }}
+            className={s.qtyInput}
           />
-          <strong style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '12.5px', color: accent.text }}>{total} zł</strong>
+          <strong className={s.expandedTotal}>{total} zł</strong>
           <button
             type="button"
             onClick={(event) => { event.stopPropagation(); onRequestDelete(); }}
-            style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}
+            className={s.removeBtn}
           >
             ✖
           </button>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={onFinishEditing}
-            aria-label="Zakończ edycję"
-            style={{ minHeight: '40px', boxSizing: 'border-box', padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', padding: '0 12px', borderRadius: '5px', background: '#38a169', color: '#fff', fontSize: '12.5px', fontWeight: 'bold' }}>
-              Gotowe
-            </span>
+        <div className={s.doneRow}>
+          <button type="button" onClick={onFinishEditing} aria-label="Zakończ edycję" className={s.doneBtn}>
+            <span className={s.doneLabel}>Gotowe</span>
           </button>
         </div>
       </div>
@@ -130,7 +120,10 @@ const MobileProjectItemRow = ({
           onOpen();
         }
       }}
-      style={{ height: '24px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 6px', borderRadius: '5px', cursor: 'pointer', borderLeft: `3px solid ${colors.rowStripe}`, background: rowBackground, boxShadow: replacementShadow, fontSize: '11px', fontWeight: 400, color: colors.text }}
+      className={s.row}
+      data-kind={field}
+      data-replacing={isReplacingMaterial || undefined}
+      style={rowStyle}
     >
       {field === 'calc_materials' && (
         <button
@@ -138,19 +131,19 @@ const MobileProjectItemRow = ({
           aria-label={`Zamień materiał ${item.name}`}
           title="Zamień materiał"
           onClick={(event) => { event.stopPropagation(); onStartMaterialReplacement(); }}
-          style={{ flexShrink: 0, width: '18px', height: '18px', padding: 0, border: 'none', borderRadius: '3px', background: 'transparent', color: accent.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}
+          className={s.replaceBtn}
         >
           ✎
         </button>
       )}
-      <span style={{ flex: 1, minWidth: 0, font: 'inherit', color: 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-      <span style={{ flexShrink: 0, width: '54px', font: 'inherit', color: colors.textLight, textAlign: 'right' }}>{Number(item.price).toFixed(2)} zł</span>
-      <span style={{ flexShrink: 0, width: '26px', font: 'inherit', color: colors.textLight, textAlign: 'right' }}>{item.quantity ?? 1}</span>
-      <span style={{ flexShrink: 0, width: '60px', font: 'inherit', color: accent.text, textAlign: 'right' }}>{total} zł</span>
+      <span className={s.name}>{item.name}</span>
+      <span className={s.price}>{Number(item.price).toFixed(2)} zł</span>
+      <span className={s.qty}>{item.quantity ?? 1}</span>
+      <span className={s.total}>{total} zł</span>
       <button
         type="button"
         onClick={(event) => { event.stopPropagation(); onRequestDelete(); }}
-        style={{ flexShrink: 0, background: 'none', border: 'none', color: '#cbd5e0', cursor: 'pointer', fontSize: '13px', padding: 0, lineHeight: 1 }}
+        className={s.removeBtn}
       >
         ✖
       </button>
