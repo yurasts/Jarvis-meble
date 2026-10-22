@@ -82,12 +82,26 @@ const wantsSingleObject = (request) => (request.headers().accept || '').includes
 export async function installAuthenticatedSupabaseMock(page, initialProjects = [], {
   role = 'owner',
   failures = {},
+  profiles = null,
+  userActivityLogs = [],
+  userPresence = [],
 } = {}) {
   const remainingFailures = { ...failures };
+  const defaultProfiles = [{
+    id: USER_ID,
+    full_name: 'Właściciel E2E',
+    role,
+    color: '#3182ce',
+    theme: 'light',
+    default_scope: 'firma',
+  }];
   const state = {
     failures: remainingFailures,
     projects: initialProjects.map(project => ({ ...emptyProject, ...project })),
+    profiles: (profiles || defaultProfiles).map(profile => ({ ...profile })),
     transactions: [],
+    userActivityLogs: userActivityLogs.map(log => ({ ...log })),
+    userPresence: userPresence.map(presence => ({ ...presence })),
     requests: {},
   };
 
@@ -125,14 +139,17 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     }
 
     if (resource === 'profiles') {
-      await jsonResponse(route, [{
-        id: USER_ID,
-        full_name: 'Właściciel E2E',
-        role,
-        color: '#3182ce',
-        theme: 'light',
-        default_scope: 'firma',
-      }]);
+      await jsonResponse(route, state.profiles);
+      return;
+    }
+
+    if (resource === 'user_presence') {
+      await jsonResponse(route, role === 'owner' ? state.userPresence : []);
+      return;
+    }
+
+    if (resource === 'user_activity_logs') {
+      await jsonResponse(route, role === 'owner' ? state.userActivityLogs : []);
       return;
     }
 

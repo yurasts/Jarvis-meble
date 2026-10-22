@@ -26,6 +26,8 @@
     "public/tables/services.sql",
     "public/tables/suppliers.sql",
     "public/tables/tasks.sql",
+    "public/tables/user_activity_logs.sql",
+    "public/tables/user_presence.sql",
     "storage/tables/objects.sql",
     "public/functions/current_role_name.sql",
     "public/functions/get_portal_data.sql",
@@ -33,6 +35,7 @@
     "public/functions/match_knowledge_base.sql",
     "public/functions/pro100_library_files_guard_update.sql",
     "public/functions/project_cash_transactions_set_updated_at.sql",
+    "public/functions/record_user_activity.sql",
     "public/functions/protect_lifecycle_column.sql",
     "public/functions/protect_role_column.sql",
     "public/functions/set_updated_meta.sql",
@@ -52,6 +55,7 @@
     "public/functions/match_knowledge_base.sql",
     "public/functions/pro100_library_files_guard_update.sql",
     "public/functions/project_cash_transactions_set_updated_at.sql",
+    "public/functions/record_user_activity.sql",
     "public/functions/protect_lifecycle_column.sql",
     "public/functions/protect_role_column.sql",
     "public/functions/set_updated_meta.sql",
@@ -74,6 +78,8 @@
     "public/tables/services.sql",
     "public/tables/suppliers.sql",
     "public/tables/tasks.sql",
+    "public/tables/user_activity_logs.sql",
+    "public/tables/user_presence.sql",
     "storage/tables/objects.sql"
   ]
 }

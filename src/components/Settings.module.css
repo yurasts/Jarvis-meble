@@ -419,7 +419,7 @@
   border-radius: 9px;
   background: var(--bg-base);
 }
-.accountAvatar, .onlineSettingsAvatar {
+.accountAvatar {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -443,14 +443,207 @@
   font-size: 12px;
   font-weight: 700;
 }
-.onlineSettingsBlock { margin-top: 12px; }
-.onlineSettingsTitle { margin-bottom: 6px; color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-.onlineSettingsRow { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 3px 2px; }
-.onlineDot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: #38a169; }
-.onlineSettingsAvatar { width: 24px; height: 24px; font-size: 9px; }
-.onlineSettingsText { display: flex; min-width: 0; flex-direction: column; }
-.onlineSettingsText strong { overflow: hidden; color: var(--text-main); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.onlineSettingsText span { color: var(--text-muted); font-size: 10px; }
+
+.activitySection {
+  overflow: hidden;
+  padding: 0;
+}
+
+.activitySummary {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 24px;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  list-style: none;
+}
+
+.activitySummary::-webkit-details-marker { display: none; }
+
+.activitySummary::before {
+  content: '›';
+  color: var(--text-muted);
+  font-size: 24px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 0.15s ease;
+}
+
+.activitySection[open] > .activitySummary::before { transform: rotate(90deg); }
+
+.activityCount {
+  min-width: 24px;
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-menu-hover);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+.activityContent {
+  padding: 20px 24px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.activityPresenceList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.activityPresenceRow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+}
+
+.activityEmployeeName {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presenceOnline,
+.presenceLastSeen,
+.presenceUnknown {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+}
+
+.presenceOnline {
+  color: var(--status-done-color);
+  font-weight: 700;
+}
+
+.presenceDot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--status-done-color);
+  box-shadow: 0 0 0 3px var(--status-done-bg);
+}
+
+.activityFilter {
+  display: flex;
+  width: min(320px, 100%);
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.activityFilter select {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  text-transform: none;
+}
+
+.activityState,
+.activityError {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.activityError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-color: var(--tone-danger);
+  color: var(--tone-danger);
+}
+
+.activityError button {
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.activityTable {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.activityTableHeader,
+.activityTableRow {
+  display: grid;
+  grid-template-columns: 1.15fr 1.2fr 1fr 0.8fr;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+}
+
+.activityTableHeader {
+  background: var(--bg-menu-hover);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.activityTableRow {
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+}
+
+.activityLogIdentity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.activityLogIdentity strong,
+.activityLogIdentity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityLogIdentity small {
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
 @media (max-width: 640px) {
   .employeeRow {
     grid-template-columns: 1fr 1fr;
@@ -464,6 +657,20 @@
   .employeeState {
     display: none;
   }
+
+  .activityPresenceList { grid-template-columns: 1fr; }
+  .activitySummary { padding: 0 14px; }
+  .activityContent { padding: 16px 14px 18px; }
+  .activityTableHeader { display: none; }
+  .activityTableRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 10px;
+    padding: 11px;
+  }
+  .activityTableRow > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .activityTableRow > :nth-child(2) { grid-column: 1; grid-row: 2; }
+  .activityTableRow > :nth-child(3) { grid-column: 2; grid-row: 1; text-align: right; }
+  .activityTableRow > :nth-child(4) { grid-column: 2; grid-row: 2; text-align: right; }
 }
 @media (max-width: 480px) {
   .accountCard { align-items: flex-start; flex-wrap: wrap; }

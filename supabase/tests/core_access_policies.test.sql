@@ -76,11 +76,11 @@ select is(
         'audit_log', 'clients', 'hardware', 'knowledge_base', 'materials',
         'media', 'pro100_library_categories', 'pro100_library_files',
         'profiles', 'project_cash_transactions', 'project_files', 'projects',
-        'services', 'suppliers', 'tasks'
+        'services', 'suppliers', 'tasks', 'user_activity_logs', 'user_presence'
       ])
       and c.relrowsecurity
   ),
-  15::bigint,
+  17::bigint,
   'all exposed public tables have RLS enabled'
 );
 

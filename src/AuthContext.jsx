@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
 import { AuthContext } from './authContextCore'
+import useActivityTracker from './components/useActivityTracker'
 
 const PROFILE_COLUMNS = [
   'id',
@@ -17,11 +18,6 @@ export function AuthProvider({ children }) {
   const [profilesById,   setProfilesById]   = useState({})
   const [profilesLoaded, setProfilesLoaded] = useState(false)
 
-  // ✅ Presence: кто сейчас онлайн { userId: { profile, activeTab } }
-  const [onlineUsers, setOnlineUsers] = useState({})
-  // Канал presence живёт в ref, а не в state — сам по себе не влияет на рендер,
-  // и не требует synchronous setState внутри эффекта его создания (см. ниже).
-  const presenceChannelRef = useRef(null)
   const sessionUserId = session?.user?.id
 
   useEffect(() => {
@@ -38,6 +34,8 @@ export function AuthProvider({ children }) {
     })
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  useActivityTracker({ session })
 
   const refreshProfiles = useCallback(async () => {
     if (!sessionUserId) return { error: null }
@@ -64,68 +62,6 @@ export function AuthProvider({ children }) {
     document.documentElement.setAttribute('data-theme', profile?.theme || 'light')
   }, [profile?.theme])
 
-  // ✅ Presence: подключаемся к каналу когда профиль загружен.
-  // Примитивы вместо объектов session/profile в зависимостях — эффект (пересоздание
-  // канала) реагирует именно на смену пользователя/сессии и на смену имени/цвета
-  // (то, что реально трекается), а не на любую смену ссылки на объект profile
-  // (например, смену theme, которая presence не касается).
-  const profileId       = profile?.id
-  const profileFullName = profile?.full_name
-  const profileColor    = profile?.color || '#718096'
-
-  useEffect(() => {
-    if (!sessionUserId || !profileId) return
-
-    const channel = supabase.channel('jarvis-online', {
-      config: { presence: { key: sessionUserId } }
-    })
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState()
-        // state = { userId: [{ profile, activeTab, ... }] }
-        const users = {}
-        Object.entries(state).forEach(([userId, presences]) => {
-          // берём последнее присутствие пользователя
-          users[userId] = presences[presences.length - 1]
-        })
-        setOnlineUsers(users)
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({
-            userId:    profileId,
-            fullName:  profileFullName,
-            color:     profileColor,
-            activeTab: 'dashboard',
-          })
-        }
-      })
-
-    presenceChannelRef.current = channel
-
-    return () => {
-      supabase.removeChannel(channel)
-      // Снимаем ref, только если он всё ещё указывает на канал именно этого
-      // эффекта — StrictMode-двойной mount не оставит "чужой" канал висящим.
-      if (presenceChannelRef.current === channel) {
-        presenceChannelRef.current = null
-      }
-    }
-  }, [sessionUserId, profileId, profileFullName, profileColor])
-
-  // ✅ Обновляем активную вкладку в Presence
-  const updatePresenceTab = useCallback(async (tab) => {
-    const channel = presenceChannelRef.current
-    if (!channel || !profile) return
-    await channel.track({
-      userId:    profile.id,
-      fullName:  profile.full_name,
-      color:     profile.color || '#718096',
-      activeTab: tab,
-    })
-  }, [profile])
-
   async function updateTheme(newTheme) {
     if (!profile) return
     const { data } = await supabase.from('profiles')
@@ -145,8 +81,6 @@ export function AuthProvider({ children }) {
     awaitingAccess: !!session && profilesLoaded && !profile,
     updateTheme,
     refreshProfiles,
-    updatePresenceTab,
-    onlineUsers,
     signOut: () => supabase.auth.signOut(),
   }
 
