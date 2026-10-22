@@ -465,7 +465,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   );
 
   return (
-    <div className={`${s.card} ${desktopLayout ? s.desktopCard : ''}`} style={{ position: 'relative' }}>
+    <div className={`${s.card} ${desktopLayout ? s.desktopCard : ''}`}>
       {pendingSwitch && (
         <div className={s.switchOverlay}>
           <div className={s.switchBox}>
@@ -474,7 +474,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
             <div className={s.switchActions}>
               <button type="button" className={s.editorCancel} disabled={pendingSwitchSaving} onClick={cancelSwitch}>Anuluj</button>
               <button type="button" className={s.switchDiscard} disabled={pendingSwitchSaving} onClick={discardSwitch}>Odrzuć</button>
-              <button type="button" className={s.editorSave} style={{ flex: '0 0 auto' }} disabled={pendingSwitchSaving} onClick={saveAndSwitch}>
+              <button type="button" className={`${s.editorSave} ${s.editorSaveAuto}`} disabled={pendingSwitchSaving} onClick={saveAndSwitch}>
                 {pendingSwitchSaving ? 'Zapisywanie…' : 'Zapisz'}
               </button>
             </div>
@@ -574,7 +574,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
                       <span className={s.confirmText}>Usunąć „{t.description}” ({Number(t.amount).toFixed(2)} zł)?</span>
                       {deleteError && <span className={s.deleteError}>{deleteError}</span>}
                       <div className={s.confirmActions}>
-                        <button type="button" className={s.editorSave} style={{ flex: '0 0 auto', background: '#e53e3e' }} disabled={deleting} onClick={() => handleDelete(t.id)}>
+                        <button type="button" className={`${s.editorSave} ${s.editorSaveAuto} ${s.editorSaveDanger}`} disabled={deleting} onClick={() => handleDelete(t.id)}>
                           {deleting ? 'Usuwanie…' : 'Tak'}
                         </button>
                         <button type="button" className={s.editorCancel} disabled={deleting} onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}>Nie</button>
@@ -598,7 +598,7 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
                       <span className={s.rowDescription}>{t.description}</span>
                       <span className={s.rowDate}>{t.occurred_on}</span>
                     </div>
-                    <span className={s.rowAmount} style={{ color: t.direction === 'inflow' ? '#38a169' : '#e53e3e' }}>
+                    <span className={`${s.rowAmount} ${t.direction === 'inflow' ? s.rowAmountInflow : s.rowAmountOutflow}`}>
                       {t.direction === 'inflow' ? '+' : '−'}{Number(t.amount).toFixed(2)} zł
                     </span>
                     <button

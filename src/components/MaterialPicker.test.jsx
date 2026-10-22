@@ -2,20 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import MaterialPicker from './MaterialPicker';
 
-const colors = {
-  bgInput: '#fff',
-  bgHeader: '#eee',
-  border: '#ccc',
-  text: '#111',
-  textLight: '#666',
-  highlightBackground: '#def',
-  replacementBackground: '#ffd',
-  expandedBackground: '#f8f8f8',
-  bgMaterialRow: '#eef',
-  blueText: '#06c',
-  blueButton: '#06c',
-};
-
 const material = {
   id: 'material-1',
   name: 'PL W960 2800x2070x18',
@@ -48,7 +34,6 @@ const renderPicker = (overrides = {}) => {
     searchInputRef: { current: null },
     optionRefs: { current: [] },
     offerButtonRefs: { current: {} },
-    colors,
     onClose: vi.fn(),
     onOpen: vi.fn(),
     onManualAdd: vi.fn(),

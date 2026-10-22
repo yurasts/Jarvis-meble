@@ -3,6 +3,7 @@
    mobile ProjectModal (одна карточка, activeClient). */
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -19,7 +20,7 @@
 .switchOverlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: var(--scrim-dialog);
   z-index: 5;
   display: flex;
   align-items: center;
@@ -31,7 +32,7 @@
   background: var(--modal-bg);
   border-radius: 10px;
   padding: 16px 18px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-dialog);
   text-align: center;
   max-width: 320px;
   border: 1px solid var(--border);
@@ -45,8 +46,8 @@
   padding: 0 14px;
   border-radius: 6px;
   border: none;
-  background: #e53e3e;
-  color: #fff;
+  background: var(--tone-danger);
+  color: var(--ink-on-accent);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -98,8 +99,8 @@
   display: flex;
   justify-content: flex-end;
 }
-.compactInflow { color: #38a169; }
-.compactOutflow { color: #e53e3e; }
+.compactInflow { color: var(--tone-success); }
+.compactOutflow { color: var(--tone-danger); }
 .compactSaldo { color: var(--text-main); }
 
 .coefficientButton,
@@ -115,7 +116,7 @@
 .coefficientButton { color: var(--text-main); }
 
 .desktopCoefficientButton {
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 14px;
   line-height: 20px;
 }
@@ -230,8 +231,8 @@
   background: var(--bg-menu-hover);
 }
 .row:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.rowInflow { border-left-color: #38a169; }
-.rowOutflow { border-left-color: #e53e3e; }
+.rowInflow { border-left-color: var(--tone-success); }
+.rowOutflow { border-left-color: var(--tone-danger); }
 
 .rowMain { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .rowDescription {
@@ -245,6 +246,8 @@
 .rowDate { font-size: 10.5px; color: var(--text-muted); }
 
 .rowAmount { flex-shrink: 0; font-size: 13px; font-weight: 700; }
+.rowAmountInflow { color: var(--tone-success); }
+.rowAmountOutflow { color: var(--tone-danger); }
 
 .rowDelete {
   flex-shrink: 0;
@@ -255,7 +258,7 @@
   justify-content: center;
   background: none;
   border: none;
-  color: #cbd5e0;
+  color: var(--palette-gray-300);
   cursor: pointer;
   font-size: 15px;
   padding: 0;
@@ -274,7 +277,7 @@
   background: var(--bg-menu-hover);
 }
 .confirmText { font-size: 12px; color: var(--text-main); white-space: normal; word-break: break-word; }
-.deleteError { font-size: 11.5px; color: #e53e3e; }
+.deleteError { font-size: 11.5px; color: var(--tone-danger); }
 .confirmActions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .actions {
@@ -291,10 +294,10 @@
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
-  color: #fff;
+  color: var(--ink-on-accent);
 }
-.addInflow { background: #38a169; }
-.addOutflow { background: #e53e3e; }
+.addInflow { background: var(--tone-success); }
+.addOutflow { background: var(--tone-danger); }
 
 /* Компактная форма добавления/редактирования — описание/сумма/дата/отмена (п. "Редактирование").
    font-size:16px на сумме (денежный input) и остальных полях — iOS WebKit не масштабирует страницу
@@ -329,7 +332,7 @@
 }
 .editorInput:focus { outline: none; border-color: var(--accent); }
 
-.editorError { font-size: 11.5px; color: #e53e3e; }
+.editorError { font-size: 11.5px; color: var(--tone-danger); }
 
 .editorActions { display: flex; gap: 8px; margin-top: 2px; }
 .editorSave {
@@ -339,12 +342,16 @@
   border-radius: 6px;
   border: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
 }
 .editorSave:disabled { opacity: 0.6; cursor: default; }
+/* Модификаторы: "Zapisz" в switchActions и "Tak" в confirmActions переиспользуют .editorSave,
+   но не растягиваются на всю ширину (flex:0 0 auto) — второй вариант ещё и красный (danger). */
+.editorSaveAuto { flex: 0 0 auto; }
+.editorSaveDanger { background: var(--tone-danger); }
 .editorCancel {
   min-width: 40px;
   min-height: 40px;
@@ -396,8 +403,8 @@
   min-height: 38px;
   padding: 0 12px;
   box-sizing: border-box;
-  background: #aeaeb2;
-  color: #fff;
+  background: var(--palette-gray-400);
+  color: var(--ink-on-accent);
 }
 
 .desktopProjectName {
@@ -531,8 +538,8 @@
   white-space: nowrap;
 }
 
-.desktopTransactionInflow { color: #22c55e; }
-.desktopTransactionOutflow { color: #ef4444; }
+.desktopTransactionInflow { color: var(--tone-success-strong); }
+.desktopTransactionOutflow { color: var(--danger); }
 
 .desktopEmpty {
   padding: 8px;
@@ -587,13 +594,13 @@
   cursor: pointer;
 }
 
-.desktopInlineSave { border: 1px solid #22c55e; background: #22c55e; color: #fff; }
+.desktopInlineSave { border: 1px solid var(--tone-success-strong); background: var(--tone-success-strong); color: var(--ink-on-accent); }
 .desktopInlineCancel { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
-.desktopInlineDelete { padding: 0 8px; border: 1px solid #ef4444; background: var(--bg-card); color: #ef4444; }
+.desktopInlineDelete { padding: 0 8px; border: 1px solid var(--danger); background: var(--bg-card); color: var(--danger); }
 .desktopInlineSave:disabled,
 .desktopInlineCancel:disabled,
 .desktopInlineDelete:disabled { opacity: 0.6; cursor: default; }
-.desktopEditorError { color: #ef4444; font-size: 11px; }
+.desktopEditorError { color: var(--danger); font-size: 11px; }
 
 .desktopConfirmRow {
   display: flex;
@@ -622,7 +629,7 @@
   font-weight: 700;
   cursor: pointer;
 }
-.desktopConfirmDelete { border: 1px solid #ef4444; background: #ef4444; color: #fff; }
+.desktopConfirmDelete { border: 1px solid var(--danger); background: var(--danger); color: var(--ink-on-accent); }
 .desktopConfirmCancel { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
 
 .desktopCard .transactionsList {
@@ -693,14 +700,14 @@
 .desktopCard .addBtn:disabled { opacity: 0.55; cursor: default; }
 
 .desktopCard .addInflow {
-  border: 1px solid #22c55e;
-  background: #22c55e;
+  border: 1px solid var(--tone-success-strong);
+  background: var(--tone-success-strong);
 }
 
 .desktopCard .addOutflow {
-  border: 1px solid #ef4444;
-  background: #ef4444;
-  color: #fff;
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: var(--ink-on-accent);
 }
 
 @media (max-width: 960px) {

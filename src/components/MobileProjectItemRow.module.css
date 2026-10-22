@@ -1,0 +1,250 @@
+/* Карточка добавленной позиции (Materiały/Usługi/Rozliczenia) на мобильном экране проекта.
+   Цвета раздела — через data-kind вместо прежнего prop-drilling (ProjectModal передавал готовые
+   var(--...) строки через colors/accent); genuinely dynamic остаётся только --row-stripe
+   (item.addedByColor — цвет сотрудника, который добавил позицию). */
+
+.row {
+  box-sizing: border-box;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border-left: 3px solid var(--row-stripe, var(--palette-gray-200));
+  background: var(--row-tint);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  color: var(--text-main);
+}
+
+.row[data-kind="calc_materials"] { --row-tint: var(--section-materials-tint); --row-accent: var(--section-materials-ink); --row-border: var(--section-materials-border); }
+.row[data-kind="calc_services"]  { --row-tint: var(--section-services-tint);  --row-accent: var(--section-services-ink);  --row-border: var(--section-services-border); }
+.row[data-kind="calc_expenses"]  { --row-tint: var(--section-expenses-tint);  --row-accent: var(--section-expenses-ink);  --row-border: var(--section-expenses-border); }
+
+.row[data-replacing="true"] {
+  background: var(--tone-replace-bg);
+  box-shadow: inset 0 0 0 2px var(--palette-blue-500);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price,
+.qty {
+  flex-shrink: 0;
+  font: inherit;
+  color: var(--text-muted);
+  text-align: right;
+}
+.price { width: 54px; }
+.qty { width: 26px; }
+
+.total {
+  flex-shrink: 0;
+  width: 60px;
+  font: inherit;
+  color: var(--row-accent);
+  text-align: right;
+}
+
+.replaceBtn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--row-accent);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.removeBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--palette-gray-300);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+  padding: 0;
+  line-height: 1;
+}
+/* Развёрнутая карточка — крестик на 1px крупнее (как в исходной вёрстке). */
+.expandedControls .removeBtn { font-size: var(--font-size-base); }
+
+/* --- Подтверждение удаления --- */
+.deleteConfirm {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--row-stripe, var(--palette-gray-200));
+  background: var(--row-tint);
+}
+.deleteConfirm[data-replacing="true"] {
+  background: var(--tone-replace-bg);
+  box-shadow: inset 0 0 0 2px var(--palette-blue-500);
+}
+
+.deleteConfirmText {
+  font-size: var(--font-size-sm);
+  color: var(--text-main);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.deleteConfirmYes {
+  flex-shrink: 0;
+  background: var(--tone-danger);
+  color: var(--ink-on-accent);
+  border: none;
+  padding: 3px 10px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+}
+
+.deleteConfirmNo {
+  flex-shrink: 0;
+  background: var(--bg-kanban-col);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+}
+
+/* --- Развёрнутая карточка (редактирование) --- */
+.expanded {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  min-height: 64px;
+  box-sizing: border-box;
+  background: var(--row-tint);
+  border: 1px solid var(--row-border);
+  border-left: 4px solid var(--row-stripe, var(--palette-gray-200));
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+}
+.expanded[data-replacing="true"] {
+  background: var(--tone-replace-bg);
+  box-shadow: inset 0 0 0 2px var(--palette-blue-500);
+}
+
+.expandedName {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: bold;
+  font-size: 12.5px;
+  color: var(--row-accent);
+  cursor: pointer;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.expandedControls {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expandedReplaceBtn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--row-accent);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.priceInput,
+.qtyInput {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-lg);
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+.priceInput { width: 64px; border: 1px solid var(--ink-client-name); }
+.qtyInput { width: 46px; border: 1px solid var(--border); }
+
+.expandedTotal {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--row-accent);
+}
+
+.doneRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.doneBtn {
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.doneLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--tone-success);
+  color: var(--ink-on-accent);
+  font-size: 12.5px;
+  font-weight: bold;
+}

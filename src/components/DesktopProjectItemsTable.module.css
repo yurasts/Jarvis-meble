@@ -1,0 +1,136 @@
+/* Desktop-таблица добавленных позиций (Materiały/Usługi/Rozliczenia). Цвета раздела — через
+   data-kind (--section-* токены из src/index.css), не через prop-drilling colors (refactor/
+   design-tokens-cleanup). rowStripe (item.addedByColor) остаётся единственным динамическим
+   значением — через CSS-переменную --row-stripe. */
+
+.wrap[data-bordered="true"] {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.wrap[data-has-footer="true"] { overflow: visible; }
+.wrap[data-has-footer="false"] { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.table[data-kind="materials"] { --row-accent: var(--section-materials-ink); }
+.table[data-kind="services"]  { --row-accent: var(--section-services-ink); }
+.table[data-kind="expenses"]  { --row-accent: var(--section-expenses-ink); }
+
+/* Заголовок — у materials всегда нейтральные (не секционные) цвета, у services/expenses свои
+   тона раздела; так было и до рефакторинга (headerBackground/headerText отличались по kind). */
+.headerRow {
+  background: var(--header-bg);
+  text-align: left;
+  color: var(--header-text);
+}
+.table[data-kind="materials"] .headerRow { --header-bg: var(--bg-kanban-col); --header-text: var(--text-muted); --header-border: var(--border); }
+.table[data-kind="services"]  .headerRow { --header-bg: var(--section-services-tint); --header-text: var(--section-services-ink); --header-border: var(--section-services-border); }
+.table[data-kind="expenses"]  .headerRow { --header-bg: var(--section-expenses-tint); --header-text: var(--section-expenses-ink); --header-border: var(--section-expenses-border); }
+
+.headerCell {
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--header-border);
+}
+.table[data-kind="materials"] .headerCell[data-narrow] { width: 60px; }
+.table:not([data-kind="materials"]) .headerCell[data-narrow] { width: 80px; }
+
+/* Заливка строки — materials всегда в тоне раздела; services — только в рабочей области
+   (data-tint="true"), в modal-fallback (legacy) заливки нет, как и у expenses (только
+   modal-fallback, тоже без заливки) — см. комментарий у sectionTint в DesktopProjectItemsTable.jsx. */
+.row {
+  border-bottom: 1px solid var(--border);
+  background: var(--section-tint, var(--modal-bg));
+  border-left: 3px solid var(--row-stripe, var(--palette-gray-200));
+}
+.row[data-kind="materials"] { --section-tint: var(--section-materials-tint); }
+.row[data-kind="services"][data-tint="true"] { --section-tint: var(--section-services-tint); }
+.row[data-replacing="true"] {
+  background: var(--tone-replace-bg);
+  box-shadow: inset 0 0 0 2px var(--palette-blue-500);
+}
+
+.nameCell {
+  color: var(--text-main);
+  cursor: pointer;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 8px;
+}
+.nameCell[data-material="true"] { padding: 2px 8px; font-weight: 400; font-size: var(--font-size-base); line-height: 18px; }
+.nameCell[data-expanded="true"] { white-space: normal; }
+.nameCell[data-accent="true"] { color: var(--row-accent); }
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.nameText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: inherit;
+}
+
+.replaceBtn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--row-accent);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.cell { padding: 6px 8px; }
+.cellCompact { padding: 4px 8px; }
+
+.priceInput {
+  width: 70px;
+  padding: 2px 4px;
+  border: 1px solid var(--ink-client-name);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+
+.priceDisplay {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--palette-gray-500);
+}
+.priceDisplay[data-accent="true"] { color: var(--row-accent); }
+.priceDisplay[data-accent="false"] { color: var(--text-main); }
+
+.mutedCell { padding: 6px 8px; color: var(--text-muted); }
+.mutedCellCompact { padding: 4px 8px; color: var(--text-muted); }
+
+.qtyInput {
+  width: 70px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+
+.sumCell { padding: 6px 8px; font-weight: bold; color: var(--row-accent); }
+.sumCellCompact { padding: 4px 8px; font-weight: bold; color: var(--row-accent); }
+
+.emptyRow { text-align: center; padding: 15px; color: var(--palette-gray-500); }
+
+.footerCell { padding: 0; border-top: 1px solid var(--border); text-align: left; }

@@ -37,7 +37,7 @@
   border: 1px solid var(--accent);
   border-radius: 5px;
   background: var(--accent);
-  color: #fff;
+  color: var(--ink-on-accent);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -67,8 +67,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #f59e0b;
-  color: #fff;
+  background: var(--tone-warning-strong);
+  color: var(--ink-on-accent);
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
@@ -106,7 +106,7 @@
 
 .secondaryButton { border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); }
 .deleteButton { border: 1px solid var(--danger); background: transparent; color: var(--danger); }
-.saveButton, .confirmYes { border: 1px solid #22a35a; background: #22a35a; color: #fff; }
+.saveButton, .confirmYes { border: 1px solid var(--tone-success-alt); background: var(--tone-success-alt); color: var(--ink-on-accent); }
 .saveButton:disabled, .modalSave:disabled { cursor: default; opacity: 0.45; }
 
 .editInput, .newInput {
@@ -137,7 +137,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.58);
+  background: var(--scrim-navy-soft);
 }
 
 .modal {
@@ -149,7 +149,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--modal-bg);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
+  box-shadow: var(--shadow-dialog-navy);
 }
 
 .modalHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -171,7 +171,7 @@
 .modalActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .modalCancel, .modalSave { height: 34px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
 .modalCancel { border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); }
-.modalSave { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+.modalSave { border: 1px solid var(--accent); background: var(--accent); color: var(--ink-on-accent); }
 
 @media (max-width: 767px) {
   .panel { margin-top: 8px; }

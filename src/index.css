@@ -111,6 +111,9 @@ html[data-theme="forest"] .client-card:hover {
   --palette-orange-300: #f6ad55;
   --palette-yellow-900: #744210;
   --palette-red-500:    #e53e3e;
+  --palette-gray-400:   #aeaeb2;
+  --palette-gray-450:   #718096;
+  --palette-green-500:  #22c55e;
 
   /* Поверхности, линии, текст (фиксированные, не зависят от темы) */
   --surface-paper:      var(--palette-white);
@@ -125,9 +128,22 @@ html[data-theme="forest"] .client-card:hover {
   /* Акценты */
   --tone-primary:       var(--palette-blue-500);
   --tone-success:       var(--palette-green-600);
+  /* Более яркий зелёный для desktop-таблицы Rozliczenia (ProjectCashLedger) — тот же оттенок,
+     что и статус "Gotowe" на доске (--status-done-board-color), но отдельный токен по смыслу. */
+  --tone-success-strong: var(--palette-green-500);
+  /* Ещё один «успешный» зелёный (ProjectImportantPoints: Zapisz/Tak) — исторически свой оттенок,
+     отдельный токен вместо подмены на --tone-success/-strong, чтобы не менять текущий вид. */
+  --tone-success-alt:    #22a35a;
+  /* Второй жёлто-оранжевый (ProjectImportantPoints: маркер важного пункта) — отдельный от
+     --tone-warning (другой оттенок), тот же принцип, что и выше. */
+  --tone-warning-strong: #f59e0b;
   --tone-highlight:     var(--palette-orange-300);
   --tone-highlight-ink: var(--palette-yellow-900);
   --tone-danger:        var(--palette-red-500);
+  --tone-warning:       #d97706;
+  /* Hover-затемнение --accent — используется одинаково во всех темах (как и сейчас в
+     index.css .btn-primary:hover), поэтому не переопределяется в dark/forest. */
+  --accent-hover:       #1d4ed8;
   --tone-highlight-ring: rgba(246, 173, 85, 0.4);
   --scrim-soft:         rgba(0, 0, 0, 0.45);
   --scrim-medium:       rgba(0, 0, 0, 0.55);
@@ -152,6 +168,30 @@ html[data-theme="forest"] .client-card:hover {
   --section-files-ink:      #553c9a;
   --section-files-line:     #805ad5;
   --section-files-tint:     #faf5ff;
+
+  /* Рамки строк добавленных позиций (параллельно -tint/-ink выше) — refactor/design-tokens-cleanup */
+  --section-materials-border: #bee3f8;
+  --section-services-border:  #c6f6d5;
+  --section-expenses-border:  #fed7d7;
+
+  /* Состояния MaterialPicker/ServicePicker и строк-«в процессе замены» (ProjectModal,
+     DesktopProjectItemsTable, MobileProjectItemRow) — refactor/design-tokens-cleanup. */
+  --tone-replace-bg:              #dbeafe; /* строка-цель активной замены материала; подсвеченный option в picker'е */
+  --picker-replace-bg:            #ebf8ff; /* баннер «Zamiana: …» в MaterialPicker */
+  --picker-services-highlight-bg: #dcfce7; /* подсвеченный option в ServicePicker */
+  --picker-expanded-bg:           #f8fafc; /* развёрнутый список предложений материала */
+  --picker-accent-button-bg:      #2b6cb0; /* кнопка «Zamień»/многовариантная «Wybierz» в picker'е */
+  --shadow-popover:               0 6px 16px rgba(0, 0, 0, 0.16);
+
+  /* Полупрозрачные оверлеи поверх превью файлов (кнопка/подтверждение удаления на карусели,
+     FilesTab.module.css) — намеренно не реагируют на тему (как и --scrim-*: затемнение поверх
+     произвольной фотографии должно выглядеть одинаково в любой теме). */
+  --scrim-navy-soft:    rgba(15, 23, 42, 0.58);
+  --scrim-navy-medium:  rgba(15, 23, 42, 0.82);
+  --scrim-navy-strong:  rgba(15, 23, 42, 0.92);
+  --ring-on-scrim:      rgba(255, 255, 255, 0.85);
+  --ring-on-scrim-soft: rgba(255, 255, 255, 0.65);
+  --shadow-dialog-navy: 0 18px 48px rgba(15, 23, 42, 0.28);
 
   /* Статусы проектов — единый источник, см. src/utils/projectStatuses.js */
   --status-new-color:        #e53e3e;
@@ -199,10 +239,26 @@ html[data-theme="forest"] {
   --section-files-ink:      #b794f4;
   --section-files-tint:     #1a102e;
 
+  --section-materials-border: #1a3a5c;
+  --section-services-border:  #1a4a2e;
+  --section-expenses-border:  #7b2020;
+
+  --tone-replace-bg:              #17365c;
+  --picker-replace-bg:            #17365c;
+  --picker-services-highlight-bg: #17452b;
+  --picker-expanded-bg:           #162232;
+  --picker-accent-button-bg:      #3182ce;
+
   --status-new-bg:        rgba(229, 62, 62, 0.08);
   --status-design-bg:     rgba(221, 107, 32, 0.08);
   --status-production-bg: rgba(214, 158, 46, 0.08);
   --status-done-bg:       rgba(56, 161, 105, 0.08);
+}
+
+/* Forest получает собственный, более приглушённый (зелёный, не сине-угольный) тон строк
+   материалов — так было задано ещё до вынесения в токены (ProjectModal.jsx, bgMatRow). */
+html[data-theme="forest"] {
+  --section-materials-tint: #4f7057;
 }
 
 /* --- 3. СБРОС VITE И БРАУЗЕРА --- */
