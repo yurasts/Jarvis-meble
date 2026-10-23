@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { groupMaterialsForPicker, materialMatchesQuery } from '../utils/materialPickerGroups';
+import { sortCatalogByPriority } from '../utils/catalogPriority';
 
 const useProjectItemPickers = ({
   materials,
@@ -87,19 +88,18 @@ const useProjectItemPickers = ({
 
   const filteredMaterialGroups = useMemo(() => {
     const query = materialSearchTerm.trim();
-    const matchingMaterials = (materials || []).filter(material => (
+    const matchingMaterials = sortCatalogByPriority((materials || []).filter(material => (
       materialMatchesQuery(material, query)
       && (!materialCategoryFilter || material.category === materialCategoryFilter)
       && (!materialSupplierFilter || material.supplier === materialSupplierFilter)
-    ));
+    )));
     return groupMaterialsForPicker(matchingMaterials);
   }, [materialCategoryFilter, materialSearchTerm, materialSupplierFilter, materials]);
 
   const filteredServices = useMemo(() => {
     const query = serviceSearchTerm.trim().toLocaleLowerCase('pl');
-    return (services || [])
-      .filter(service => String(service.name || '').toLocaleLowerCase('pl').includes(query))
-      .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'pl'));
+    return sortCatalogByPriority((services || [])
+      .filter(service => String(service.name || '').toLocaleLowerCase('pl').includes(query)));
   }, [serviceSearchTerm, services]);
 
   const closeMaterialPicker = () => {
@@ -135,7 +135,7 @@ const useProjectItemPickers = ({
           ? { ...item, quantity: (Number(item.quantity) || 1) + quantity }
           : item)
         .filter((_, index) => index !== replacingMaterialIndex);
-      updateItems('calc_materials', merged);
+      updateItems('calc_materials', merged, { immediate: true });
     } else {
       const replacement = [...selectedMaterials];
       replacement[replacingMaterialIndex] = {
@@ -144,7 +144,7 @@ const useProjectItemPickers = ({
         addedById: current.addedById ?? currentProfile?.id ?? null,
         addedByColor: current.addedByColor || currentProfile?.color || '#718096',
       };
-      updateItems('calc_materials', replacement);
+      updateItems('calc_materials', replacement, { immediate: true });
     }
     closeItemEditor();
   };

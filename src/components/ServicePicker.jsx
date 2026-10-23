@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import s from './ServicePicker.module.css';
+import CatalogFavoriteButton from './CatalogFavoriteButton';
 
 const ServicePicker = ({
   compact = false,
@@ -20,6 +21,7 @@ const ServicePicker = ({
   onSearchKeyDown,
   onHighlight,
   onSelectService,
+  onToggleFavorite,
 }) => {
   const mobilePicker = compact && isMobileVariant;
   const variant = mobilePicker ? 'mobile' : compact ? 'compact' : 'full';
@@ -73,6 +75,7 @@ const ServicePicker = ({
                 data-selected={isSelected || undefined}
                 data-highlighted={isHighlighted || undefined}
               >
+                <CatalogFavoriteButton item={service} kind="service" onToggle={onToggleFavorite} compact />
                 <button
                   type="button"
                   title={service.name}

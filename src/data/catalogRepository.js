@@ -9,9 +9,10 @@ export const MATERIAL_COLUMNS = [
   'supplier',
   'symbol',
   'price_history',
+  'is_favorite',
 ].join(',');
 
-export const SERVICE_COLUMNS = ['id', 'name', 'price'].join(',');
+export const SERVICE_COLUMNS = ['id', 'name', 'price', 'is_favorite'].join(',');
 
 const unwrap = ({ data, error }) => {
   if (error) throw error;
@@ -31,8 +32,16 @@ export const createCatalogRepository = ({ client = supabase } = {}) => ({
     return unwrap(await client.from('materials').insert([fields]).select(MATERIAL_COLUMNS).single());
   },
 
+  async createService(fields) {
+    return unwrap(await client.from('services').insert([fields]).select(SERVICE_COLUMNS).single());
+  },
+
   async updateMaterial(id, fields) {
     return unwrap(await client.from('materials').update(fields).eq('id', id).select(MATERIAL_COLUMNS).single());
+  },
+
+  async updateService(id, fields) {
+    return unwrap(await client.from('services').update(fields).eq('id', id).select(SERVICE_COLUMNS).single());
   },
 
   async updateMaterialPrices(updates) {

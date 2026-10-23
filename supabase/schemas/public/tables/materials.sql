@@ -8,6 +8,7 @@ CREATE TABLE "public"."materials" (
   "symbol"        text,
   "created_at"    timestamp with time zone NOT NULL DEFAULT now(),
   "price_history" jsonb                    NOT NULL DEFAULT '[]'::jsonb,
+  "is_favorite"   boolean                  NOT NULL DEFAULT false,
   CONSTRAINT "materials_pkey" PRIMARY KEY (id)
 );
 

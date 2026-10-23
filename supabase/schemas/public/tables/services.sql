@@ -3,6 +3,7 @@ CREATE TABLE "public"."services" (
   "name"       text                     NOT NULL,
   "price"      numeric                  NOT NULL DEFAULT 0,
   "created_at" timestamp with time zone NOT NULL DEFAULT now(),
+  "is_favorite" boolean                  NOT NULL DEFAULT false,
   CONSTRAINT "services_pkey" PRIMARY KEY (id)
 );
 

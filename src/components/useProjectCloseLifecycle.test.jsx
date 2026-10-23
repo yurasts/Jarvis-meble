@@ -37,6 +37,19 @@ describe('useProjectCloseLifecycle', () => {
     expect(hook.result.current.confirmClose).toBe(false);
   });
 
+  it('flushes item autosave before an explicit close', async () => {
+    const beforeClose = vi.fn(async () => ({ error: null }));
+    const hook = renderCloseLifecycle({ beforeClose });
+
+    await act(async () => {
+      hook.result.current.handleClose();
+    });
+
+    expect(beforeClose).toHaveBeenCalledOnce();
+    expect(hook.props.onClose).toHaveBeenCalledOnce();
+    expect(beforeClose.mock.invocationCallOrder[0]).toBeLessThan(hook.props.onClose.mock.invocationCallOrder[0]);
+  });
+
   it('opens confirmation instead of closing when dirty', () => {
     const hook = renderCloseLifecycle({ isDirty: true });
 

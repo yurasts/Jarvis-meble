@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest';
-import { hasProjectFieldChanges } from './projectDirtyState';
+import { hasProjectFieldChanges, hasProjectNonItemFieldChanges } from './projectDirtyState';
 
 const baseProject = {
   calc_materials: [{ id: 'm1', quantity: 2 }],
@@ -59,5 +59,13 @@ describe('hasProjectFieldChanges', () => {
       { ...baseProject, budget: 9999 },
       baseProject,
     )).toBe(false);
+  });
+});
+
+describe('hasProjectNonItemFieldChanges', () => {
+  it('ignores item arrays managed by autosave but keeps other project fields dirty', () => {
+    const original = { calc_materials: [], calc_services: [], notes: '' };
+    expect(hasProjectNonItemFieldChanges({ ...original, calc_materials: [{ id: 1 }] }, original)).toBe(false);
+    expect(hasProjectNonItemFieldChanges({ ...original, notes: 'changed' }, original)).toBe(true);
   });
 });

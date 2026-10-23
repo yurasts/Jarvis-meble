@@ -10,6 +10,11 @@ import MobileBottomNav from './components/MobileBottomNav';
 import { useIsDesktop } from './utils/useIsDesktop';
 import { sortMaterialsByWorkflow } from './utils/materialSort';
 import { findEquivalentMaterial } from './utils/materialPickerGroups';
+import {
+  createOrReuseCatalogItem,
+  enrichCatalogWithUsage,
+  sortCatalogByPriority,
+} from './utils/catalogPriority';
 import clientsRepository from './data/clientsRepository';
 import catalogRepository from './data/catalogRepository';
 import { BOOTSTRAP_RESOURCES, loadBootstrapData } from './data/bootstrapData';
@@ -153,6 +158,12 @@ function App() {
     trashClients: filterProjectsByLifecycle(clients, PROJECT_LIFECYCLE.TRASH),
     balanceClients: clients.filter(client => getProjectLifecycle(client) !== PROJECT_LIFECYCLE.TRASH),
   }), [clients])
+  const prioritizedMaterials = useMemo(() => sortCatalogByPriority(
+    enrichCatalogWithUsage(materials, clients, 'calc_materials')
+  ), [clients, materials])
+  const prioritizedServices = useMemo(() => sortCatalogByPriority(
+    enrichCatalogWithUsage(servicesList, clients, 'calc_services')
+  ), [clients, servicesList])
   const [lifecycleBusy, setLifecycleBusy] = useState(false)
   const [lifecycleNotice, setLifecycleNotice] = useState(null)
   // Проекты, ожидающие подтверждения «Usuń trwale» (null — диалог закрыт).
@@ -213,6 +224,7 @@ function App() {
   const topbarRef = useRef(null)
   const bottomNavRef = useRef(null)
   const bootstrapRequestRef = useRef(0)
+  const favoriteRequestRef = useRef(new Map())
 
   // Закрываем dropdown при тапе вне него (топбара и мобильной нижней навигации)
   useEffect(() => {
@@ -507,6 +519,53 @@ function App() {
       // Keep the last successful catalog when refresh fails.
     }
   }
+
+  const autosaveProjectItems = useCallback(async (projectId, fields) => {
+    await clientsRepository.update(projectId, fields)
+    setClients(current => current.map(project => project.id === projectId ? { ...project, ...fields } : project))
+    setOriginalClient(current => current?.id === projectId ? { ...current, ...fields } : current)
+  }, [])
+
+  const createManualCatalogItem = useCallback(async (kind, draft) => {
+    const items = kind === 'material' ? materials : servicesList
+    const { item, created } = await createOrReuseCatalogItem({
+      kind,
+      draft,
+      items,
+      repository: catalogRepository,
+    })
+    if (created) {
+      if (kind === 'material') setMaterials(current => [...current, item])
+      else setServicesList(current => [...current, item])
+    }
+    return item
+  }, [materials, servicesList])
+
+  const toggleCatalogFavorite = useCallback(async (kind, item) => {
+    const nextFavorite = !item.is_favorite
+    const setItems = kind === 'material' ? setMaterials : setServicesList
+    const requestKey = `${kind}:${item.id}`
+    const requestVersion = (favoriteRequestRef.current.get(requestKey) || 0) + 1
+    favoriteRequestRef.current.set(requestKey, requestVersion)
+    setItems(current => current.map(entry => entry.id === item.id
+      ? { ...entry, is_favorite: nextFavorite }
+      : entry))
+    try {
+      const saved = kind === 'material'
+        ? await catalogRepository.updateMaterial(item.id, { is_favorite: nextFavorite })
+        : await catalogRepository.updateService(item.id, { is_favorite: nextFavorite })
+      if (favoriteRequestRef.current.get(requestKey) === requestVersion) {
+        setItems(current => current.map(entry => entry.id === item.id ? { ...entry, ...saved } : entry))
+      }
+    } catch (error) {
+      if (favoriteRequestRef.current.get(requestKey) === requestVersion) {
+        setItems(current => current.map(entry => entry.id === item.id
+          ? { ...entry, is_favorite: item.is_favorite }
+          : entry))
+      }
+      throw error
+    }
+  }, [])
 
   const handleDragStart = (e, id) => e.dataTransfer.setData('clientId', id)
   const handleDragOver  = (e)     => e.preventDefault()
@@ -849,8 +908,8 @@ function App() {
             client={activeClient}
             originalClient={originalClient}
             setClient={setActiveClient}
-            materials={materials}
-            servicesList={servicesList}
+            materials={prioritizedMaterials}
+            servicesList={prioritizedServices}
             onClose={() => setViewMode('tab')}
             onSave={handleUpdateClient}
             onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
@@ -875,6 +934,9 @@ function App() {
             onFilesUploadingChange={setFilesUploading}
             clientInfoOpen={clientEditOpen}
             onClientInfoOpenChange={setClientEditOpen}
+            onAutosaveItems={autosaveProjectItems}
+            onCreateCatalogItem={createManualCatalogItem}
+            onToggleCatalogFavorite={toggleCatalogFavorite}
           />
         ) : (
         <>
@@ -906,11 +968,12 @@ function App() {
         )}
         {activeTab === 'materials' && (
           <MaterialsList
-            materials={materials}
-            servicesList={servicesList}
+            materials={prioritizedMaterials}
+            servicesList={prioritizedServices}
             setIsMaterialModalOpen={setIsMaterialModalOpen}
             onPricesUpdated={reloadMaterials}
             isDark={isDarkish}
+            onToggleFavorite={toggleCatalogFavorite}
           />
         )}
         {activeTab === 'settings' && (
@@ -961,8 +1024,8 @@ function App() {
           client={activeClient}
           originalClient={originalClient}
           setClient={setActiveClient}
-          materials={materials}
-          servicesList={servicesList}
+          materials={prioritizedMaterials}
+          servicesList={prioritizedServices}
           onClose={() => { setActiveClient(null); setOriginalClient(null) }}
           onSave={handleUpdateClient}
           onCoverChange={(clientId, url) => setClients(prev => prev.map(c => c.id === clientId ? { ...c, cover_url: url } : c))}
@@ -976,6 +1039,9 @@ function App() {
           onRetryCash={loadCashTransactions}
           clientInfoOpen={clientEditOpen}
           onClientInfoOpenChange={setClientEditOpen}
+          onAutosaveItems={autosaveProjectItems}
+          onCreateCatalogItem={createManualCatalogItem}
+          onToggleCatalogFavorite={toggleCatalogFavorite}
         />
         </Suspense>
       )}

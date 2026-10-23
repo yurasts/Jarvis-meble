@@ -56,6 +56,24 @@ describe('catalogRepository', () => {
     expect(select).toHaveBeenCalledWith(MATERIAL_COLUMNS);
   });
 
+  it('creates and updates services with the selected application columns', async () => {
+    const saved = { id: 8, name: 'Assembly', price: 90, is_favorite: true };
+    const single = vi.fn(async () => ({ data: saved, error: null }));
+    const select = vi.fn(() => ({ single }));
+    const insert = vi.fn(() => ({ select }));
+    const eq = vi.fn(() => ({ select }));
+    const update = vi.fn(() => ({ eq }));
+    const client = { from: vi.fn(() => ({ insert, update })) };
+    const repository = createCatalogRepository({ client });
+
+    await expect(repository.createService({ name: 'Assembly', price: 90 })).resolves.toEqual(saved);
+    await expect(repository.updateService(8, { is_favorite: true })).resolves.toEqual(saved);
+    expect(insert).toHaveBeenCalledWith([{ name: 'Assembly', price: 90 }]);
+    expect(update).toHaveBeenCalledWith({ is_favorite: true });
+    expect(eq).toHaveBeenCalledWith('id', 8);
+    expect(select).toHaveBeenCalledWith(SERVICE_COLUMNS);
+  });
+
   it('updates material prices through one atomic RPC call', async () => {
     const saved = [{ id: 7, price: 75, price_history: [{ price: 50, date: '2026-10-11' }] }];
     const rpc = vi.fn(async () => ({ data: saved, error: null }));

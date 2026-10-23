@@ -9,6 +9,7 @@ const useProjectSaveLifecycle = ({
   staysOpenOnSave,
   isMobileVariant,
   closeMobileRowEditor,
+  flushAutosave,
 }) => {
   const [saveStatus, setSaveStatus] = useState(null);
   const saveStatusTimerRef = useRef(null);
@@ -18,6 +19,11 @@ const useProjectSaveLifecycle = ({
   }, []);
 
   const saveAllDirty = useCallback(async () => {
+    const autosaveResult = await flushAutosave?.();
+    if (autosaveResult?.error) {
+      setSaveStatus('error');
+      return { error: true };
+    }
     if (cashDirty) {
       const cashResult = await cashLedgerRef.current?.saveActiveDraft();
       if (cashResult?.error) {
@@ -35,9 +41,14 @@ const useProjectSaveLifecycle = ({
     }
 
     return { error: null };
-  }, [cashDirty, cashLedgerRef, clientFieldsDirty, onSave]);
+  }, [cashDirty, cashLedgerRef, clientFieldsDirty, flushAutosave, onSave]);
 
   const handleSaveClick = useCallback(async () => {
+    const autosaveResult = await flushAutosave?.();
+    if (autosaveResult?.error) {
+      setSaveStatus('error');
+      return;
+    }
     if (!staysOpenOnSave) {
       const result = await onSave();
       if (result?.error) {
@@ -74,6 +85,7 @@ const useProjectSaveLifecycle = ({
     isMobileVariant,
     onSave,
     staysOpenOnSave,
+    flushAutosave,
   ]);
 
   return {

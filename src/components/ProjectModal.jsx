@@ -13,10 +13,11 @@ import useProjectItemEditor from './useProjectItemEditor';
 import useProjectItemPickers from './useProjectItemPickers';
 import useProjectSaveLifecycle from './useProjectSaveLifecycle';
 import useProjectCloseLifecycle from './useProjectCloseLifecycle';
+import useProjectItemsAutosave from './useProjectItemsAutosave';
 import { projectTotals } from './dashboardHelpers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
-import { hasProjectFieldChanges } from '../utils/projectDirtyState';
+import { hasProjectNonItemFieldChanges } from '../utils/projectDirtyState';
 import { statusBgVar, statusColorVar, statusLabel } from '../utils/projectStatuses';
 import ms from './ProjectModal.module.css';
 
@@ -31,6 +32,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // левой панели (ProjectListPanel), окно редактирования клиента открывается карандашом там же.
   fileCategory, onFileCategoryChange, fileUploadTriggerRef, onFilesUploadingChange,
   clientInfoOpen: clientInfoOpenProp, onClientInfoOpenChange,
+  onAutosaveItems, onCreateCatalogItem, onToggleCatalogFavorite,
 }) => {
   const isMobile = window.innerWidth < 640;
   // variant='embedded' — рабочая область справа на desktop (ADR-002, UX-фаза 2);
@@ -77,9 +79,20 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // предыдущую, повторный клик по уже раскрытой закрывает её. Ключ — стабильный item.id (есть у
   // любой добавленной позиции: и из справочника, и через handleCustomAdd) с префиксом таблицы,
   // чтобы id из разных таблиц не пересекались.
-  const updateItems = useCallback((field, newItems) => {
+  const persistItems = useCallback((projectId, fields) => (
+    onAutosaveItems ? onAutosaveItems(projectId, fields) : Promise.resolve()
+  ), [onAutosaveItems]);
+  const {
+    status: autosaveStatus,
+    schedule: scheduleItemsAutosave,
+    flush: flushItemsAutosave,
+  } = useProjectItemsAutosave({ projectId: client.id, onPersist: persistItems });
+  const updateItems = useCallback((field, newItems, options) => {
     setClient(current => ({ ...current, [field]: newItems }));
-  }, [setClient]);
+    if (field === 'calc_materials' || field === 'calc_services') {
+      void scheduleItemsAutosave(field, newItems, options);
+    }
+  }, [scheduleItemsAutosave, setClient]);
   const {
     expandedItemKey,
     setExpandedItemKey,
@@ -98,7 +111,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     commitQuantity: handleQtyCommit,
     savePrice: handlePriceSave,
     removeItem: handleRemoveItem,
-  } = useProjectItemEditor({ updateItems });
+  } = useProjectItemEditor({ updateItems, flushItems: flushItemsAutosave });
 
   const [desktopMaterialsOpen, setDesktopMaterialsOpen] = useState(true);
   const [desktopServicesOpen, setDesktopServicesOpen] = useState(true);
@@ -170,7 +183,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // это единственное поле, которое реально меняет пользователь (в т.ч. из sidebar-панели
   // ProjectListPanel через тот же setClient/activeClient — единый источник истины), и по заданию
   // изменение коэффициента обязано включать dirty-state.
-  const clientFieldsDirty = hasProjectFieldChanges(client, originalClient);
+  const clientFieldsDirty = hasProjectNonItemFieldChanges(client, originalClient);
   // Mobile / Client Balance / Expanded v1: cashDirty (открытый несохранённый редактор денежной
   // операции в Rozliczenia) примешан в общий isDirty — "уход назад при dirty" (handleClose ниже)
   // и все существующие потребители isDirty (onDirtyChange → App.jsx workspaceDirty, confirmClose)
@@ -188,6 +201,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     isEmbedded,
     onClose,
     onDirtyChange,
+    beforeClose: flushItemsAutosave,
   });
   const {
     saveStatus,
@@ -202,6 +216,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     staysOpenOnSave,
     isMobileVariant,
     closeMobileRowEditor,
+    flushAutosave: flushItemsAutosave,
   });
   // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
   // исключительно client.budget_coefficient (единый источник истины для финансовой панели в
@@ -223,9 +238,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const handleAddItem = (field, currentItems, item) => {
     const existing = currentItems.find(i => i.id === item.id);
     if (existing) {
-      updateItems(field, currentItems.map(i => i.id === item.id ? { ...i, quantity: (Number(i.quantity) || 1) + 1 } : i));
+      updateItems(field, currentItems.map(i => i.id === item.id ? { ...i, quantity: (Number(i.quantity) || 1) + 1 } : i), { immediate: true });
     } else {
-      updateItems(field, [...currentItems, { ...item, quantity: 1, ...authorMeta() }]);
+      updateItems(field, [...currentItems, { ...item, quantity: 1, ...authorMeta() }], { immediate: true });
     }
   };
   // Сворачивание секции Materiały/Usługi (modal-fallback, hotfix п.3): если секция сейчас
@@ -250,11 +265,46 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     }
     workspaceSections.toggle(id);
   };
-  const handleCustomAdd = (field, currentItems) => {
-    const name = prompt('Wpisz nazwę:');
-    if (!name) return;
-    const price = parseFloat(prompt('Wpisz cenę za szt/usługę (zł):') || '0');
-    updateItems(field, [...currentItems, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak', ...authorMeta() }]);
+  const [manualItem, setManualItem] = useState(null);
+  const [manualItemBusy, setManualItemBusy] = useState(false);
+  const [manualItemError, setManualItemError] = useState('');
+  const handleCustomAdd = (field) => {
+    if (field === 'calc_expenses') {
+      const name = prompt('Wpisz nazwę:');
+      if (!name) return;
+      const price = parseFloat(prompt('Wpisz cenę za szt/usługę (zł):') || '0');
+      updateItems(field, [...calcExpenses, { id: Date.now(), name, price, quantity: 1, unit: 'szt', category: 'Inne', supplier: 'Brak', ...authorMeta() }]);
+      return;
+    }
+    setManualItem({ field, name: '', price: '', saveToCatalog: true });
+    setManualItemError('');
+  };
+
+  const submitManualItem = async (event) => {
+    event.preventDefault();
+    if (!manualItem?.name.trim()) return;
+    setManualItemBusy(true);
+    setManualItemError('');
+    try {
+      const kind = manualItem.field === 'calc_materials' ? 'material' : 'service';
+      const catalogItem = manualItem.saveToCatalog && onCreateCatalogItem
+        ? await onCreateCatalogItem(kind, manualItem)
+        : {
+          id: `custom-${Date.now()}`,
+          name: manualItem.name.trim(),
+          price: Number(manualItem.price) || 0,
+          unit: 'szt',
+          category: 'Inne',
+          supplier: 'Brak',
+        };
+      const currentItems = manualItem.field === 'calc_materials' ? calcMaterials : calcServices;
+      handleAddItem(manualItem.field, currentItems, catalogItem);
+      setManualItem(null);
+    } catch {
+      setManualItemError('Nie udało się zapisać pozycji. Spróbuj ponownie.');
+    } finally {
+      setManualItemBusy(false);
+    }
   };
 
   const { material: materialPicker, service: servicePicker, resetPickers } = useProjectItemPickers({
@@ -521,6 +571,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       onHighlight={setHighlightedMaterialIndex}
       onToggleGroup={key => setExpandedMaterialId(previous => previous === key ? null : key)}
       onSelectMaterial={addMaterialFromPicker}
+      onToggleFavorite={onToggleCatalogFavorite}
     />
   );
 
@@ -554,6 +605,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       onSearchKeyDown={handleServicePickerKeyDown}
       onHighlight={setHighlightedServiceIndex}
       onSelectService={addServiceFromPicker}
+      onToggleFavorite={onToggleCatalogFavorite}
     />
   );
 
@@ -751,9 +803,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </div>
           <button type="button" onClick={handleSaveClick} className={ms.saveBtn}>💾 Zapisz</button>
         </div>
-        {isEmbedded && saveStatus && (
-          <div role="status" className={cx(ms.saveStatus, saveStatus !== 'saved' && ms.saveStatusError)}>
-            {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+        {isEmbedded && (saveStatus || autosaveStatus) && (
+          <div role="status" className={cx(ms.saveStatus, (saveStatus === 'error' || autosaveStatus === 'error') && ms.saveStatusError)}>
+            {saveStatus === 'error' || autosaveStatus === 'error'
+              ? 'Nie udało się zapisać zmian. Spróbuj ponownie.'
+              : autosaveStatus === 'saving' ? '⏳ Zapisywanie...' : '✓ Zapisano'}
           </div>
         )}
       </div>
@@ -1132,11 +1186,57 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             >
               💾 Zapisz
             </button>
-            {saveStatus && (
-              <div className={cx(ms.saveBarStatus, saveStatus !== 'saved' && ms.saveBarStatusError)}>
-                {saveStatus === 'saved' ? '✓ Zapisano' : 'Nie udało się zapisać zmian. Spróbuj ponownie.'}
+            {(saveStatus || autosaveStatus) && (
+              <div role="status" className={cx(ms.saveBarStatus, (saveStatus === 'error' || autosaveStatus === 'error') && ms.saveBarStatusError)}>
+                {saveStatus === 'error' || autosaveStatus === 'error'
+                  ? 'Nie udało się zapisać zmian. Spróbuj ponownie.'
+                  : autosaveStatus === 'saving' ? '⏳ Zapisywanie...' : '✓ Zapisano'}
               </div>
             )}
+          </div>
+        )}
+
+        {manualItem && (
+          <div className={ms.manualOverlay} onClick={() => !manualItemBusy && setManualItem(null)}>
+            <form className={ms.manualCard} onSubmit={submitManualItem} onClick={event => event.stopPropagation()}>
+              <h3 className={ms.manualTitle}>
+                {manualItem.field === 'calc_materials' ? 'Nowy materiał' : 'Nowa usługa'}
+              </h3>
+              <label className={ms.manualField}>
+                <span>Nazwa</span>
+                <input
+                  autoFocus
+                  required
+                  value={manualItem.name}
+                  onChange={event => setManualItem(current => ({ ...current, name: event.target.value }))}
+                />
+              </label>
+              <label className={ms.manualField}>
+                <span>Cena, zł</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={manualItem.price}
+                  onChange={event => setManualItem(current => ({ ...current, price: event.target.value }))}
+                />
+              </label>
+              <label className={ms.manualCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={manualItem.saveToCatalog}
+                  onChange={event => setManualItem(current => ({ ...current, saveToCatalog: event.target.checked }))}
+                />
+                Zapisz także w bazie {manualItem.field === 'calc_materials' ? 'materiałów' : 'usług'}
+              </label>
+              {manualItemError && <p className={ms.manualError} role="alert">{manualItemError}</p>}
+              <div className={ms.manualActions}>
+                <button type="button" disabled={manualItemBusy} onClick={() => setManualItem(null)}>Anuluj</button>
+                <button type="submit" disabled={manualItemBusy}>
+                  {manualItemBusy ? 'Zapisywanie...' : 'Dodaj'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
