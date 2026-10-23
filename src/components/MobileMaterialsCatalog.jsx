@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import InvoiceScanner from './InvoiceScanner';
 import s from './MaterialsList.module.css';
+import CatalogFavoriteButton from './CatalogFavoriteButton';
 
-function MobileMaterialRow({ item, expanded, onToggle }) {
+function MobileMaterialRow({ item, expanded, onToggle, onToggleFavorite }) {
   return (
-    <button type={'button'}
-      className={[s.mobileMaterialRow, expanded ? s.mobileMaterialRowExpanded : ''].filter(Boolean).join(' ')}
-      aria-expanded={expanded} onClick={onToggle}>
+    <div className={[s.mobileMaterialRow, expanded ? s.mobileMaterialRowExpanded : ''].filter(Boolean).join(' ')}>
+      <button type="button" className={s.mobileMaterialMain} aria-expanded={expanded} onClick={onToggle}>
       <span className={s.mobileMaterialInfo}>
         <span className={s.mobileMaterialName}>{item.name || item.symbol || 'Bez nazwy'}</span>
         {expanded && (
@@ -17,11 +17,13 @@ function MobileMaterialRow({ item, expanded, onToggle }) {
       </span>
       <span className={s.mobileMaterialPrice}>{Number(item.price || 0).toFixed(2)} zł</span>
       <span className={s.mobileChevron}>{expanded ? '⌃' : '⌄'}</span>
-    </button>
+      </button>
+      <CatalogFavoriteButton item={item} kind="material" onToggle={onToggleFavorite} compact />
+    </div>
   );
 }
 
-export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onAddMaterial, isDark = false }) {
+export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onAddMaterial, onToggleFavorite, isDark = false }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [supplier, setSupplier] = useState('');
@@ -88,7 +90,8 @@ export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onA
         {visibleMaterials.map((item, index) => {
           const itemKey = item.id ?? ('material-' + index);
           return <MobileMaterialRow key={itemKey} item={item} expanded={expandedKey === itemKey}
-            onToggle={() => setExpandedKey(expandedKey === itemKey ? null : itemKey)} />;
+            onToggle={() => setExpandedKey(expandedKey === itemKey ? null : itemKey)}
+            onToggleFavorite={onToggleFavorite} />;
         })}
       </div>
     </section>

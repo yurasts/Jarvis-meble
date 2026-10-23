@@ -80,7 +80,7 @@ describe('useProjectItemEditor', () => {
     });
     act(() => result.current.removeItem('calc_materials', items, 1));
 
-    expect(updateItems).toHaveBeenCalledWith('calc_materials', [{ id: 1 }, { id: 3 }]);
+    expect(updateItems).toHaveBeenCalledWith('calc_materials', [{ id: 1 }, { id: 3 }], { immediate: true });
     expect(result.current.expandedItemKey).toBeNull();
     expect(result.current.confirmDeleteKey).toBeNull();
     expect(result.current.editingPrice).toBeNull();

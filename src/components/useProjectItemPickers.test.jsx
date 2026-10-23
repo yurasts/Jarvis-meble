@@ -93,7 +93,7 @@ describe('useProjectItemPickers', () => {
     expect(props.finishEditing).toHaveBeenCalledTimes(1);
     expect(props.updateItems).toHaveBeenCalledWith('calc_materials', [
       { ...materials[1], quantity: 5 },
-    ]);
+    ], { immediate: true });
     expect(props.closeItemEditor).toHaveBeenCalledTimes(1);
   });
 });

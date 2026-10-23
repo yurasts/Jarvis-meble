@@ -6,10 +6,12 @@ const useProjectCloseLifecycle = ({
   isEmbedded,
   onClose,
   onDirtyChange,
+  beforeClose,
 }) => {
   const [confirmClose, setConfirmClose] = useState(false);
   const isDirtyRef = useRef(isDirty);
   const onCloseRef = useRef(onClose);
+  const beforeCloseRef = useRef(beforeClose);
   const hasPushedHistoryRef = useRef(false);
 
   useEffect(() => {
@@ -21,12 +23,23 @@ const useProjectCloseLifecycle = ({
   }, [onClose]);
 
   useEffect(() => {
+    beforeCloseRef.current = beforeClose;
+  }, [beforeClose]);
+
+  useEffect(() => {
     if (!isMobileVariant) return;
 
     window.history.pushState({ jarvisMobileProject: true }, '');
     hasPushedHistoryRef.current = true;
 
-    const onPopState = () => {
+    const onPopState = async () => {
+      if (beforeCloseRef.current) {
+        const result = await beforeCloseRef.current();
+        if (result?.error) {
+          window.history.pushState({ jarvisMobileProject: true }, '');
+          return;
+        }
+      }
       if (isDirtyRef.current) {
         window.history.pushState({ jarvisMobileProject: true }, '');
         setConfirmClose(true);
@@ -52,12 +65,19 @@ const useProjectCloseLifecycle = ({
   }, [isMobileVariant, onClose]);
 
   const handleClose = useCallback(() => {
-    if (isDirty) {
-      setConfirmClose(true);
-      return;
-    }
-    finalizeClose();
-  }, [finalizeClose, isDirty]);
+    const finish = async () => {
+      const result = await beforeClose?.();
+      if (result?.error) return;
+      if (isDirty) {
+        setConfirmClose(true);
+        return;
+      }
+      finalizeClose();
+    };
+    if (beforeClose) void finish();
+    else if (isDirty) setConfirmClose(true);
+    else finalizeClose();
+  }, [beforeClose, finalizeClose, isDirty]);
 
   useEffect(() => {
     if (!isEmbedded && !isMobileVariant) return;

@@ -19,7 +19,7 @@ export const evaluateQuantityExpression = (expression) => {
   return null;
 };
 
-const useProjectItemEditor = ({ updateItems }) => {
+const useProjectItemEditor = ({ updateItems, flushItems }) => {
   const [expandedItemKey, setExpandedItemKey] = useState(null);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null);
@@ -67,6 +67,7 @@ const useProjectItemEditor = ({ updateItems }) => {
     const quantity = evaluateQuantityExpression(rawValue);
     if (quantity !== null) {
       updateQuantity(field, currentItems, index, quantity);
+      void flushItems?.();
       setQuantityDrafts(current => ({ ...current, [key]: String(quantity) }));
       return;
     }
@@ -75,7 +76,7 @@ const useProjectItemEditor = ({ updateItems }) => {
       ...current,
       [key]: String(currentItems[index]?.quantity ?? 1),
     }));
-  }, [quantityDrafts, updateQuantity]);
+  }, [flushItems, quantityDrafts, updateQuantity]);
 
   const savePrice = useCallback((field, currentItems, index) => {
     const price = Number.parseFloat(priceDraft);
@@ -84,13 +85,14 @@ const useProjectItemEditor = ({ updateItems }) => {
         itemIndex === index ? { ...item, price } : item
       ));
       updateItems(field, nextItems);
+      void flushItems?.();
     }
     setEditingPrice(null);
-  }, [priceDraft, updateItems]);
+  }, [flushItems, priceDraft, updateItems]);
 
   const removeItem = useCallback((field, currentItems, index) => {
     closeEditor();
-    updateItems(field, currentItems.filter((_, itemIndex) => itemIndex !== index));
+    updateItems(field, currentItems.filter((_, itemIndex) => itemIndex !== index), { immediate: true });
   }, [closeEditor, updateItems]);
 
   return {

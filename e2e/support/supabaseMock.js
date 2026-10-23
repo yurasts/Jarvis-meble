@@ -85,6 +85,8 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
   profiles = null,
   userActivityLogs = [],
   userPresence = [],
+  materials = [],
+  services = [],
 } = {}) {
   const remainingFailures = { ...failures };
   const defaultProfiles = [{
@@ -102,6 +104,8 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     transactions: [],
     userActivityLogs: userActivityLogs.map(log => ({ ...log })),
     userPresence: userPresence.map(presence => ({ ...presence })),
+    materials: materials.map(item => ({ is_favorite: false, ...item })),
+    services: services.map(item => ({ is_favorite: false, ...item })),
     requests: {},
   };
 
@@ -241,7 +245,31 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
       }
     }
 
-    if (resource === 'materials' || resource === 'services' || resource === 'project_files') {
+    if (resource === 'materials' || resource === 'services') {
+      const collection = resource === 'materials' ? state.materials : state.services;
+      if (request.method() === 'GET') {
+        await jsonResponse(route, collection);
+        return;
+      }
+      if (request.method() === 'POST') {
+        const saved = {
+          ...requestBody(request),
+          id: resource === 'materials' ? 9901 : 9902,
+        };
+        collection.push(saved);
+        await jsonResponse(route, saved, 201);
+        return;
+      }
+      if (request.method() === 'PATCH') {
+        const id = Number(idFilter(url));
+        const index = collection.findIndex(item => Number(item.id) === id);
+        collection[index] = { ...collection[index], ...requestBody(request) };
+        await jsonResponse(route, collection[index]);
+        return;
+      }
+    }
+
+    if (resource === 'project_files') {
       await jsonResponse(route, []);
       return;
     }

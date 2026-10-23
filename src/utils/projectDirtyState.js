@@ -19,3 +19,14 @@ export const hasProjectFieldChanges = (project, originalProject) => {
   return JSON.stringify(normalizeProjectFields(project))
     !== JSON.stringify(normalizeProjectFields(originalProject));
 };
+
+export const hasProjectNonItemFieldChanges = (project, originalProject) => {
+  if (!originalProject) return false;
+  const current = normalizeProjectFields(project);
+  const original = normalizeProjectFields(originalProject);
+  delete current.calc_materials;
+  delete current.calc_services;
+  delete original.calc_materials;
+  delete original.calc_services;
+  return JSON.stringify(current) !== JSON.stringify(original);
+};

@@ -153,6 +153,10 @@ html[data-theme="forest"] .client-card:hover {
   --shadow-dialog:      0 8px 30px rgba(0, 0, 0, 0.3);
   --shadow-modal:       0 10px 25px rgba(0, 0, 0, 0.3);
   --ink-client-name:    #4da6ff;
+  --favorite-color:       #d97706;
+  --favorite-muted-color: #718096;
+  --favorite-bg:          rgba(217, 119, 6, 0.12);
+  --favorite-border:      rgba(217, 119, 6, 0.38);
 
   /* Разделы проекта (вкладки и шапки Materiały / Usługi / Rozliczenia / Pliki):
      *-ink — текст, *-line — акцентная линия, *-tint — заливка активной вкладки. */
@@ -230,6 +234,10 @@ html[data-theme="forest"] .client-card:hover {
 
 html[data-theme="dark"],
 html[data-theme="forest"] {
+  --favorite-color:       #f6ad55;
+  --favorite-muted-color: #a0aec0;
+  --favorite-bg:          rgba(246, 173, 85, 0.14);
+  --favorite-border:      rgba(246, 173, 85, 0.42);
   --section-materials-ink:  #63b3ed;
   --section-materials-tint: #0f2236;
   --section-services-ink:   #68d391;

@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import s from './MaterialPicker.module.css';
+import CatalogFavoriteButton from './CatalogFavoriteButton';
 
 const actionVariant = (emphasis, selected) => (emphasis ? 'emphasis' : selected ? 'selected' : 'default');
 
@@ -32,6 +33,7 @@ const MaterialPicker = ({
   onHighlight,
   onToggleGroup,
   onSelectMaterial,
+  onToggleFavorite,
 }) => {
   const mobilePicker = compact && isMobileVariant;
   const variant = mobilePicker ? 'mobile' : compact ? 'compact' : 'full';
@@ -124,6 +126,7 @@ const MaterialPicker = ({
                 data-highlighted={highlightedIndex === index || undefined}
               >
                 <div className={s.optionRow}>
+                  <CatalogFavoriteButton item={primaryOffer} kind="material" onToggle={onToggleFavorite} compact />
                   <button
                     type="button"
                     aria-expanded={isExpanded}
@@ -154,6 +157,7 @@ const MaterialPicker = ({
                       const offerSelected = selectedMaterials.some(item => item.id === offer.id);
                       return (
                         <div key={offerKey} className={s.offerRow} data-last={offerIndex === group.offers.length - 1}>
+                          <CatalogFavoriteButton item={offer} kind="material" onToggle={onToggleFavorite} compact />
                           <div className={s.offerInfo}>
                             <div title={offer.name || ''} className={s.offerName}>
                               {offer.name}

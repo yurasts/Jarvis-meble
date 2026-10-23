@@ -3,6 +3,8 @@ import InvoiceScanner from './InvoiceScanner';
 import { supabase } from '../supabase';
 import { useIsDesktop } from '../utils/useIsDesktop';
 import MobileMaterialsCatalog from './MobileMaterialsCatalog';
+import CatalogFavoriteButton from './CatalogFavoriteButton';
+import s from './MaterialsList.module.css';
 
 const SUPPLIER_COLUMNS = ['id', 'name', 'category', 'phone', 'hours', 'address', 'notes'].join(',');
 
@@ -51,7 +53,7 @@ const PriceTrend = ({ mat }) => {
   );
 };
 
-const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated, isDark = false }) => {
+const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPricesUpdated, onToggleFavorite, isDark = false }) => {
   const isDesktop = useIsDesktop();
   const c = (light, dark) => isDark ? dark : light;
   const bg       = 'var(--bg-card)';
@@ -128,6 +130,7 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
         materials={materials}
         onPricesUpdated={onPricesUpdated}
         onAddMaterial={() => setIsMaterialModalOpen(true)}
+        onToggleFavorite={onToggleFavorite}
         isDark={isDark}
       />
     );
@@ -210,7 +213,12 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>
                       <PriceTrend mat={mat} />
                     </td>
-                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>{mat.name}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>
+                      <span className={s.catalogNameCell}>
+                        <CatalogFavoriteButton item={mat} kind="material" onToggle={onToggleFavorite} compact />
+                        <span>{mat.name}</span>
+                      </span>
+                    </td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.unit}</td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.supplier || '-'}</td>
                   </tr>
@@ -236,7 +244,12 @@ const MaterialsList = ({ materials, servicesList, setIsMaterialModalOpen, onPric
                   <tr key={srv.id || index} style={{ background: index % 2 === 0 ? stripe1 : stripe2, lineHeight: '1.2' }}>
                     {/* ✅ FIX: убрали хардкод #2b6cb0 — теперь с темой */}
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, fontWeight: 'bold', color: c('#2b6cb0','#63b3ed') }}>{Number(srv.price).toFixed(2)}</td>
-                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>{srv.name}</td>
+                    <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: text }}>
+                      <span className={s.catalogNameCell}>
+                        <CatalogFavoriteButton item={srv} kind="service" onToggle={onToggleFavorite} compact />
+                        <span>{srv.name}</span>
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
