@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import userActivityRepository from '../data/userActivityRepository';
-import { detectDeviceType, summarizeUserAgent } from '../utils/userActivity';
+import {
+  ACTIVITY_DUPLICATE_WINDOW_MS,
+  detectDeviceType,
+  summarizeUserAgent,
+} from '../utils/userActivity';
 
 export const ACTIVITY_HEARTBEAT_MS = 5 * 60 * 1000;
 
@@ -12,6 +16,7 @@ export default function useActivityTracker({
   heartbeatMs = ACTIVITY_HEARTBEAT_MS,
 } = {}) {
   const startedUserRef = useRef(null);
+  const lastSignInRef = useRef({ userId: null, at: 0 });
 
   const sendActivity = useCallback(async (eventType) => {
     try {
@@ -31,7 +36,14 @@ export default function useActivityTracker({
         // The parent auth listener will expose this same session on the next render.
         // Mark it as started now so a real login creates one sign_in row, not an
         // immediate sign_in + session_start pair.
-        startedUserRef.current = nextSession.user.id;
+        const userId = nextSession.user.id;
+        startedUserRef.current = userId;
+        // Supabase can repeat SIGNED_IN for one login (tab refocus, token recovery);
+        // a single sign_in row per user within the duplicate window is enough.
+        const now = Date.now();
+        const last = lastSignInRef.current;
+        if (last.userId === userId && now - last.at < ACTIVITY_DUPLICATE_WINDOW_MS) return;
+        lastSignInRef.current = { userId, at: now };
         void sendActivity('sign_in');
       }
     });

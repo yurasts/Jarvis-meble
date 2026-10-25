@@ -213,6 +213,13 @@ html[data-theme="forest"] .client-card:hover {
   --status-production-board-color: #eab308;
   --status-done-board-color:       #22c55e;
 
+  /* Интенсивность активности пользователей (Settings → «Aktywność użytkowników»):
+     0 — нет входов, 1 — 1–2 входа, 2 — активная работа. Смешиваются с --bg-card,
+     поэтому сами подстраиваются под light / dark / forest. */
+  --activity-level-0: color-mix(in srgb, var(--text-muted) 16%, var(--bg-card));
+  --activity-level-1: color-mix(in srgb, var(--status-done-color) 45%, var(--bg-card));
+  --activity-level-2: var(--status-done-color);
+
   /* Радиусы скругления */
   --radius-xs:   3px;
   --radius-sm:   4px;
