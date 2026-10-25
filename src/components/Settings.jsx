@@ -4,6 +4,8 @@ import { useAuth } from '../useAuth';
 import { STATUS_LEGEND, statusColorVar } from '../utils/projectStatuses';
 import useOwnerUserActivity from './useOwnerUserActivity';
 import OwnerUserActivityPanel, { UserPresenceBadge } from './OwnerUserActivityPanel';
+import useDriveSyncStatus from './useDriveSyncStatus';
+import DriveSyncStatusPanel from './DriveSyncStatusPanel';
 import s from './Settings.module.css';
 
 const PALETTE = [
@@ -54,6 +56,7 @@ const Settings = ({
   const [employeeNotice, setEmployeeNotice] = useState(null);
   const isOwner = profile?.role === 'owner';
   const ownerActivity = useOwnerUserActivity({ enabled: isOwner });
+  const driveSync = useDriveSyncStatus({ enabled: isOwner });
 
   const allProfiles = Object.values(profilesById)
     .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'pl'));
@@ -370,6 +373,15 @@ const Settings = ({
             </button>
           </div>
         </div>
+      )}
+
+      {isOwner && (
+        <DriveSyncStatusPanel
+          state={driveSync.state}
+          status={driveSync.status}
+          error={driveSync.error}
+          onRetry={driveSync.reload}
+        />
       )}
 
       {isOwner && (

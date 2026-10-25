@@ -444,6 +444,156 @@
   font-weight: 700;
 }
 
+.driveSyncSection {
+  overflow: hidden;
+}
+
+.driveSyncHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.driveSyncHeading .sectionDesc {
+  margin-bottom: 18px;
+}
+
+.driveSyncOnline,
+.driveSyncOffline {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-menu-hover);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.driveSyncOnline {
+  border-color: var(--status-done-color);
+  background: var(--status-done-bg);
+  color: var(--status-done-color);
+}
+
+.driveSyncDot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.driveSyncOnline .driveSyncDot {
+  background: var(--status-done-color);
+  box-shadow: 0 0 0 3px var(--status-done-bg);
+}
+
+.driveSyncDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.driveSyncDetails > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+}
+
+.driveSyncDetails dt {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.driveSyncDetails dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.driveSyncDetails .driveSyncPath {
+  grid-column: 1 / -1;
+}
+
+.driveSyncPath dd {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: var(--font-size-xs);
+}
+
+.driveSyncCounters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.driveSyncCounters span {
+  padding: 5px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-menu-hover);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.driveSyncCounters strong {
+  color: var(--text-main);
+}
+
+.driveSyncMessage,
+.driveSyncError,
+.driveSyncLastError {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.driveSyncError,
+.driveSyncLastError {
+  border-color: var(--tone-danger);
+  color: var(--tone-danger);
+}
+
+.driveSyncError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.driveSyncError button {
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.driveSyncLastError {
+  margin: 12px 0 0;
+}
+
 .activitySection {
   overflow: hidden;
   padding: 0;
@@ -659,6 +809,10 @@
   }
 
   .activityPresenceList { grid-template-columns: 1fr; }
+  .driveSyncHeading { align-items: stretch; flex-direction: column; }
+  .driveSyncOnline, .driveSyncOffline { align-self: flex-start; }
+  .driveSyncDetails { grid-template-columns: 1fr; }
+  .driveSyncDetails .driveSyncPath { grid-column: auto; }
   .activitySummary { padding: 0 14px; }
   .activityContent { padding: 16px 14px 18px; }
   .activityTableHeader { display: none; }
