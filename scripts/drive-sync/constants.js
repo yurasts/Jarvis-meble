@@ -4,10 +4,16 @@ export const DELETED_FILES_FOLDER = '_Usunięte';
 export const PROJECT_FILES_BUCKET = 'project-files';
 
 export const DRIVE_CATEGORY_FOLDERS = Object.freeze([
-  Object.freeze({ category: 'zadanie', folder: '01_Zlecenie', label: 'Zadanie' }),
-  Object.freeze({ category: 'projekt', folder: '02_Rozrys', label: 'Projekt' }),
-  Object.freeze({ category: 'inne', folder: '03_Rozkrój', label: 'Krój' }),
+  Object.freeze({ category: 'zadanie', folder: '01_Zadanie', label: 'Zadanie' }),
+  Object.freeze({ category: 'projekt', folder: '02_Projekt', label: 'Projekt' }),
+  Object.freeze({ category: 'inne', folder: '03_Krój', label: 'Krój' }),
   Object.freeze({ category: 'montaz', folder: '04_Montaż', label: 'Montaż' }),
+]);
+
+export const LEGACY_DRIVE_CATEGORY_FOLDER_MIGRATIONS = Object.freeze([
+  Object.freeze({ category: 'zadanie', from: '01_Zlecenie', to: '01_Zadanie' }),
+  Object.freeze({ category: 'projekt', from: '02_Rozrys', to: '02_Projekt' }),
+  Object.freeze({ category: 'inne', from: '03_Rozkrój', to: '03_Krój' }),
 ]);
 
 // project_files predates the current UI names: `usterki` is displayed as Projekt,

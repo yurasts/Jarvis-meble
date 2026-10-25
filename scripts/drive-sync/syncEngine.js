@@ -243,6 +243,7 @@ export const syncDriveOnce = async ({ remote, root, logger = console, now = new 
     movedToDeleted: 0,
     conflictsPreserved: 0,
     localChangesDetected: 0,
+    renamedCategoryFolders: 0,
     skipped: 0,
     completedAt: null,
   };
@@ -251,7 +252,15 @@ export const syncDriveOnce = async ({ remote, root, logger = console, now = new 
   const projectsById = new Map(projects.map(project => [String(project.id), project]));
 
   for (const project of projects) {
-    const directory = await ensureProjectDirectory({ root, project, knownDirectories, now });
+    const directory = await ensureProjectDirectory({
+      root,
+      project,
+      knownDirectories,
+      now,
+      onCategoryFolderMigrated: count => {
+        summary.renamedCategoryFolders += count;
+      },
+    });
     projectDirectories.set(String(project.id), directory);
   }
 

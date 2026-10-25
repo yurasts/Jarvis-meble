@@ -5,6 +5,7 @@ import {
   readFile,
   readdir,
   rename,
+  rmdir,
   stat,
   writeFile,
 } from 'node:fs/promises';
@@ -12,6 +13,7 @@ import path from 'node:path';
 import {
   DELETED_FILES_FOLDER,
   DRIVE_CATEGORY_FOLDERS,
+  LEGACY_DRIVE_CATEGORY_FOLDER_MIGRATIONS,
   PROJECT_MARKER_FILE,
 } from './constants.js';
 import {
@@ -61,6 +63,7 @@ const walkForMarkers = async (directory, result, depth = 0) => {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     if (DRIVE_CATEGORY_FOLDERS.some(item => item.folder === entry.name)) continue;
+    if (LEGACY_DRIVE_CATEGORY_FOLDER_MIGRATIONS.some(item => item.from === entry.name)) continue;
     if (entry.name === DELETED_FILES_FOLDER) continue;
     await walkForMarkers(path.join(directory, entry.name), result, depth + 1);
   }
@@ -86,7 +89,49 @@ const collisionSafeDirectory = async (desiredDirectory, projectId, { allowUnmark
   return candidate;
 };
 
-export const ensureProjectDirectory = async ({ root, project, knownDirectories, now = new Date() }) => {
+const mergeLegacyDirectory = async (source, target) => {
+  await mkdir(target, { recursive: true });
+  const entries = await readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = path.join(source, entry.name);
+    const targetPath = path.join(target, entry.name);
+    if (!(await exists(targetPath))) {
+      await rename(sourcePath, targetPath);
+      continue;
+    }
+
+    if (entry.isDirectory() && (await stat(targetPath)).isDirectory()) {
+      await mergeLegacyDirectory(sourcePath, targetPath);
+      continue;
+    }
+
+    // Never overwrite data left by a partial/manual migration. The preserved
+    // sibling is picked up by the normal hash-based sync pass.
+    await rename(sourcePath, await uniqueSiblingPath(targetPath, 'Stara nazwa'));
+  }
+  await rmdir(source);
+};
+
+export const migrateLegacyCategoryDirectories = async (projectDirectory) => {
+  let renamed = 0;
+  for (const migration of LEGACY_DRIVE_CATEGORY_FOLDER_MIGRATIONS) {
+    const source = path.join(projectDirectory, migration.from);
+    if (!(await exists(source))) continue;
+    const target = path.join(projectDirectory, migration.to);
+    if (await exists(target)) await mergeLegacyDirectory(source, target);
+    else await rename(source, target);
+    renamed += 1;
+  }
+  return renamed;
+};
+
+export const ensureProjectDirectory = async ({
+  root,
+  project,
+  knownDirectories,
+  now = new Date(),
+  onCategoryFolderMigrated,
+}) => {
   const projectId = String(project.id);
   const desiredDirectory = projectDirectoryFor(root, project);
   const knownDirectory = knownDirectories.get(projectId);
@@ -105,6 +150,8 @@ export const ensureProjectDirectory = async ({ root, project, knownDirectories, 
   }
 
   await mkdir(targetDirectory, { recursive: true });
+  const migratedFolderCount = await migrateLegacyCategoryDirectories(targetDirectory);
+  onCategoryFolderMigrated?.(migratedFolderCount);
   for (const item of DRIVE_CATEGORY_FOLDERS) {
     await mkdir(path.join(targetDirectory, item.folder), { recursive: true });
   }

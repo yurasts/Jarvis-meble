@@ -24,15 +24,18 @@ describe('drive sync path mapping', () => {
 
   it('maps the four ordered folders to canonical Jarvis sync categories', () => {
     expect(DRIVE_CATEGORY_FOLDERS.map(({ folder, category }) => [folder, category])).toEqual([
-      ['01_Zlecenie', 'zadanie'],
-      ['02_Rozrys', 'projekt'],
-      ['03_Rozkrój', 'inne'],
+      ['01_Zadanie', 'zadanie'],
+      ['02_Projekt', 'projekt'],
+      ['03_Krój', 'inne'],
       ['04_Montaż', 'montaz'],
     ]);
     for (const { folder, category } of DRIVE_CATEGORY_FOLDERS) {
       expect(categoryForFolder(folder)).toBe(category);
       expect(folderForCategory(category)).toBe(folder);
     }
+    expect(categoryForFolder('01_Zlecenie')).toBe('zadanie');
+    expect(categoryForFolder('02_Rozrys')).toBe('projekt');
+    expect(categoryForFolder('03_Rozkrój')).toBe('inne');
   });
 
   it('routes lifecycle states to active, archive and trash roots', () => {

@@ -61,6 +61,19 @@ npm run supabase:schema:pull
 committing it. Generate and test an explicit migration before changing production; never run
 `supabase db reset --linked` against the production project.
 
+## Local Google Drive sync
+
+The local agent mirrors project files into `G:\Mój dysk\_Jarvis\Projekty`. Configure the
+production URL, service-role key, root and a unique host name in the ignored
+`.env.drive-sync.local`, then run `npm run drive-sync:once` for a single pass or
+`npm run drive-sync` for watch mode. Never expose the service-role key through a `VITE_*`
+variable.
+
+Each project contains `01_Zadanie`, `02_Projekt`, `03_Krój`, and `04_Montaż`. Before scanning,
+the agent automatically migrates the former `01_Zlecenie`, `02_Rozrys`, and `03_Rozkrój`
+directories in place without changing their category-relative database paths. Implementation and
+operational details are in `scripts/drive-sync/README.md`.
+
 ## Repository structure
 
 - `src/components/` — React views and feature hooks
