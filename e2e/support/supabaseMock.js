@@ -85,6 +85,7 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
   profiles = null,
   userActivityLogs = [],
   userPresence = [],
+  driveSyncState = null,
   materials = [],
   services = [],
 } = {}) {
@@ -104,6 +105,7 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     transactions: [],
     userActivityLogs: userActivityLogs.map(log => ({ ...log })),
     userPresence: userPresence.map(presence => ({ ...presence })),
+    driveSyncState: driveSyncState ? { ...driveSyncState } : null,
     materials: materials.map(item => ({ is_favorite: false, ...item })),
     services: services.map(item => ({ is_favorite: false, ...item })),
     requests: {},
@@ -154,6 +156,11 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
 
     if (resource === 'user_activity_logs') {
       await jsonResponse(route, role === 'owner' ? state.userActivityLogs : []);
+      return;
+    }
+
+    if (resource === 'drive_sync_state') {
+      await jsonResponse(route, role === 'owner' ? state.driveSyncState : null);
       return;
     }
 
