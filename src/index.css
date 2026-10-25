@@ -31,6 +31,11 @@
 
   --btn-sec-bg:    #F8FAFC;
   --btn-sec-text:  #0F172A;
+
+  /* Фон рабочей области: в Halloween — со свечением, в остальных темах = --bg-base. */
+  --bg-app:        var(--bg-base);
+  /* Текст/иконки на заливке --accent / --tone-primary. */
+  --accent-contrast: #ffffff;
 }
 
 /* --- 2. ТЁМНАЯ ТЕМА --- */
@@ -57,28 +62,39 @@ html[data-theme="dark"] {
   --btn-sec-text:  #e2e8f0;
 }
 
-/* --- 2b. ТЕМА FOREST --- */
+/* --- 2b. ТЕМА «🎃 HALLOWEEN» ---
+   Технический идентификатор остаётся 'forest' (profiles.theme, data-theme), чтобы не ломать
+   сохранённые настройки. Концепция «Cozy Twilight»: сумеречный пурпур, светящаяся тыква,
+   пергаментный текст. Сырые цвета — --palette-dusk-* / --palette-pumpkin-* и др. в :root ниже. */
 html[data-theme="forest"] {
-  --bg-base:       #16241c;
-  --bg-sidebar:    #12201a;
-  --bg-card:       #3f5a4a;
-  --bg-menu-item:  #2c4235;
-  --bg-menu-hover: #375040;
-  --bg-kanban-col: #2c4235;
+  --bg-base:       var(--palette-dusk-800);
+  --bg-sidebar:    var(--palette-dusk-700);
+  --bg-card:       var(--palette-dusk-600);
+  --bg-menu-item:  var(--palette-dusk-700);
+  --bg-menu-hover: var(--palette-dusk-500);
+  --bg-kanban-col: var(--palette-dusk-700);
+  --bg-app:
+    radial-gradient(circle at 85% 10%, rgba(255, 123, 41, 0.12), transparent 45%),
+    radial-gradient(circle at 15% 85%, rgba(168, 85, 247, 0.14), transparent 50%),
+    var(--palette-dusk-800);
+  --accent-soft:   rgba(255, 123, 41, 0.18);
 
-  --text-main:     #f2f7f4;
-  --text-muted:    #b9ccbf;
-  --text-sidebar:  #f2f7f4;
+  --text-main:     var(--palette-parchment);
+  --text-muted:    var(--palette-lavender-200);
+  --text-sidebar:  var(--palette-parchment);
 
-  --border:        #7fa88d;
-  --accent:        #4da6ff;
+  --border:        rgba(255, 158, 88, 0.24);
+  --accent:        var(--palette-pumpkin-500);
+  --accent-hover:  var(--palette-pumpkin-400);
+  /* Белый на #ff7b29 даёт ~2.6:1 — на тыквенной заливке пишем тёмным сливовым (~7:1). */
+  --accent-contrast: var(--palette-dusk-900);
 
-  --modal-bg:      #2c4235;
-  --input-bg:      #34503f;
-  --input-border:  #7fa88d;
+  --modal-bg:      var(--palette-dusk-700);
+  --input-bg:      var(--palette-dusk-900);
+  --input-border:  rgba(255, 123, 41, 0.45);
 
-  --btn-sec-bg:    #375040;
-  --btn-sec-text:  #f2f7f4;
+  --btn-sec-bg:    var(--palette-dusk-500);
+  --btn-sec-text:  var(--palette-parchment);
 }
 
 html[data-theme="forest"] .modal-overlay { background: rgba(0,0,0,0.82); }
@@ -114,6 +130,22 @@ html[data-theme="forest"] .client-card:hover {
   --palette-gray-400:   #aeaeb2;
   --palette-gray-450:   #718096;
   --palette-green-500:  #22c55e;
+  /* Палитра темы «🎃 Halloween» (data-theme="forest"); используется и превью в Settings. */
+  --palette-dusk-900:      #231934;
+  --palette-dusk-800:      #271d38;
+  --palette-dusk-700:      #2f2344;
+  --palette-dusk-600:      #3a2c52;
+  --palette-dusk-500:      #463663;
+  --palette-pumpkin-500:   #ff7b29;
+  --palette-pumpkin-400:   #ff944d;
+  --palette-pumpkin-200:   #ffb98a;
+  --palette-parchment:     #fdf8f2;
+  --palette-lavender-200:  #cbbce0;
+  --palette-violet-300:    #d8b4fe;
+  --palette-violet-500:    #a855f7;
+  --palette-potion-300:    #6ee7b7;
+  --palette-potion-500:    #34d399;
+  --palette-candle-300:    #ffd166;
 
   /* Поверхности, линии, текст (фиксированные, не зависят от темы) */
   --surface-paper:      var(--palette-white);
@@ -124,6 +156,7 @@ html[data-theme="forest"] .client-card:hover {
   --ink-faint:          var(--palette-gray-500);
   --ink-link:           var(--palette-blue-700);
   --ink-on-accent:      var(--palette-white);
+  --ledger-header-bg:   var(--palette-gray-400); /* шапка проекта в Rozliczenia (белый текст) */
 
   /* Акценты */
   --tone-primary:       var(--palette-blue-500);
@@ -270,10 +303,42 @@ html[data-theme="forest"] {
   --status-done-bg:       rgba(56, 161, 105, 0.08);
 }
 
-/* Forest получает собственный, более приглушённый (зелёный, не сине-угольный) тон строк
-   материалов — так было задано ещё до вынесения в токены (ProjectModal.jsx, bgMatRow). */
+/* «🎃 Halloween» поверх общих тёмных значений: Materiały — тыквенно-янтарные,
+   Usługi — магический фиолетовый, Rozliczenia — изумрудное «зелье», синий акцент → тыква. */
 html[data-theme="forest"] {
-  --section-materials-tint: #4f7057;
+  --tone-primary:       var(--accent);
+  --ledger-header-bg:   var(--palette-dusk-500);
+  --ink-client-name:    var(--palette-pumpkin-200);
+  --ink-link:           var(--palette-pumpkin-200);
+
+  --favorite-color:       var(--palette-candle-300);
+  --favorite-muted-color: var(--palette-lavender-200);
+  --favorite-bg:          rgba(255, 209, 102, 0.14);
+  --favorite-border:      rgba(255, 209, 102, 0.42);
+
+  --section-materials-ink:    var(--palette-pumpkin-200);
+  --section-materials-line:   var(--palette-pumpkin-500);
+  --section-materials-tint:   #4a3149;
+  --section-materials-border: #7a4636;
+  --section-services-ink:     var(--palette-violet-300);
+  --section-services-line:    var(--palette-violet-500);
+  --section-services-tint:    #40305f;
+  --section-services-border:  #634594;
+  --section-expenses-ink:     var(--palette-potion-300);
+  --section-expenses-line:    var(--palette-potion-500);
+  --section-expenses-tint:    #26363f;
+  --section-expenses-border:  #2f6b5a;
+  --section-files-ink:        #f5b8ff;
+  --section-files-tint:       #3b2552;
+
+  --tone-replace-bg:              #5a3640;
+  --picker-replace-bg:            #5a3640;
+  --picker-services-highlight-bg: #4a3672;
+  --picker-expanded-bg:           var(--palette-dusk-700);
+  --picker-accent-button-bg:      var(--accent);
+
+  --activity-level-1: color-mix(in srgb, var(--accent) 45%, var(--bg-card));
+  --activity-level-2: var(--accent);
 }
 
 /* --- 3. СБРОС VITE И БРАУЗЕРА --- */
@@ -343,13 +408,13 @@ html, body, #root {
   flex: 1;
   padding: 30px;
   overflow-y: auto;
-  background-color: var(--bg-base);
+  background: var(--bg-app);
 }
 
 /* --- 7. КНОПКИ --- */
 .btn-primary {
   background-color: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
   height: 40px;
   padding: 0 20px;
   border: none;

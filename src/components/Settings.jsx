@@ -193,14 +193,14 @@ const Settings = ({
             </div>
           </div>
 
-          {/* Forest */}
+          {/* Halloween (технический id темы — 'forest') */}
           <div
             className={[s.themeOption, theme === 'forest' ? s.active : ''].join(' ')}
             onClick={() => updateTheme('forest')}
           >
             <div className={s.previewForest}>
               <div className={[s.previewBar, s.previewBarForest].join(' ')}>
-                <div className={s.previewDot} />
+                <div className={[s.previewDot, s.previewDotForest].join(' ')} />
                 <div className={[s.previewLine, s.previewLineForest].join(' ')} />
               </div>
               <div className={[s.previewCard, s.previewCardForest].join(' ')}>
@@ -209,7 +209,7 @@ const Settings = ({
               </div>
             </div>
             <div className={[s.themeLabel, theme === 'forest' ? s.active : ''].join(' ')}>
-              {theme === 'forest' ? '✓ ' : ''}Forest
+              {theme === 'forest' ? '✓ ' : ''}🎃 Halloween
             </div>
           </div>
         </div>
@@ -416,7 +416,7 @@ const Settings = ({
                   {p.id === profile.id && <span className={s.legendMe}>(ja)</span>}
                 </div>
                 <div className={s.legendRole}>
-                  {p.role} • {p.theme === 'dark' ? '🌙 Ciemny' : p.theme === 'forest' ? '🌲 Forest' : '☀️ Jasny'}
+                  {p.role} • {p.theme === 'dark' ? '🌙 Ciemny' : p.theme === 'forest' ? '🎃 Halloween' : '☀️ Jasny'}
                 </div>
               </div>
               <div

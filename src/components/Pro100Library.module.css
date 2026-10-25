@@ -4,7 +4,7 @@
 .pageHeader h1 { margin: 0; font-size: 25px; line-height: 1.2; }
 .pageHeader p { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
 .primaryButton, .secondaryButton, .downloadButton, .expandedActions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 0 14px; border-radius: 7px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-.primaryButton { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+.primaryButton { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-contrast); }
 .secondaryButton { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); }
 .primaryButton:disabled, .secondaryButton:disabled, .downloadButton:disabled, .expandedActions button:disabled { opacity: .55; cursor: default; }
 .toolbar { gap: 10px; margin-top: 24px; }
@@ -14,7 +14,7 @@
 .categoryBar { flex-wrap: wrap; gap: 7px; margin: 16px 0; }
 .categoryBar button { min-height: 32px; padding: 0 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-muted); font-size: 12px; font-weight: 650; cursor: pointer; }
 .categoryBar button span { margin-left: 5px; opacity: .72; }
-.categoryBar .categoryActive { border-color: var(--accent); background: var(--accent); color: #fff; }
+.categoryBar .categoryActive { border-color: var(--accent); background: var(--accent); color: var(--accent-contrast); }
 .noticeBanner, .errorBanner { margin: 10px 0; padding: 9px 12px; border-radius: 7px; font-size: 12px; }
 .noticeBanner { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
 .errorBanner { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }

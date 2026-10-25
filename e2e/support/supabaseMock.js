@@ -145,6 +145,16 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     }
 
     if (resource === 'profiles') {
+      if (request.method() === 'PATCH') {
+        const ids = idsFilter(url);
+        const changes = requestBody(request);
+        state.profiles = state.profiles.map(profile => (
+          ids.includes(profile.id) ? { ...profile, ...changes } : profile
+        ));
+        const updated = state.profiles.filter(profile => ids.includes(profile.id));
+        await jsonResponse(route, wantsSingleObject(request) ? updated[0] : updated);
+        return;
+      }
       await jsonResponse(route, state.profiles);
       return;
     }

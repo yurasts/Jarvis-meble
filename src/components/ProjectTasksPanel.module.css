@@ -72,7 +72,7 @@
   border: 1px solid var(--accent);
   border-radius: 6px;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -116,7 +116,7 @@
   border: none;
   border-radius: 6px;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   cursor: pointer;
   font: inherit;
   font-size: 12px;

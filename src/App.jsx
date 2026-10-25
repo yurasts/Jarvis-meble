@@ -113,9 +113,9 @@ const AI_ASSISTANT_ENABLED = false
 
 function App() {
   const { session, profile: authProfile, profilesById, isDark, theme, loadingSession, awaitingAccess, signOut } = useAuth()
-  // Forest — тоже тёмная по духу тема: компонентам, красящим себя через
+  // «🎃 Halloween» (id 'forest') — тоже тёмная по духу тема: компонентам, красящим себя через
   // свой light/dark-хелпер (ProjectModal, Kanban, MaterialsList),
-  // передаём именно этот флаг, чтобы они не "светлели" в Forest.
+  // передаём именно этот флаг, чтобы они не "светлели" в Halloween.
   const isDarkish = isDark || theme === 'forest'
 
   const [activeTab, setActiveTab]   = useState('dashboard')

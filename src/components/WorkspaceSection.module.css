@@ -142,7 +142,7 @@
 .addButton {
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .addButton:hover {
@@ -184,7 +184,7 @@
 
 .iconAddButton:hover {
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .iconAddButton:focus-visible {

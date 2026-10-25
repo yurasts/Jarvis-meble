@@ -50,7 +50,7 @@
 
 .themeOption.active {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(77,166,255,0.2);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* Превью светлой темы */
@@ -65,9 +65,12 @@
   padding: 10px;
 }
 
-/* Превью темы Forest */
+/* Превью темы «🎃 Halloween» (data-theme="forest") — сумеречный пурпур со свечением тыквы */
 .previewForest {
-  background: #16241c;
+  background:
+    radial-gradient(circle at 85% 10%, rgba(255, 123, 41, 0.28), transparent 55%),
+    radial-gradient(circle at 10% 90%, rgba(168, 85, 247, 0.3), transparent 60%),
+    var(--palette-dusk-800);
   padding: 10px;
 }
 
@@ -82,13 +85,22 @@
 
 .previewBarLight { background: #1e1e2f; }
 .previewBarDark  { background: #0d1117; }
-.previewBarForest { background: #2c4235; }
+.previewBarForest { background: var(--palette-dusk-700); }
 
 .previewDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* Превью не должны перекрашиваться акцентом текущей темы. */
+.previewLight .previewDot { background: #2563eb; }
+.previewDark .previewDot  { background: #4da6ff; }
+
+.previewDotForest {
+  background: var(--palette-pumpkin-500);
+  box-shadow: 0 0 6px var(--palette-pumpkin-400);
 }
 
 .previewLine {
@@ -99,7 +111,7 @@
 
 .previewLineLight { background: #3b3b54; }
 .previewLineDark  { background: #1e293b; }
-.previewLineForest { background: #2c4235; }
+.previewLineForest { background: var(--palette-violet-500); }
 
 .previewCard {
   border-radius: 4px;
@@ -108,7 +120,7 @@
 
 .previewCardLight { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .previewCardDark  { background: #1e293b; }
-.previewCardForest { background: #3f5a4a; }
+.previewCardForest { background: var(--palette-dusk-600); box-shadow: inset 0 0 0 1px rgba(255, 158, 88, 0.24); }
 
 .previewCardTitle {
   height: 6px;
@@ -118,8 +130,8 @@
 }
 
 .previewCardTitleLight { background: #2b6cb0; }
-.previewCardTitleDark  { background: var(--accent); }
-.previewCardTitleForest { background: var(--accent); }
+.previewCardTitleDark  { background: #4da6ff; }
+.previewCardTitleForest { background: var(--palette-pumpkin-500); }
 
 .previewCardBody {
   height: 4px;
@@ -129,7 +141,7 @@
 
 .previewCardBodyLight { background: #e2e8f0; }
 .previewCardBodyDark  { background: #334155; }
-.previewCardBodyForest { background: #7fa88d; }
+.previewCardBodyForest { background: var(--palette-potion-300); }
 
 .themeLabel {
   padding: 8px;
