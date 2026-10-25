@@ -1,5 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ACTIVITY_DUPLICATE_WINDOW_MS } from '../utils/userActivity';
 import useActivityTracker, { ACTIVITY_HEARTBEAT_MS } from './useActivityTracker';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
@@ -100,5 +101,32 @@ describe('useActivityTracker', () => {
 
     expect(repository.record).toHaveBeenCalledTimes(1);
     expect(repository.record).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'sign_in' }));
+  });
+
+  it('records one sign-in when Supabase repeats SIGNED_IN within five minutes', async () => {
+    let authHandler;
+    const client = {
+      auth: {
+        onAuthStateChange: vi.fn(handler => {
+          authHandler = handler;
+          return { data: { subscription: { unsubscribe: vi.fn() } } };
+        }),
+      },
+    };
+    const repository = { record: vi.fn().mockResolvedValue(null) };
+    const session = { user: { id: 'user-1' } };
+    render(<TrackerHarness session={null} client={client} repository={repository} />);
+
+    await act(async () => { authHandler('SIGNED_IN', session); });
+    await act(async () => { vi.advanceTimersByTime(60 * 1000); });
+    await act(async () => { authHandler('SIGNED_IN', session); });
+    expect(repository.record).toHaveBeenCalledTimes(1);
+
+    await act(async () => { vi.advanceTimersByTime(ACTIVITY_DUPLICATE_WINDOW_MS); });
+    await act(async () => { authHandler('SIGNED_IN', session); });
+    expect(repository.record).toHaveBeenCalledTimes(2);
+
+    await act(async () => { authHandler('SIGNED_IN', { user: { id: 'user-2' } }); });
+    expect(repository.record).toHaveBeenCalledTimes(3);
   });
 });

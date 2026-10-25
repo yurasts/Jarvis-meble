@@ -601,7 +601,7 @@
 
 .activitySummary {
   display: flex;
-  min-height: 54px;
+  min-height: 46px;
   align-items: center;
   gap: 10px;
   padding: 0 24px;
@@ -637,36 +637,356 @@
 }
 
 .activityContent {
-  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 14px;
   border-top: 1px solid var(--border);
 }
 
-.activityPresenceList {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 18px;
+.activityHint {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.activityPresenceRow {
+/* --- Чипы-фильтры сотрудников --- */
+.activityChips {
+  display: flex;
+  gap: 6px;
+  margin: 0 -2px;
+  padding: 2px 2px 4px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.activityChip {
+  display: flex;
+  min-width: 104px;
+  max-width: 150px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-base);
+  color: var(--text-main);
+  cursor: pointer;
+  font: inherit;
+  scroll-snap-align: start;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.activityChip:hover { border-color: var(--accent); }
+
+.activityChip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.activityChip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.activityChipAll {
+  min-width: 84px;
+  justify-content: center;
+}
+
+.activityChipTop {
   display: flex;
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 9px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-base);
+  gap: 8px;
 }
 
-.activityEmployeeName {
+.activityChipName {
   overflow: hidden;
-  color: var(--text-main);
   font-size: var(--font-size-sm);
   font-weight: 700;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.activityChipMeta {
+  display: flex;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.activitySpark {
+  display: inline-flex;
+  height: 14px;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.activitySparkBar {
+  width: 3px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+.activitySparkBar.activityLevel1 { height: 8px; }
+.activitySparkBar.activityLevel2 { height: 14px; }
+
+/* --- Уровни интенсивности (общие для мини-графика, матрицы и легенды) --- */
+.activityLevel0 { background: var(--activity-level-0); }
+.activityLevel1 { background: var(--activity-level-1); }
+.activityLevel2 { background: var(--activity-level-2); }
+
+/* --- Матрица + лента --- */
+.activityBoard {
+  display: grid;
+  grid-template-columns: minmax(0, 270px) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.activityOverview {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.activityHeatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.activityHeatmapRow {
+  display: grid;
+  grid-template-columns: 58px repeat(7, minmax(0, 1fr));
+  align-items: center;
+  gap: 3px;
+}
+
+.activityHeatmapDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1.15;
+}
+
+.activityHeatmapDay > :first-child { text-transform: uppercase; }
+
+.activityHeatmapToday {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.activityHeatmapLabel {
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityCell {
+  display: grid;
+  height: 18px;
+  place-items: center;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+}
+
+.activityTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activityTimelineRow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+}
+
+.activityTimelineLabel {
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.activityTimelineLabel.activityHeatmapToday { color: var(--accent); }
+
+.activityTimelineHours {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 1px;
+}
+
+.activityHourCell {
+  height: 13px;
+  border-radius: 1px;
+}
+
+.activityTimelineScale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.activityLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.activityLegend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.activityLegendSwatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.activityFeedColumn { min-width: 0; }
+
+.activityFeed {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.activityFeed:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.activityFeedGroup + .activityFeedGroup { border-top: 1px solid var(--border); }
+
+.activityFeedDay {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  margin: 0;
+  padding: 4px 10px;
+  background: var(--bg-menu-hover);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.activityFeedList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activityFeedRow {
+  display: grid;
+  min-height: 30px;
+  grid-template-columns: 38px minmax(0, 1fr) auto minmax(0, auto);
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+}
+
+.activityFeedRow + .activityFeedRow { border-top: 1px solid var(--bg-menu-hover); }
+
+.activityFeedTime {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.activityFeedUser {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.activityAvatar {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+}
+
+.activityFeedName {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityDeviceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-menu-hover);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.activityFeedEvent {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.activityFeedEventLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activityCollapsed {
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
 }
 
 .presenceOnline,
@@ -692,29 +1012,6 @@
   border-radius: 50%;
   background: var(--status-done-color);
   box-shadow: 0 0 0 3px var(--status-done-bg);
-}
-
-.activityFilter {
-  display: flex;
-  width: min(320px, 100%);
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.activityFilter select {
-  min-height: 36px;
-  padding: 6px 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-size: var(--font-size-sm);
-  text-transform: none;
 }
 
 .activityState,
@@ -747,53 +1044,6 @@
   font-weight: 700;
 }
 
-.activityTable {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
-.activityTableHeader,
-.activityTableRow {
-  display: grid;
-  grid-template-columns: 1.15fr 1.2fr 1fr 0.8fr;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-}
-
-.activityTableHeader {
-  background: var(--bg-menu-hover);
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.activityTableRow {
-  border-top: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-main);
-  font-size: var(--font-size-xs);
-}
-
-.activityLogIdentity {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.activityLogIdentity strong,
-.activityLogIdentity small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activityLogIdentity small {
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-}
 @media (max-width: 640px) {
   .employeeRow {
     grid-template-columns: 1fr 1fr;
@@ -808,25 +1058,20 @@
     display: none;
   }
 
-  .activityPresenceList { grid-template-columns: 1fr; }
   .driveSyncHeading { align-items: stretch; flex-direction: column; }
   .driveSyncOnline, .driveSyncOffline { align-self: flex-start; }
   .driveSyncDetails { grid-template-columns: 1fr; }
   .driveSyncDetails .driveSyncPath { grid-column: auto; }
   .activitySummary { padding: 0 14px; }
-  .activityContent { padding: 16px 14px 18px; }
-  .activityTableHeader { display: none; }
-  .activityTableRow {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 5px 10px;
-    padding: 11px;
-  }
-  .activityTableRow > :nth-child(1) { grid-column: 1; grid-row: 1; }
-  .activityTableRow > :nth-child(2) { grid-column: 1; grid-row: 2; }
-  .activityTableRow > :nth-child(3) { grid-column: 2; grid-row: 1; text-align: right; }
-  .activityTableRow > :nth-child(4) { grid-column: 2; grid-row: 2; text-align: right; }
+  .activityHint { display: none; }
+  .activityContent { padding: 12px 12px 14px; }
+  .activityBoard { grid-template-columns: minmax(0, 1fr); }
+  .activityHeatmapRow { grid-template-columns: 72px repeat(7, minmax(0, 1fr)); }
+  .activityCell { height: 20px; }
+  .activityFeedRow { gap: 6px; padding: 3px 8px; }
 }
 @media (max-width: 480px) {
+  .activityDeviceLabel { display: none; }
   .accountCard { align-items: flex-start; flex-wrap: wrap; }
   .settingsLogoutBtn { width: 100%; margin-left: 0; }
 }

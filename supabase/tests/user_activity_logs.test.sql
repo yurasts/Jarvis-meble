@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(26);
 
 insert into auth.users (id, email)
 values
@@ -186,6 +186,39 @@ select is(
   ),
   'Activity Designer',
   'RPC snapshots the profile name'
+);
+
+set local request.jwt.claims = '{"role":"authenticated","sub":"a2222222-2222-4222-8222-222222222222"}';
+set local role authenticated;
+select lives_ok(
+  $$select public.record_user_activity('sign_in', 'desktop', 'Chrome · Linux')$$,
+  'a repeated sign-in on the same device is accepted'
+);
+reset role;
+
+select is(
+  (select count(*) from public.user_activity_logs where user_id = 'a2222222-2222-4222-8222-222222222222'),
+  3::bigint,
+  'a repeated sign-in within five minutes on the same device is not logged twice'
+);
+
+update public.user_activity_logs
+set created_at = now() - interval '6 minutes'
+where user_id = 'a2222222-2222-4222-8222-222222222222'
+  and event_type = 'sign_in';
+
+set local request.jwt.claims = '{"role":"authenticated","sub":"a2222222-2222-4222-8222-222222222222"}';
+set local role authenticated;
+select lives_ok(
+  $$select public.record_user_activity('sign_in', 'desktop', 'Chrome · Linux')$$,
+  'a later sign-in on the same device is accepted'
+);
+reset role;
+
+select is(
+  (select count(*) from public.user_activity_logs where user_id = 'a2222222-2222-4222-8222-222222222222'),
+  4::bigint,
+  'a sign-in after the five-minute window adds a new history row'
 );
 
 select throws_ok(

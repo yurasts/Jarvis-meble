@@ -51,12 +51,28 @@ BEGIN
         last_device_type = EXCLUDED.last_device_type,
         last_user_agent = EXCLUDED.last_user_agent;
 
-  IF p_event_type = 'sign_in'
-     OR NOT EXISTS (
-       SELECT 1
-       FROM public.user_activity_logs
-       WHERE user_id = v_user_id
-         AND created_at >= v_now - interval '30 minutes'
+  -- A sign-in is always history-worthy, except a repeat of the same login:
+  -- Supabase can emit SIGNED_IN several times (refocus, several tabs), so one
+  -- sign_in per user and device within five minutes is kept.
+  IF (
+       p_event_type = 'sign_in'
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.user_activity_logs
+         WHERE user_id = v_user_id
+           AND device_type = p_device_type
+           AND event_type = 'sign_in'
+           AND created_at >= v_now - interval '5 minutes'
+       )
+     )
+     OR (
+       p_event_type = 'session_start'
+       AND NOT EXISTS (
+         SELECT 1
+         FROM public.user_activity_logs
+         WHERE user_id = v_user_id
+           AND created_at >= v_now - interval '30 minutes'
+       )
      ) THEN
     INSERT INTO public.user_activity_logs (
       user_id,
