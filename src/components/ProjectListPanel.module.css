@@ -27,7 +27,7 @@
   border-radius: 6px;
   border: none;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: 15px;
   line-height: 1;
   font-weight: 700;
@@ -166,7 +166,7 @@
   border: none;
   border-radius: 8px;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
@@ -551,7 +551,7 @@
 .folderBtnActive,
 .folderBtnActive:hover {
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .folderUploadBtn {

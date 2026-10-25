@@ -35,7 +35,7 @@
 .scopeBtnActive {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
 }
 
 .scopeBtnActive:hover { background: var(--accent); }

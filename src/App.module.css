@@ -183,7 +183,7 @@
 
   .btnNewProjectTop {
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast);
     border: none;
     padding: 0 14px;
     height: 34px;
@@ -194,7 +194,7 @@
     white-space: nowrap;
     transition: background-color 0.15s ease;
   }
-  .btnNewProjectTop:hover { background: #1d4ed8; }
+  .btnNewProjectTop:hover { background: var(--accent-hover); }
 
   .topbarAvatar {
     width: 28px;

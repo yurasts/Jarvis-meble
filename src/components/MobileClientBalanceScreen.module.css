@@ -151,7 +151,7 @@
   border-radius: 8px;
   border: none;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -313,7 +313,7 @@
   border: 0;
   border-radius: 8px;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;

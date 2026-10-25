@@ -80,7 +80,7 @@
   justify-content: center;
   border-color: var(--accent);
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: 18px;
   font-weight: 700;
 }
@@ -155,14 +155,14 @@
 .desktopFolderBtnActive {
   border-color: var(--accent);
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .desktopUploadBtn {
   width: 40px;
   border-color: var(--accent);
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: 18px;
 }
 
@@ -289,7 +289,7 @@
 .stoDownloadBtn {
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .stoReplaceBtn {

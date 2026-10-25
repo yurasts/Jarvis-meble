@@ -345,7 +345,7 @@
 
 .scopeBtnActive {
   background: var(--tone-primary);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .saveBtn {
@@ -353,7 +353,7 @@
   border: none;
   border-radius: var(--radius-md);
   background: var(--tone-primary);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
@@ -692,7 +692,7 @@
   border: none;
   border-radius: var(--radius-lg);
   background: var(--tone-primary);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   font-size: var(--font-size-base);
   font-weight: 700;
   cursor: pointer;
@@ -875,7 +875,7 @@
 .manualActions button[type="submit"] {
   border-color: var(--accent);
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
 }
 
 .manualActions button:disabled { cursor: wait; opacity: 0.65; }

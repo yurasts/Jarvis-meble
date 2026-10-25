@@ -37,7 +37,7 @@
   border: 1px solid var(--accent);
   border-radius: 5px;
   background: var(--accent);
-  color: var(--ink-on-accent);
+  color: var(--accent-contrast);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -171,7 +171,7 @@
 .modalActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .modalCancel, .modalSave { height: 34px; border-radius: 6px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
 .modalCancel { border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); }
-.modalSave { border: 1px solid var(--accent); background: var(--accent); color: var(--ink-on-accent); }
+.modalSave { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-contrast); }
 
 @media (max-width: 767px) {
   .panel { margin-top: 8px; }
