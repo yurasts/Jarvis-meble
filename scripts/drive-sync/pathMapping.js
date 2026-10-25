@@ -2,6 +2,7 @@ import path from 'node:path';
 import {
   DELETED_FILES_FOLDER,
   DRIVE_CATEGORY_FOLDERS,
+  LEGACY_DRIVE_CATEGORY_FOLDER_MIGRATIONS,
   PROJECT_MARKER_FILE,
 } from './constants.js';
 
@@ -26,7 +27,9 @@ export const sanitizeWindowsFolderName = (value, fallback = 'Bez nazwy') => {
 };
 
 export const categoryForFolder = (folderName) => (
-  DRIVE_CATEGORY_FOLDERS.find(item => item.folder === folderName)?.category || null
+  DRIVE_CATEGORY_FOLDERS.find(item => item.folder === folderName)?.category
+  || LEGACY_DRIVE_CATEGORY_FOLDER_MIGRATIONS.find(item => item.from === folderName)?.category
+  || null
 );
 
 export const folderForCategory = (category) => (

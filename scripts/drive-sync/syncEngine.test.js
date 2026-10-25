@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -84,7 +84,8 @@ describe('drive sync engine', () => {
     const root = await createRoot();
     const { remote, state } = createRemote();
     const now = new Date('2026-10-25T12:00:00.000Z');
-    const localFile = path.join(root, 'Anna Kowalska', 'Kuchnia', '02_Rozrys', 'drawing.pdf');
+    const projectDirectory = path.join(root, 'Anna Kowalska', 'Kuchnia');
+    const localFile = path.join(projectDirectory, '02_Projekt', 'drawing.pdf');
 
     const bootstrap = await syncDriveOnce({ remote, root, now });
     expect(bootstrap.downloaded).toBe(1);
@@ -96,9 +97,16 @@ describe('drive sync engine', () => {
       relative_path: 'drawing.pdf',
     });
 
+    await rename(
+      path.join(projectDirectory, '02_Projekt'),
+      path.join(projectDirectory, '02_Rozrys'),
+    );
     const unchanged = await syncDriveOnce({ remote, root, now });
+    expect(unchanged.renamedCategoryFolders).toBe(1);
     expect(unchanged.downloaded).toBe(0);
     expect(unchanged.uploaded).toBe(0);
+    expect(unchanged.movedToDeleted).toBe(0);
+    expect(await readFile(localFile, 'utf8')).toBe('server-v1');
     expect(remote.download).toHaveBeenCalledTimes(1);
 
     await writeFile(localFile, 'local-v2');
@@ -114,7 +122,7 @@ describe('drive sync engine', () => {
     const deleted = await syncDriveOnce({ remote, root, now: new Date('2026-10-25T12:10:00.000Z') });
     expect(deleted.movedToDeleted).toBe(1);
     expect(await readFile(
-      path.join(root, 'Anna Kowalska', 'Kuchnia', '_Usunięte', '02_Rozrys', 'drawing.pdf'),
+      path.join(root, 'Anna Kowalska', 'Kuchnia', '_Usunięte', '02_Projekt', 'drawing.pdf'),
       'utf8',
     )).toBe('local-v2');
     expect(state.entries).toHaveLength(0);
