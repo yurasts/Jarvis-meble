@@ -104,6 +104,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS material_suppliers_one_preferred_idx
 
 ALTER TABLE public.material_suppliers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS material_suppliers_staff_all ON public.material_suppliers;
 CREATE POLICY material_suppliers_staff_all ON public.material_suppliers
   FOR ALL
   TO authenticated
