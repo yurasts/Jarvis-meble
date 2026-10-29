@@ -105,32 +105,40 @@ const MaterialsList = ({
 
   return (
     <div style={{ padding: '20px', minHeight: '100%', background: bg }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2 style={{ margin: 0, color: text }}>Katalog: Materiały i Usługi</h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <InvoiceScanner materials={materials} onPricesUpdated={onPricesUpdated} isDark={isDark} />
-          <button onClick={onAddMaterial} style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-            + Nowy materiał
-          </button>
-        </div>
-      </div>
-
       <nav className={s.directoryTabs} aria-label="Sekcje biblioteki">
-        <button type="button" className={s.directoryTabActive}>Materiały i usługi</button>
+        <button
+          type="button"
+          className={activeDirectory === 'materials' ? s.directoryTabActive : undefined}
+          onClick={() => setActiveDirectory('materials')}
+        >Materiały</button>
+        <button
+          type="button"
+          className={activeDirectory === 'services' ? s.directoryTabActive : undefined}
+          onClick={() => setActiveDirectory('services')}
+        >Usługi</button>
         <button type="button" onClick={() => setActiveDirectory('suppliers')}>Dostawcy</button>
       </nav>
 
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-
-        {/* МАТЕРИАЛЫ */}
-        <div style={{ flex: '2 1 600px', background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0, color: text, fontSize: '16px' }}>📦 Baza materiałów</h3>
-            <span style={{ fontSize: '12px', color: textLight }}>
-              {(searchMat || filterCatMat)
-                ? `${materials.filter(m => { const q = searchMat.toLowerCase(); return (!q || (m.name||'').toLowerCase().includes(q) || (m.symbol||'').toLowerCase().includes(q)) && (!filterCatMat || m.category === filterCatMat); }).length} / ${materials.length}`
-                : `${materials.length} poz.`}
-            </span>
+      {/* МАТЕРИАЛЫ — на всю ширину, активна по умолчанию. + Nowy materiał/Skanuj fakturę
+          перенесены сюда из общей шапки (redesign 2026-10: 3 отдельные вкладки вместо заголовка
+          Katalog i wspólnej siatki dwukolumnowej) — видны только на этой вкладce. */}
+      {activeDirectory === 'materials' && (
+        <div style={{ background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{ margin: 0, color: text, fontSize: '16px' }}>📦 Materiały</h3>
+              <span style={{ fontSize: '12px', color: textLight }}>
+                {(searchMat || filterCatMat)
+                  ? `${materials.filter(m => { const q = searchMat.toLowerCase(); return (!q || (m.name||'').toLowerCase().includes(q) || (m.symbol||'').toLowerCase().includes(q)) && (!filterCatMat || m.category === filterCatMat); }).length} / ${materials.length}`
+                  : `${materials.length} poz.`}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <InvoiceScanner materials={materials} onPricesUpdated={onPricesUpdated} isDark={isDark} />
+              <button onClick={onAddMaterial} style={{ background: '#3182ce', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                + Nowy materiał
+              </button>
+            </div>
           </div>
 
           {/* Поиск + фильтр категории */}
@@ -209,10 +217,12 @@ const MaterialsList = ({
             </table>
           </div>
         </div>
+      )}
 
-        {/* УСЛУГИ */}
-        <div style={{ flex: '1 1 350px', background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px', color: text, fontSize: '16px' }}>🛠 Stałe usługi</h3>
+      {/* УСЛУГИ — на всю ширину, только на этой вкладce. */}
+      {activeDirectory === 'services' && (
+        <div style={{ background: bgCard, padding: '15px', borderRadius: '8px', border: `1px solid ${border}` }}>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', color: text, fontSize: '16px' }}>🛠 Usługi</h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
@@ -238,8 +248,7 @@ const MaterialsList = ({
             </table>
           </div>
         </div>
-      </div>
-
+      )}
     </div>
   );
 };

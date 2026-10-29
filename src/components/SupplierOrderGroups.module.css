@@ -1,0 +1,138 @@
+/* Panel «📦 Zamówienia» (Materiały, desktop workspace) — grupy dostawców nad tabelą pozycji. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px dashed var(--border);
+  background: var(--bg-kanban-col);
+}
+
+.empty {
+  padding: 8px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  background: var(--bg-kanban-col);
+  border-bottom: 1px dashed var(--border);
+}
+
+.group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  overflow: hidden;
+}
+.group[data-unassigned] { border-style: dashed; }
+
+.groupHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 8px;
+  background: var(--section-materials-tint);
+  border-bottom: 1px solid var(--border);
+}
+.group[data-unassigned] .groupHeader { background: var(--bg-kanban-col); }
+
+.groupName {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--section-materials-ink);
+}
+.group[data-unassigned] .groupName { color: var(--text-muted); }
+
+.groupCount {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text-main) 10%, transparent);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.groupContact {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapBtn {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.mapBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.copyBtn {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.copyBtn:disabled { opacity: 0.5; cursor: default; }
+.copyBtn[data-copied] {
+  border-color: var(--tone-success);
+  background: var(--tone-success);
+}
+
+.itemList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-xs);
+}
+.item:first-child { border-top: none; }
+
+.itemLabel {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.itemName {
+  overflow: hidden;
+  color: var(--text-main);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemCode {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.itemQty {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
