@@ -1,5 +1,6 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import FilesTab from './FilesTab';
+import SupplierOrderGroups from './SupplierOrderGroups';
 import ProjectCashLedger from './ProjectCashLedger';
 import ProjectTasksPanel from './ProjectTasksPanel';
 import ProjectImportantPoints from './ProjectImportantPoints';
@@ -7,7 +8,9 @@ import MobileProjectItemRow from './MobileProjectItemRow';
 import MaterialPicker from './MaterialPicker';
 import ServicePicker from './ServicePicker';
 import DesktopProjectItemsTable from './DesktopProjectItemsTable';
+import dt from './DesktopProjectItemsTable.module.css';
 import WorkspaceSection from './WorkspaceSection';
+import { workspaceSectionButtons } from './workspaceSectionButtons';
 import useWorkspaceSections from './useWorkspaceSections';
 import useProjectItemEditor from './useProjectItemEditor';
 import useProjectItemPickers from './useProjectItemPickers';
@@ -15,6 +18,8 @@ import useProjectSaveLifecycle from './useProjectSaveLifecycle';
 import useProjectCloseLifecycle from './useProjectCloseLifecycle';
 import useProjectItemsAutosave from './useProjectItemsAutosave';
 import { calculateProjectWycena, projectTotals } from '../utils/projectPricing';
+import { resolveMaterialSupplierLink } from '../utils/supplierOrderGroups';
+import { materialSupplierLinks } from '../utils/materialSuppliers';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
 import { hasProjectNonItemFieldChanges } from '../utils/projectDirtyState';
@@ -164,6 +169,40 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     .sort((a, b) => compareMaterialsByWorkflow(a.item, b.item));
   const calcServices  = client.calc_services  || [];
   const calcExpenses  = client.calc_expenses  || [];
+
+  // Grupy dostawców (panel «📦 Zamówienia» + przełącznik dostawcy w wierszu materiału) — żywe
+  // material_suppliers z katalogu po item.id, nie ich snapshot skopiowany do calc_materials przy
+  // dodaniu pozycji (ceny/nazwy materiału zostają snapshotem jak dotąd, dostawców zawsze liczymy
+  // na nowo z katalogu).
+  const materialsById = useMemo(() => new Map((materials || []).map(material => [material.id, material])), [materials]);
+  const [materialOrdersOpen, setMaterialOrdersOpen] = useState(false);
+
+  const setMaterialSupplierOverride = (index, supplierId) => {
+    updateItems('calc_materials', calcMaterials.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, supplier_id: supplierId || null } : item
+    )), { immediate: true });
+  };
+
+  const renderMaterialSupplierCell = (item, index) => {
+    const links = materialSupplierLinks(materialsById.get(item.id));
+    if (links.length === 0) return <span className={dt.supplierNone}>—</span>;
+    if (links.length === 1) {
+      return <span className={dt.supplierOne} title={links[0].supplier?.name}>{links[0].supplier?.name}</span>;
+    }
+    const activeLink = resolveMaterialSupplierLink(item, materialsById.get(item.id));
+    return (
+      <select
+        aria-label={`Dostawca: ${item.name}`}
+        value={activeLink?.supplier_id || ''}
+        onChange={event => setMaterialSupplierOverride(index, event.target.value)}
+        className={dt.supplierSelect}
+      >
+        {links.map(link => (
+          <option key={link.supplier_id} value={link.supplier_id}>{link.supplier?.name}</option>
+        ))}
+      </select>
+    );
+  };
 
   // Единый расчёт из utils/projectPricing — та же формула, что и в финансовой панели,
   // Bilans и клиентском портале, без независимых реализаций.
@@ -607,7 +646,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     />
   );
 
-  const renderDesktopItemsTable = ({ kind, entries, items, field, sectionTint, footer = null, replacingIndex = null, bordered = true, showHeader = true }) => (
+  const renderDesktopItemsTable = ({ kind, entries, items, field, sectionTint, footer = null, replacingIndex = null, bordered = true, showHeader = true, showSupplierColumn = false, renderSupplierCell }) => (
     <DesktopProjectItemsTable
       kind={kind}
       entries={entries}
@@ -619,6 +658,8 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       sectionTint={sectionTint}
       rowStripe={rowStripe}
       footer={footer}
+      showSupplierColumn={showSupplierColumn}
+      renderSupplierCell={renderSupplierCell}
       onToggleExpanded={toggleExpandedItem}
       onStartReplacement={startMaterialReplacement}
       onStartPriceEdit={(stateKey, price) => {
@@ -664,6 +705,18 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         summary={`${totalMaterials.toFixed(2)} zł`}
         open={workspaceSections.isOpen('materials')}
         onToggle={() => toggleWorkspaceSection('materials')}
+        // «📦 Zamówienia» — tylko desktop workspace (grupowanie wg dostawcy, kopiowanie zamówienia
+        // do schowka); mobile ma własny, osobny widok pozycji bez tej funkcji.
+        actions={!isMobileVariant && calcMaterials.length > 0 && (
+          <button
+            type="button"
+            className={workspaceSectionButtons.secondary}
+            aria-pressed={materialOrdersOpen}
+            onClick={() => setMaterialOrdersOpen(open => !open)}
+          >
+            📦 Zamówienia
+          </button>
+        )}
         flush
       >
         {isMobileVariant ? (
@@ -674,16 +727,29 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             {sortedCalcMaterialEntries.map(({ index }) => renderMobileRow('calc_materials', calcMaterials, index))}
             {renderMaterialPicker(true)}
           </div>
-        ) : renderDesktopItemsTable({
-          kind: 'materials',
-          entries: sortedCalcMaterialEntries,
-          items: calcMaterials,
-          field: 'calc_materials',
-          footer: renderMaterialPicker(false),
-          replacingIndex: replacingMaterialIndex,
-          bordered: false,
-          showHeader: false,
-        })}
+        ) : (
+          <>
+            {materialOrdersOpen && (
+              <SupplierOrderGroups
+                items={calcMaterials}
+                materialsById={materialsById}
+                projectName={client.project_name || client.full_name || ''}
+              />
+            )}
+            {renderDesktopItemsTable({
+              kind: 'materials',
+              entries: sortedCalcMaterialEntries,
+              items: calcMaterials,
+              field: 'calc_materials',
+              footer: renderMaterialPicker(false),
+              replacingIndex: replacingMaterialIndex,
+              bordered: false,
+              showHeader: false,
+              showSupplierColumn: true,
+              renderSupplierCell: renderMaterialSupplierCell,
+            })}
+          </>
+        )}
       </WorkspaceSection>
 
       <WorkspaceSection

@@ -107,6 +107,42 @@
 .cell { padding: 6px 8px; }
 .cellCompact { padding: 4px 8px; }
 
+/* Поставщик позиции (Grupy dostawców) — узкая ячейка сразу после названия материала. */
+.supplierCell {
+  padding: 2px 6px 2px 2px;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+}
+
+.supplierNone { color: var(--palette-gray-500); }
+
+.supplierOne {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supplierSelect {
+  width: 100%;
+  max-width: 108px;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--input-bg) 70%, transparent);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+.supplierSelect:hover { border-color: var(--border); }
+.supplierSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--input-bg);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 .priceInput {
   width: 70px;
   padding: 2px 4px;

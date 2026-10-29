@@ -10,6 +10,10 @@ const COLUMN_WIDTHS = {
   expenses: [null, 170, 90, 120, 44],
 };
 
+// Доп. узкая колонка «Dostawca» — только materials, только когда showSupplierColumn=true
+// (desktop workspace, см. ProjectModal.jsx); modal-fallback (legacy) её не запрашивает.
+const SUPPLIER_COLUMN_WIDTH = 118;
+
 const TABLE_CONFIG = {
   materials: {
     headers: ['Nazwa materiału', 'Cena j.', 'Jm', 'Ilość', 'Suma'],
@@ -58,20 +62,31 @@ const DesktopProjectItemsTable = ({
   // вкладки) её не использует — так было и в исходной вёрстке (rowBackground: bg vs var(--section-
   // services-tint)). У expenses заливки никогда не было (только modal-fallback, rowBackground: bg).
   sectionTint = true,
+  // Узкая колонка «Dostawca» сразу после названия (только materials, desktop workspace) —
+  // переключатель поставщика позиции в рамках проекта (Grupy dostawców, ProjectModal.jsx).
+  showSupplierColumn = false,
+  renderSupplierCell,
 }) => {
   const config = TABLE_CONFIG[kind];
   const isMaterial = kind === 'materials';
-  const columnCount = config.showUnit ? 6 : 5;
+  const hasSupplierColumn = isMaterial && showSupplierColumn;
+  const columnCount = (config.showUnit ? 6 : 5) + (hasSupplierColumn ? 1 : 0);
   const cellClass = isMaterial ? s.cellCompact : s.cell;
   const mutedCellClass = isMaterial ? s.mutedCellCompact : s.mutedCell;
   const sumCellClass = isMaterial ? s.sumCellCompact : s.sumCell;
+  const columnWidths = hasSupplierColumn
+    ? [COLUMN_WIDTHS[kind][0], SUPPLIER_COLUMN_WIDTH, ...COLUMN_WIDTHS[kind].slice(1)]
+    : COLUMN_WIDTHS[kind];
+  const headers = hasSupplierColumn
+    ? [config.headers[0], 'Dostawca', ...config.headers.slice(1)]
+    : config.headers;
 
   return (
     <div className={s.wrap} data-bordered={bordered} data-has-footer={!!footer}>
       <table className={s.table} data-kind={kind}>
         {!showHeader && (
           <colgroup>
-            {COLUMN_WIDTHS[kind].map((width, index) => (
+            {columnWidths.map((width, index) => (
               <col key={index} style={width ? { width: `${width}px` } : undefined} />
             ))}
           </colgroup>
@@ -79,11 +94,11 @@ const DesktopProjectItemsTable = ({
         {showHeader && (
         <thead>
           <tr className={s.headerRow}>
-            {config.headers.map((header, index) => (
+            {headers.map((header, index) => (
               <th
                 key={header}
                 className={s.headerCell}
-                data-narrow={(config.showUnit ? index === 3 : index === 2) || undefined}
+                data-narrow={(config.showUnit ? index === (hasSupplierColumn ? 4 : 3) : index === (hasSupplierColumn ? 3 : 2)) || undefined}
               >
                 {header}
               </th>
@@ -138,6 +153,9 @@ const DesktopProjectItemsTable = ({
                     </span>
                   </div>
                 </td>
+                {hasSupplierColumn && (
+                  <td className={s.supplierCell}>{renderSupplierCell?.(item, index)}</td>
+                )}
                 <td className={cellClass}>
                   {editingPrice === stateKey ? (
                     <input
