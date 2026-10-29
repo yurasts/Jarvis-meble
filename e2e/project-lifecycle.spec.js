@@ -23,7 +23,7 @@ test('owner saves a protected project draft and completes the cash transaction l
   });
 
   await page.getByRole('button', { name: /Kuchnia E2E/ }).click();
-  await expect(page.getByRole('group', { name: 'Foldery plików projektu' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Kategorie plików projektu' })).toBeVisible();
 
   // Nazwy klienta i projektu edytuje się w oknie otwieranym ołówkiem przy kliencie w drzewie.
   await page.getByRole('button', { name: 'Edytuj dane: Jan Nowak' }).click();

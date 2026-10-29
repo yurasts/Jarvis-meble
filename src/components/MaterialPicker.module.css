@@ -75,20 +75,65 @@
 .panel[data-variant="compact"] .searchRow { padding: 4px; }
 .panel[data-variant="mobile"] .searchRow { padding: 2px 5px 5px; }
 
+/* Обёртка поля поиска — несёт рамку/лупу, сам <input> внутри без своих границ (Highlighted
+   Search Dock, 2026-10). */
+.searchFieldWrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 8px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
 .searchInput {
   flex: 1;
   min-width: 0;
   height: auto;
   box-sizing: border-box;
-  padding: 5px 8px;
+  padding: 5px 8px 5px 26px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   background: var(--input-bg);
   color: var(--text-main);
 }
-.panel[data-variant="compact"] .searchInput { padding: 6px 8px; font-size: 12.5px; }
-.panel[data-variant="mobile"] .searchInput { height: 38px; font-size: var(--font-size-lg); }
+.panel[data-variant="compact"] .searchInput { padding: 6px 8px 6px 26px; font-size: 12.5px; }
+.panel[data-variant="mobile"] .searchInput { height: 38px; padding-left: 30px; font-size: var(--font-size-lg); }
+.panel[data-variant="mobile"] .searchIcon { left: 10px; }
+
+/* --- Search & Action Dock (variant="full" — desktop workspace и modal-fallback) ---
+   Строка поиска, "+ Ręcznie" и фильтры объединены в визуально отделённый нижний блок карточки:
+   дашед-разделитель сверху, собственный фон (отличный от строк таблицы) и акцент раздела
+   (--section-materials-*) на поле поиска/кнопке. */
+.panel[data-variant="full"] {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 10px;
+  background: var(--bg-kanban-col);
+  border-top: 1px dashed var(--border);
+}
+.panel[data-variant="full"] .searchRow { padding: 0; gap: 8px; }
+.panel[data-variant="full"] .filters { padding: 0; }
+
+.panel[data-variant="full"] .searchFieldWrap .searchIcon { color: var(--section-materials-line); }
+.panel[data-variant="full"] .searchInput {
+  border-radius: 8px;
+  border-color: var(--section-materials-line);
+  transition: box-shadow 0.15s ease;
+}
+.panel[data-variant="full"] .searchFieldWrap:hover .searchInput,
+.panel[data-variant="full"] .searchFieldWrap:focus-within .searchInput {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
 
 .manualAddBtn {
   flex-shrink: 0;
@@ -105,6 +150,13 @@
 }
 .panel[data-variant="compact"] .manualAddBtn { min-height: 34px; padding: 4px 8px; }
 .panel[data-variant="mobile"] .manualAddBtn { min-height: 38px; padding: 4px 8px; }
+.panel[data-variant="full"] .manualAddBtn {
+  border-color: var(--section-materials-line);
+  background: transparent;
+  color: var(--section-materials-line);
+  border-radius: 8px;
+}
+.panel[data-variant="full"] .manualAddBtn:hover { background: var(--section-materials-tint); }
 
 .filters {
   display: grid;
@@ -125,6 +177,19 @@
   font-size: var(--font-size-xs);
 }
 .panel[data-variant="mobile"] .filterSelect { height: 36px; font-size: var(--font-size-lg); }
+
+/* Full variant — компактные фильтр-пилюли, не растянутые на всю ширину дока. */
+.panel[data-variant="full"] .filters { display: flex; flex-wrap: wrap; }
+.panel[data-variant="full"] .filterSelect {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 112px;
+  max-width: 220px;
+  height: 28px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+}
 
 .listbox {
   position: absolute;
@@ -192,6 +257,22 @@
   color: var(--text-muted);
   font-size: var(--font-size-xs);
   font-weight: 400;
+}
+
+.optionSupplierBadges {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.optionSupplierBadges > span {
+  max-width: 82px;
+  padding: 1px 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-kanban-col);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .panel[data-variant="compact"] .optionMeta,
 .panel[data-variant="mobile"] .optionMeta { font-size: 10.5px; }
@@ -302,4 +383,18 @@
   font-size: var(--font-size-xs);
   font-weight: bold;
   white-space: nowrap;
+}
+.offerSuppliers {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.offerSuppliers > span {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--bg-kanban-col);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
 }

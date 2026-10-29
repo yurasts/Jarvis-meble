@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FilesTab from './FilesTab';
@@ -160,6 +160,69 @@ describe('FilesTab', () => {
     const labels = ['Projekt', 'Zadanie', 'Krój', 'Montaż'];
     const buttons = screen.getAllByRole('button').filter(button => labels.includes(button.getAttribute('aria-label')));
     expect(buttons.map(button => button.getAttribute('aria-label'))).toEqual(labels);
+  });
+
+  it('renders the desktop workspace rail on the left and uploads dropped files to the target category', async () => {
+    const { hookResult } = renderFilesTab({ variant: 'shelf', desktopWorkspaceLayout: true });
+
+    const rail = screen.getByRole('group', { name: 'Kategorie plików projektu' });
+    const tabs = within(rail).getAllByRole('button').slice(0, 4);
+    expect(tabs.map(tab => tab.getAttribute('aria-label'))).toEqual(['Projekt', 'Zadanie', 'Krój', 'Montaż']);
+    expect(within(rail).getByRole('button', { name: 'Projekt' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(within(rail).getByRole('button', { name: 'Projekt' })).getByText('1')).toBeInTheDocument();
+    expect(within(within(rail).getByRole('button', { name: 'Montaż' })).getByText('1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dodaj plik lub zdjęcie do folderu Projekt' })).toBeVisible();
+
+    const previewFile = new File(['photo'], 'preview.jpg', { type: 'image/jpeg' });
+    const preview = screen.getByTestId('project-files-preview');
+    fireEvent.drop(preview, {
+      dataTransfer: { files: [previewFile], types: ['Files'] },
+    });
+    await waitFor(() => {
+      expect(hookResult.uploadFiles).toHaveBeenCalledWith([previewFile], 'usterki');
+    });
+
+    const cutFile = new File(['cut'], 'cut.pdf', { type: 'application/pdf' });
+    const cutTab = within(rail).getByRole('button', { name: 'Krój' });
+    fireEvent.drop(cutTab, {
+      dataTransfer: { files: [cutFile], types: ['Files'] },
+    });
+    await waitFor(() => {
+      expect(hookResult.uploadFiles).toHaveBeenCalledWith([cutFile], 'inne');
+    });
+    expect(cutTab).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows only previews in the desktop gallery and keeps size/date in the .sto header', () => {
+    const stoTarget = document.createElement('div');
+    document.body.appendChild(stoTarget);
+    const sizedFiles = [
+      { ...imageFile, category: 'usterki', size_bytes: 120 * 1024, uploaded_at: '2026-09-22T18:59:00Z' },
+      {
+        ...documentFile,
+        category: 'usterki',
+        file_name: 'bardzo_dlugi_kosztorys_kuchni.pdf',
+        size_bytes: 2048,
+        uploaded_at: '2026-09-22T18:59:00Z',
+      },
+      { ...stoFile, file_name: 'Przedpokój_druga_strona_v1.sto', size_bytes: 176 * 1024, uploaded_at: '2026-09-22T18:59:00Z' },
+    ];
+    const { container } = renderFilesTab(
+      { variant: 'shelf', desktopWorkspaceLayout: true, desktopStoTarget: stoTarget },
+      { files: sizedFiles },
+    );
+
+    expect(container.querySelector('[data-desktop-file-list]')).toBeNull();
+    expect(screen.queryByText(/120 KB/)).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'front.jpg' })).toBeInTheDocument();
+
+    const documentTile = screen.getByRole('link', { name: /PDF/ });
+    expect(documentTile).not.toHaveTextContent('KB');
+    expect(documentTile).toHaveTextContent('PDF');
+
+    const stoHeader = stoTarget.querySelector('[data-project-sto-header]');
+    expect(stoHeader).toHaveTextContent('Przedpokój_druga_strona_v1.sto · 176 KB · 22.09.2026, 20:59');
+    stoTarget.remove();
   });
 
   it('lets the sidebar control the folder and upload in external-controls mode', async () => {

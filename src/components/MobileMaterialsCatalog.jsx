@@ -2,6 +2,7 @@ import { useState } from 'react';
 import InvoiceScanner from './InvoiceScanner';
 import s from './MaterialsList.module.css';
 import CatalogFavoriteButton from './CatalogFavoriteButton';
+import { materialHasSupplier, materialSupplierNames } from '../utils/materialSuppliers';
 
 function MobileMaterialRow({ item, expanded, onToggle, onToggleFavorite }) {
   return (
@@ -11,7 +12,7 @@ function MobileMaterialRow({ item, expanded, onToggle, onToggleFavorite }) {
         <span className={s.mobileMaterialName}>{item.name || item.symbol || 'Bez nazwy'}</span>
         {expanded && (
           <span className={s.mobileMaterialDetails}>
-            {[item.symbol && `Artykuł: ${item.symbol}`, item.category, item.supplier, item.unit].filter(Boolean).join(' · ') || 'Brak informacji'}
+            {[item.symbol && `Artykuł: ${item.symbol}`, item.category, materialSupplierNames(item).join(', '), item.unit].filter(Boolean).join(' · ') || 'Brak informacji'}
           </span>
         )}
       </span>
@@ -23,7 +24,7 @@ function MobileMaterialRow({ item, expanded, onToggle, onToggleFavorite }) {
   );
 }
 
-export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onAddMaterial, onToggleFavorite, isDark = false }) {
+export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onAddMaterial, onShowSuppliers, onToggleFavorite, isDark = false }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [supplier, setSupplier] = useState('');
@@ -31,14 +32,14 @@ export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onA
   const [priceSort, setPriceSort] = useState(null);
 
   const categories = [...new Set(materials.map(item => item.category).filter(Boolean))].sort();
-  const suppliers = [...new Set(materials.map(item => item.supplier).filter(Boolean))].sort();
+  const suppliers = [...new Set(materials.flatMap(materialSupplierNames))].sort();
   const query = search.trim().toLowerCase();
   const visibleMaterials = materials.filter(item => {
-    const searchable = [item.name, item.symbol, item.category, item.supplier, item.description, item.notes]
+    const searchable = [item.name, item.symbol, item.category, ...materialSupplierNames(item), item.description, item.notes]
       .filter(Boolean).join(' ').toLowerCase();
     return (!query || searchable.includes(query)) &&
       (!category || item.category === category) &&
-      (!supplier || item.supplier === supplier);
+      (!supplier || materialHasSupplier(item, supplier));
   });
   if (priceSort) {
     visibleMaterials.sort((a, b) =>
@@ -56,6 +57,7 @@ export default function MobileMaterialsCatalog({ materials, onPricesUpdated, onA
         <h1>Materiały</h1>
         <div className={s.mobileActions}>
           <InvoiceScanner compact materials={materials} onPricesUpdated={onPricesUpdated} isDark={isDark} />
+          <button type={'button'} className={s.suppliersButton} onClick={onShowSuppliers}>Dostawcy</button>
           <button type={'button'} className={s.addMaterialBtn} onClick={onAddMaterial}>+ Nowy</button>
         </div>
       </header>

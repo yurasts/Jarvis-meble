@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import ProjectCashLedger from './ProjectCashLedger';
 import { transactionsForProjects, summarizeCash } from '../utils/cashLedger';
-import { projectTotals } from './dashboardHelpers';
+import { calculateProjectWycena, projectTotals } from '../utils/projectPricing';
 import s from './MobileClientBalanceScreen.module.css';
 
 const formatDesktopMoney = (value) => Number(value || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -153,8 +153,12 @@ export default function MobileClientBalanceScreen({
         setSavingBottom(false);
         return;
       }
-      const { total } = projectTotals(project);
-      const calculatedBudget = Number((total * coefficient).toFixed(2));
+      const { materials, services } = projectTotals(project);
+      const calculatedBudget = Number(calculateProjectWycena({
+        materialsTotal: materials,
+        servicesTotal: services,
+        multiplier: coefficient,
+      }).toFixed(2));
       const result = await onSaveProjectCoefficient?.(project.id, coefficient, calculatedBudget);
       if (result?.error || !onSaveProjectCoefficient) {
         setCoefficientSaveError('Nie udało się zapisać współczynnika.');

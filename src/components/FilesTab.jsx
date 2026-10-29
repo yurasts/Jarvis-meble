@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getProjectFileDisplayUrl } from '../utils/projectFileAccess';
 import {
   DEFAULT_PROJECT_FILE_CATEGORY,
@@ -61,6 +62,8 @@ export default function FilesTab({
   onExpandedChange,
   mobileLayout = false,
   mobileWorkspaceLayout = false,
+  desktopWorkspaceLayout = false,
+  desktopStoTarget = null,
   externalFolderControls = false,
   category: categoryProp,
   onCategoryChange,
@@ -100,6 +103,7 @@ export default function FilesTab({
   const [editingComment, setEditingComment] = useState(null);
   const [commentDraft,   setCommentDraft]   = useState('');
   const [confirmDeleteId,setConfirmDeleteId]= useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
   // Папка сменилась снаружи (клик в левой панели) — сбрасываем открытое подтверждение удаления и
   // ошибку прошлой операции так же, как при локальном selectFolder (adjust-state-during-render).
   const [renderedCategory, setRenderedCategory] = useState(activeCategory);
@@ -160,6 +164,28 @@ export default function FilesTab({
     e.target.value = '';
   }
 
+  const hasDraggedFiles = event => Array.from(event.dataTransfer?.types || []).includes('Files');
+  const handleFileDragOver = (event, target) => {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    setDropTarget(target);
+  };
+  const handleFileDragLeave = (event, target) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    setDropTarget(current => current === target ? null : current);
+  };
+  const handleFileDrop = async (event, category) => {
+    if (!hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const selected = Array.from(event.dataTransfer.files || []);
+    setDropTarget(null);
+    if (!selected.length) return;
+    selectFolder(category);
+    await uploadFiles(selected, category);
+  };
+
   async function handleStoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -193,8 +219,26 @@ export default function FilesTab({
   const stoFile = files.find(isStoFile) || null;
   const ordinaryFiles = useMemo(() => files.filter(file => !isStoFile(file)), [files]);
   const visible = useMemo(() => ordinaryFiles.filter(f => f.category === activeCategory), [ordinaryFiles, activeCategory]);
+  const fileCountByCategory = useMemo(() => ordinaryFiles.reduce((counts, file) => {
+    counts[file.category] = (counts[file.category] || 0) + 1;
+    return counts;
+  }, {}), [ordinaryFiles]);
   const images = useMemo(() => visible.filter(f => isImage(f.file_type)), [visible]);
   const docs   = visible.filter(f => !isImage(f.file_type));
+
+  const renderStoFileRow = (headerLayout = false) => (
+    <StoFileRow
+      loading={loading}
+      file={stoFile}
+      replacing={replacingSto}
+      downloading={downloadingSto}
+      error={stoError}
+      inputRef={stoInputRef}
+      onDownload={() => downloadSto(stoFile)}
+      onSelectFile={handleStoUpload}
+      headerLayout={headerLayout}
+    />
+  );
 
   // Общий FileLightbox (перенос из бывшей внутренней renderLightbox — теперь используется тот
   // же компонент, что и в Dashboard.jsx). files — только изображения ТЕКУЩЕЙ отфильтрованной
@@ -243,6 +287,106 @@ export default function FilesTab({
         onCancelDelete={() => setConfirmDeleteId(null)}
         onDelete={handleDeleteFile}
       />
+    );
+  }
+
+  // ======== variant='shelf' + desktopWorkspaceLayout — файловый блок правой колонки desktop.
+  // Категории стоят вертикально СЛЕВА от превью; drop на вкладку загружает файлы сразу в неё,
+  // drop на область превью — в активную категорию. ========
+  if (isShelf && desktopWorkspaceLayout) {
+    const activeFolder = findProjectFileCategory(activeCategory) || FOLDER_CATEGORIES[0];
+    const previewDropTarget = 'preview:' + activeCategory;
+    const filePanelId = 'desktop-project-files-panel-' + clientId;
+
+    return (
+      <>
+      {desktopStoTarget && createPortal(renderStoFileRow(true), desktopStoTarget)}
+      <section data-desktop-files-shelf aria-label="Pliki projektu">
+        <div data-desktop-files-row>
+          <div data-desktop-files-rail role="group" aria-label="Kategorie plików projektu">
+            {FOLDER_CATEGORIES.map(category => {
+              const categoryDropTarget = 'category:' + category.id;
+              const count = fileCountByCategory[category.id] || 0;
+              return (
+                <button
+                  key={category.id}
+                  id={'desktop-project-file-category-' + clientId + '-' + category.id}
+                  type="button"
+                  aria-label={category.label}
+                  aria-pressed={activeCategory === category.id}
+                  aria-controls={filePanelId}
+                  disabled={uploading}
+                  data-desktop-file-category
+                  data-active={activeCategory === category.id}
+                  data-drop-target={dropTarget === categoryDropTarget}
+                  onClick={() => selectFolder(category.id)}
+                  onDragEnter={event => handleFileDragOver(event, categoryDropTarget)}
+                  onDragOver={event => handleFileDragOver(event, categoryDropTarget)}
+                  onDragLeave={event => handleFileDragLeave(event, categoryDropTarget)}
+                  onDrop={event => handleFileDrop(event, category.id)}
+                >
+                  <span data-desktop-file-category-label>{category.label}</span>
+                  {count > 0 && <span data-desktop-file-category-count aria-hidden="true">{count}</span>}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              disabled={uploading}
+              data-desktop-file-upload
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={'Dodaj plik lub zdjęcie do folderu ' + activeFolder.label}
+              title={'Dodaj plik do folderu ' + activeFolder.label}
+            >
+              <span data-desktop-file-upload-icon aria-hidden="true">+</span>
+              <span>{uploading ? 'Wysyłanie…' : 'Dodaj plik'}</span>
+            </button>
+          </div>
+
+          <div
+            id={filePanelId}
+            role="region"
+            aria-label={'Pliki: ' + activeFolder.label}
+            data-testid="project-files-preview"
+            data-desktop-file-panel
+            data-drop-target={dropTarget === previewDropTarget}
+            onDragEnter={event => handleFileDragOver(event, previewDropTarget)}
+            onDragOver={event => handleFileDragOver(event, previewDropTarget)}
+            onDragLeave={event => handleFileDragLeave(event, previewDropTarget)}
+            onDrop={event => handleFileDrop(event, activeCategory)}
+          >
+            <DesktopProjectFileCarousel
+              files={visible}
+              loading={loading}
+              desktopWorkspaceLayout
+              emptyText={'Brak plików w folderze „' + activeFolder.label + '”. Upuść je tutaj lub użyj „+ Dodaj plik”.'}
+              coverUrl={coverUrl}
+              deletingFileId={deletingFileId}
+              confirmDeleteId={confirmDeleteId}
+              onOpenImage={setLightboxFileId}
+              onConfirmDelete={beginDelete}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              onDelete={handleDeleteFile}
+            />
+
+            <FileActionError message={fileActionError} />
+
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.pms,.pr0"
+          className={fs.hiddenFileInput}
+          onChange={handleUpload}
+          data-testid="project-files-upload-input"
+        />
+
+        {renderLightbox()}
+      </section>
+      </>
     );
   }
 
@@ -314,16 +458,7 @@ export default function FilesTab({
 
         <FileActionError message={fileActionError} />
 
-        <StoFileRow
-          loading={loading}
-          file={stoFile}
-          replacing={replacingSto}
-          downloading={downloadingSto}
-          error={stoError}
-          inputRef={stoInputRef}
-          onDownload={() => downloadSto(stoFile)}
-          onSelectFile={handleStoUpload}
-        />
+        {renderStoFileRow()}
 
         {renderLightbox()}
       </section>
@@ -341,7 +476,7 @@ export default function FilesTab({
     return (
       <div className={fs.root}>
         <div className={fs.mobileFilesRow}>
-          <div className={fs.mobileCarouselWrap}>
+          <div className={fs.mobileCarouselWrap} data-testid="project-files-preview">
             <DesktopProjectFileCarousel
               files={visible}
               loading={loading}

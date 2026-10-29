@@ -57,20 +57,61 @@
 .panel[data-variant="compact"] .searchRow { gap: 5px; padding: 4px; }
 .panel[data-variant="mobile"] .searchRow { gap: 5px; padding: 2px 5px 5px; }
 
+/* Обёртка поля поиска — несёт рамку/лупу, сам <input> внутри без своих границ (Highlighted
+   Search Dock, 2026-10). */
+.searchFieldWrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 8px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
 .searchInput {
   flex: 1;
   min-width: 0;
   height: auto;
   box-sizing: border-box;
-  padding: 5px 8px;
+  padding: 5px 8px 5px 26px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   background: var(--input-bg);
   color: var(--text-main);
 }
-.panel[data-variant="compact"] .searchInput { padding: 6px 8px; font-size: 12.5px; }
-.panel[data-variant="mobile"] .searchInput { height: 38px; font-size: var(--font-size-lg); }
+.panel[data-variant="compact"] .searchInput { padding: 6px 8px 6px 26px; font-size: 12.5px; }
+.panel[data-variant="mobile"] .searchInput { height: 38px; padding-left: 30px; font-size: var(--font-size-lg); }
+.panel[data-variant="mobile"] .searchIcon { left: 10px; }
+
+/* --- Search & Action Dock (variant="full" — desktop workspace и modal-fallback) --- */
+.panel[data-variant="full"] {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 10px;
+  background: var(--bg-kanban-col);
+  border-top: 1px dashed var(--border);
+}
+.panel[data-variant="full"] .searchRow { padding: 0; gap: 8px; }
+
+.panel[data-variant="full"] .searchFieldWrap .searchIcon { color: var(--section-services-line); }
+.panel[data-variant="full"] .searchInput {
+  border-radius: 8px;
+  border-color: var(--section-services-line);
+  transition: box-shadow 0.15s ease;
+}
+.panel[data-variant="full"] .searchFieldWrap:hover .searchInput,
+.panel[data-variant="full"] .searchFieldWrap:focus-within .searchInput {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
 
 .manualAddBtn {
   flex-shrink: 0;
@@ -87,6 +128,13 @@
 }
 .panel[data-variant="compact"] .manualAddBtn { min-height: 34px; padding: 4px 8px; }
 .panel[data-variant="mobile"] .manualAddBtn { min-height: 38px; padding: 4px 8px; }
+.panel[data-variant="full"] .manualAddBtn {
+  border-color: var(--section-services-line);
+  background: transparent;
+  color: var(--section-services-line);
+  border-radius: 8px;
+}
+.panel[data-variant="full"] .manualAddBtn:hover { background: var(--section-services-tint); }
 
 .listbox {
   position: absolute;

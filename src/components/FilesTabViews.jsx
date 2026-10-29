@@ -1,5 +1,9 @@
 import { getProjectFileDisplayUrl } from '../utils/projectFileAccess';
 import {
+  projectFileDisplayLabel,
+  projectFileMetadataLabel,
+} from '../utils/projectFileMetadata';
+import {
   isProjectImage,
   isProjectPdf,
   shortenProjectFilename,
@@ -204,6 +208,7 @@ export function ProjectFileDetails({
 export function DesktopProjectFileCarousel({
   files,
   loading,
+  desktopWorkspaceLayout = false,
   coverUrl,
   deletingFileId,
   confirmDeleteId,
@@ -213,23 +218,26 @@ export function DesktopProjectFileCarousel({
   onDelete,
   emptyText = 'Brak plików w tym folderze.',
 }) {
-  if (loading) return <div className={fs.desktopEmpty}>Ładowanie...</div>;
-  if (files.length === 0) return <div className={fs.desktopEmpty}>{emptyText}</div>;
+  if (loading) return <div className={fs.desktopEmpty} data-desktop-file-empty={desktopWorkspaceLayout || undefined}>Ładowanie...</div>;
+  if (files.length === 0) return <div className={fs.desktopEmpty} data-desktop-file-empty={desktopWorkspaceLayout || undefined}>{emptyText}</div>;
 
   return (
     <div className={fs.desktopCarousel}>
-      {files.map(file => (
-        <div key={file.id} className={fs.desktopCarouselItem}>
+      {files.map(file => {
+        const fileLabel = projectFileDisplayLabel(file, { includeYear: false });
+        return (
+          <div key={file.id} className={fs.desktopCarouselItem} title={fileLabel}>
           {isProjectImage(file.file_type) ? (
             <img
               src={getProjectFileDisplayUrl(file)}
               alt={file.file_name}
+              title={fileLabel}
               draggable={false}
               onClick={() => onOpenImage(file.id)}
               className={[fs.desktopCarouselImg, coverUrl === file.file_url ? fs.desktopCarouselImgCover : ''].filter(Boolean).join(' ')}
             />
           ) : (
-            <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" title={file.file_name} className={fs.desktopCarouselDoc}>
+            <a href={getProjectFileDisplayUrl(file)} target="_blank" rel="noreferrer" title={fileLabel} className={fs.desktopCarouselDoc}>
               <span className={fs.desktopCarouselDocIcon}>{isProjectPdf(file.file_type) ? 'PDF' : 'PLIK'}</span>
               <span className={fs.desktopCarouselDocName}>{shortenProjectFilename(file.file_name, 18)}</span>
             </a>
@@ -259,8 +267,9 @@ export function DesktopProjectFileCarousel({
               </div>
             </div>
           )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -274,34 +283,40 @@ export function StoFileRow({
   inputRef,
   onDownload,
   onSelectFile,
+  headerLayout = false,
 }) {
+  const fileLabel = file ? projectFileDisplayLabel(file) : '';
+  const fileMetadata = file ? projectFileMetadataLabel(file) : '';
   return (
     <>
-      <div className={fs.stoRow}>
-        <span className={fs.stoLabel}>Plik PRO100 (.sto):</span>
+      <div className={fs.stoRow} data-project-sto-header={headerLayout || undefined}>
+        <span className={fs.stoLabel} data-project-sto-label>Plik PRO100 (.sto):</span>
         {loading ? (
-          <span className={fs.stoMissing}>Ładowanie...</span>
+          <span className={fs.stoMissing} data-project-sto-value>Ładowanie...</span>
         ) : file ? (
           <>
-            <span className={fs.stoFilename} title={file.file_name}>{file.file_name}</span>
-            <button type="button" className={fs.stoDownloadBtn} disabled={downloading || replacing} onClick={onDownload}>
+            <span className={fs.stoFilename} data-project-sto-value title={fileLabel}>
+              <span data-project-sto-filename>{file.file_name}</span>
+              {fileMetadata && <span data-project-sto-metadata> · {fileMetadata}</span>}
+            </span>
+            <button type="button" className={fs.stoDownloadBtn} data-project-sto-action disabled={downloading || replacing} onClick={onDownload}>
               {downloading ? 'Pobieranie…' : 'Pobierz'}
             </button>
-            <button type="button" className={fs.stoReplaceBtn} disabled={replacing} onClick={() => inputRef.current?.click()}>
+            <button type="button" className={fs.stoReplaceBtn} data-project-sto-action disabled={replacing} onClick={() => inputRef.current?.click()}>
               {replacing ? 'Wgrywanie…' : 'Zamień'}
             </button>
           </>
         ) : (
           <>
-            <span className={fs.stoMissing}>Brak pliku .sto</span>
-            <button type="button" className={fs.stoDownloadBtn} disabled={replacing} onClick={() => inputRef.current?.click()}>
+            <span className={fs.stoMissing} data-project-sto-value>Brak pliku .sto</span>
+            <button type="button" className={fs.stoDownloadBtn} data-project-sto-action disabled={replacing} onClick={() => inputRef.current?.click()}>
               {replacing ? 'Wgrywanie…' : 'Dodaj'}
             </button>
           </>
         )}
         <input ref={inputRef} type="file" accept=".sto" hidden onChange={onSelectFile} />
       </div>
-      {error && <div className={fs.stoError} role="alert">{error}</div>}
+      {error && <div className={fs.stoError} data-project-sto-error={headerLayout || undefined} role="alert">{error}</div>}
     </>
   );
 }

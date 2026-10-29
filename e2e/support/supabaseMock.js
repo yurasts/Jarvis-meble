@@ -86,8 +86,11 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
   userActivityLogs = [],
   userPresence = [],
   driveSyncState = null,
+  projectFiles = [],
   materials = [],
   services = [],
+  suppliers = [],
+  materialSupplierLinks = [],
 } = {}) {
   const remainingFailures = { ...failures };
   const defaultProfiles = [{
@@ -106,8 +109,11 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     userActivityLogs: userActivityLogs.map(log => ({ ...log })),
     userPresence: userPresence.map(presence => ({ ...presence })),
     driveSyncState: driveSyncState ? { ...driveSyncState } : null,
+    projectFiles: projectFiles.map(file => ({ ...file })),
     materials: materials.map(item => ({ is_favorite: false, ...item })),
     services: services.map(item => ({ is_favorite: false, ...item })),
+    suppliers: suppliers.map(item => ({ is_archived: false, ...item })),
+    materialSupplierLinks: materialSupplierLinks.map(item => ({ ...item })),
     requests: {},
   };
 
@@ -287,7 +293,79 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     }
 
     if (resource === 'project_files') {
+      await jsonResponse(route, state.projectFiles);
+      return;
+    }
+
+    if (resource === 'suppliers') {
+      if (request.method() === 'GET') {
+        await jsonResponse(route, state.suppliers);
+        return;
+      }
+      if (request.method() === 'POST') {
+        const saved = {
+          ...requestBody(request),
+          id: `00000000-0000-4000-8000-${String(state.suppliers.length + 1).padStart(12, '0')}`,
+          is_archived: false,
+        };
+        state.suppliers.push(saved);
+        await jsonResponse(route, saved, 201);
+        return;
+      }
+      if (request.method() === 'PATCH') {
+        const id = idFilter(url);
+        const index = state.suppliers.findIndex(item => item.id === id);
+        state.suppliers[index] = { ...state.suppliers[index], ...requestBody(request) };
+        state.materials = state.materials.map(material => ({
+          ...material,
+          material_suppliers: (material.material_suppliers || []).map(link => link.supplier_id === id
+            ? { ...link, supplier: { ...link.supplier, ...state.suppliers[index] } }
+            : link),
+        }));
+        await jsonResponse(route, state.suppliers[index]);
+        return;
+      }
+    }
+
+    if (resource === 'material_suppliers') {
+      await jsonResponse(route, state.materialSupplierLinks);
+      return;
+    }
+
+    if (resource === 'drive_file_sync_entries') {
       await jsonResponse(route, []);
+      return;
+    }
+
+    if (resource === 'set_material_suppliers') {
+      const body = requestBody(request);
+      const materialId = Number(body.p_material_id);
+      const links = (body.p_links || []).map((link, index) => ({
+        id: `link-${materialId}-${index}`,
+        material_id: materialId,
+        ...link,
+        supplier: state.suppliers.find(supplier => supplier.id === link.supplier_id),
+      }));
+      state.materialSupplierLinks = state.materialSupplierLinks
+        .filter(link => Number(link.material_id) !== materialId)
+        .concat(links.map(link => ({
+          id: link.id,
+          material_id: link.material_id,
+          supplier_id: link.supplier_id,
+          supplier_sku: link.supplier_sku,
+          supplier_price: link.supplier_price,
+          is_preferred: link.is_preferred,
+        })));
+      const materialIndex = state.materials.findIndex(material => Number(material.id) === materialId);
+      if (materialIndex >= 0) {
+        const preferred = links.find(link => link.is_preferred);
+        state.materials[materialIndex] = {
+          ...state.materials[materialIndex],
+          supplier: preferred?.supplier?.name || null,
+          material_suppliers: links,
+        };
+      }
+      await jsonResponse(route, links);
       return;
     }
 

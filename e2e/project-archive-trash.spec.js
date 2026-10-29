@@ -32,7 +32,7 @@ test('owner archives, restores and permanently deletes projects', async ({ page 
   await nav.getByRole('button', { name: /^Archiwum/ }).click();
   await nav.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
   await nav.getByRole('button', { name: 'Szafa istniejąca', exact: true }).click();
-  await expect(page.getByRole('group', { name: 'Foldery plików projektu' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Kategorie plików projektu' })).toBeVisible();
   await nav.getByRole('button', { name: 'Szafa istniejąca', exact: true }).locator('..')
     .getByRole('button', { name: 'Więcej działań' }).click();
   await page.getByRole('menuitem', { name: 'Przywróć' }).click();

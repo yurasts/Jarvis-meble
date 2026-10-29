@@ -18,6 +18,20 @@ export const PROJECT_FILE_COLUMNS = [
   'uploaded_at',
 ].join(',');
 
+// В public.project_files нет колонки размера: размер подтягивается отдельно и «best effort»
+// (drive_file_sync_entries, затем метаданные Storage). Ошибка тут не должна ломать список файлов.
+const SYNC_ENTRY_SIZE_COLUMNS = 'project_file_id,size_bytes';
+
+const validSize = (value) => {
+  const size = Number(value);
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(size) && size >= 0 ? size : null;
+};
+
+const folderOf = (path) => {
+  const index = String(path || '').lastIndexOf('/');
+  return index > 0 ? path.slice(0, index) : '';
+};
+
 const safeFilename = (name) => String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
 
 const publicUrlFor = (storage, path) => {
@@ -61,6 +75,62 @@ export const createProjectFilesRepository = ({
     }
   };
 
+  // Локальный File.size известен сразу после загрузки — в БД его не пишем.
+  const withLocalSize = (savedFile, file) => {
+    const size = validSize(file?.size);
+    return size === null ? savedFile : { ...savedFile, size_bytes: size };
+  };
+
+  const syncEntrySizes = async (clientId) => {
+    const sizes = new Map();
+    try {
+      const result = await client
+        .from('drive_file_sync_entries')
+        .select(SYNC_ENTRY_SIZE_COLUMNS)
+        .eq('project_id', clientId);
+      if (result.error) throw result.error;
+      (result.data || []).forEach((entry) => {
+        const size = validSize(entry.size_bytes);
+        if (entry.project_file_id != null && size !== null) sizes.set(String(entry.project_file_id), size);
+      });
+    } catch (error) {
+      logger.error(error);
+    }
+    return sizes;
+  };
+
+  const storageObjectSizes = async (paths) => {
+    const sizes = new Map();
+    const folders = [...new Set(paths.map(folderOf).filter(Boolean))];
+    await Promise.all(folders.map(async (folder) => {
+      try {
+        const { data, error } = await storage.list(folder, { limit: 1000 });
+        if (error) throw error;
+        (data || []).forEach((object) => {
+          const size = validSize(object?.metadata?.size);
+          if (object?.name && size !== null) sizes.set(`${folder}/${object.name}`, size);
+        });
+      } catch (error) {
+        logger.error(error);
+      }
+    }));
+    return sizes;
+  };
+
+  const loadFileSizes = async (clientId, rows) => {
+    if (!rows.length) return new Map();
+    const sizes = await syncEntrySizes(clientId);
+    const missing = rows.filter(row => !sizes.has(String(row.id)));
+    if (!missing.length) return sizes;
+
+    const storageSizes = await storageObjectSizes(missing.map(row => row.file_path));
+    missing.forEach((row) => {
+      const size = storageSizes.get(row.file_path);
+      if (size !== undefined) sizes.set(String(row.id), size);
+    });
+    return sizes;
+  };
+
   return {
     async list(clientId) {
       const result = await client
@@ -69,7 +139,18 @@ export const createProjectFilesRepository = ({
         .eq('client_id', clientId)
         .order('uploaded_at', { ascending: false });
       throwIfError(result);
-      return signFiles(result.data || []);
+      const rows = result.data || [];
+      const [signedFiles, sizes] = await Promise.all([
+        signFiles(rows),
+        loadFileSizes(clientId, rows).catch((error) => {
+          logger.error(error);
+          return new Map();
+        }),
+      ]);
+      return signedFiles.map((file) => {
+        const size = sizes.get(String(file.id));
+        return size === undefined ? file : { ...file, size_bytes: size };
+      });
     },
 
     async upload({ clientId, category, file, profile }) {
@@ -95,7 +176,7 @@ export const createProjectFilesRepository = ({
         await storage.remove(path);
         throw error;
       }
-      return signSavedFile(savedFile);
+      return signSavedFile(withLocalSize(savedFile, file));
     },
 
     async replaceSto({ clientId, file, profile, currentFile }) {
@@ -129,7 +210,7 @@ export const createProjectFilesRepository = ({
       if (currentFile?.file_path && currentFile.file_path !== path) {
         await storage.remove(currentFile.file_path);
       }
-      return signSavedFile(savedFile);
+      return signSavedFile(withLocalSize(savedFile, file));
     },
 
     async remove({ clientId, file, clearCover }) {

@@ -32,13 +32,3 @@ export const sortCashDesc = (transactions) =>
     if (byDate !== 0) return byDate;
     return (b.created_at || '').localeCompare(a.created_at || '');
   });
-
-// Плановая смета проекта (не денежный поток) — Wycena: сохранённый client.budget, а при его
-// отсутствии/0 — fallback из действующей формулы (totalCost × budget_coefficient), та же формула,
-// что и в ProjectModal/ProjectListPanel FinancePanel.
-export const plannedWycena = (client, totalCost) => {
-  const saved = Number(client?.budget);
-  if (Number.isFinite(saved) && saved > 0) return saved;
-  const coef = Number(client?.budget_coefficient) || 2;
-  return totalCost * coef;
-};

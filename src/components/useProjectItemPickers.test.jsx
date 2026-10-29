@@ -3,7 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import useProjectItemPickers from './useProjectItemPickers';
 
 const materials = [
-  { id: 'board-a', name: 'PL W960 Biały', symbol: 'W960', category: 'Płyta', supplier: 'ABC' },
+  {
+    id: 'board-a',
+    name: 'PL W960 Biały',
+    symbol: 'W960',
+    category: 'Płyta',
+    supplier: 'ABC',
+    material_suppliers: [
+      { supplier_id: 'abc', supplier: { id: 'abc', name: 'ABC' }, is_preferred: true },
+      { supplier_id: 'omega', supplier: { id: 'omega', name: 'Omega' }, is_preferred: false },
+    ],
+  },
   { id: 'board-b', name: 'PL H3157 Dąb', symbol: 'H3157', category: 'Płyta', supplier: 'XYZ' },
   { id: 'hinge', name: 'Zawias 110 st', symbol: '71B', category: 'Zawiasy', supplier: 'ABC' },
 ];
@@ -45,7 +55,7 @@ describe('useProjectItemPickers', () => {
     const { result } = renderHook(() => useProjectItemPickers(createProps()));
 
     expect(result.current.material.categoryOptions).toEqual(['Płyta', 'Zawiasy']);
-    expect(result.current.material.supplierOptions).toEqual(['ABC', 'XYZ']);
+    expect(result.current.material.supplierOptions).toEqual(['ABC', 'Omega', 'XYZ']);
 
     act(() => result.current.material.setSearchTerm('h3157'));
     expect(result.current.material.groups).toHaveLength(1);
@@ -56,6 +66,10 @@ describe('useProjectItemPickers', () => {
       result.current.material.setCategoryFilter('Płyta');
       result.current.material.setSupplierFilter('ABC');
     });
+    expect(result.current.material.groups).toHaveLength(1);
+    expect(result.current.material.groups[0].offers[0].id).toBe('board-a');
+
+    act(() => result.current.material.setSupplierFilter('Omega'));
     expect(result.current.material.groups).toHaveLength(1);
     expect(result.current.material.groups[0].offers[0].id).toBe('board-a');
   });

@@ -1,17 +1,20 @@
 import clientsRepository from './clientsRepository';
 import catalogRepository from './catalogRepository';
+import suppliersRepository from './suppliersRepository';
 
-export const BOOTSTRAP_RESOURCES = ['clients', 'materials', 'services'];
+export const BOOTSTRAP_RESOURCES = ['clients', 'materials', 'services', 'suppliers'];
 
 export const loadBootstrapData = async ({
   clientSource = clientsRepository,
   catalogSource = catalogRepository,
+  supplierSource = suppliersRepository,
   resources = BOOTSTRAP_RESOURCES,
 } = {}) => {
   const loaders = {
     clients: () => clientSource.list(),
     materials: () => catalogSource.listMaterials(),
     services: () => catalogSource.listServices(),
+    suppliers: () => supplierSource.list(),
   };
   const selectedResources = resources.filter(resource => loaders[resource]);
   const settledResults = await Promise.allSettled(

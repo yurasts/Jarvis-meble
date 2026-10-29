@@ -60,4 +60,10 @@ test('mobile file shelf shows a large carousel with a folder column beside it', 
     await expect(page.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
   await expect(page.getByRole('button', { name: 'Dodaj plik lub zdjęcie' })).toBeVisible();
+
+  const previewBox = await page.getByTestId('project-files-preview').boundingBox();
+  const projectButtonBox = await page.getByRole('button', { name: 'Projekt', exact: true }).boundingBox();
+  expect(previewBox).not.toBeNull();
+  expect(projectButtonBox).not.toBeNull();
+  expect(projectButtonBox.x).toBeGreaterThan(previewBox.x);
 });

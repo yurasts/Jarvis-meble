@@ -17,11 +17,6 @@ export default function ProjectNav({
   libraryActive,
   activeProjectId,
   onEditClient,
-  workspaceOpen,
-  activeFileCategory,
-  onSelectFileCategory,
-  onUploadFile,
-  filesUploading,
   archivedClients,
   trashClients,
   canManageLifecycle,
@@ -63,11 +58,6 @@ export default function ProjectNav({
         activeProjectId={activeProjectId}
         treeLayout
         onEditClient={onEditClient}
-        workspaceOpen={workspaceOpen}
-        activeFileCategory={activeFileCategory}
-        onSelectFileCategory={onSelectFileCategory}
-        onUploadFile={onUploadFile}
-        filesUploading={filesUploading}
         archivedClients={archivedClients}
         trashClients={trashClients}
         canManageLifecycle={canManageLifecycle}

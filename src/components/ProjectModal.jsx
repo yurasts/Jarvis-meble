@@ -14,7 +14,7 @@ import useProjectItemPickers from './useProjectItemPickers';
 import useProjectSaveLifecycle from './useProjectSaveLifecycle';
 import useProjectCloseLifecycle from './useProjectCloseLifecycle';
 import useProjectItemsAutosave from './useProjectItemsAutosave';
-import { projectTotals } from './dashboardHelpers';
+import { calculateProjectWycena, projectTotals } from '../utils/projectPricing';
 import { summarizeCash, transactionsForProject } from '../utils/cashLedger';
 import { compareMaterialsByWorkflow } from '../utils/materialSort';
 import { hasProjectNonItemFieldChanges } from '../utils/projectDirtyState';
@@ -28,9 +28,9 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Единый project_cash_transactions используется в Rozliczenia на mobile и embedded desktop;
   // modal-fallback сохраняет прежний calc_expenses для обратной совместимости.
   cashTransactions = [], onSaveCashTransaction, onDeleteCashTransaction, cashStatus = 'ready', onRetryCash,
-  // Desktop workspace 2026-10 (только variant='embedded'): выбранная папка файлов и "+" живут в
-  // левой панели (ProjectListPanel), окно редактирования клиента открывается карандашом там же.
-  fileCategory, onFileCategoryChange, fileUploadTriggerRef, onFilesUploadingChange,
+  // Desktop workspace: выбранная категория файлов контролируется App и отображается внутри
+  // файлового блока правой колонки.
+  fileCategory, onFileCategoryChange,
   clientInfoOpen: clientInfoOpenProp, onClientInfoOpenChange,
   onAutosaveItems, onCreateCatalogItem, onToggleCatalogFavorite,
 }) => {
@@ -49,24 +49,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // Вызывающий код всегда передаёт key вида `${client.id}-${initialTab}` (App.jsx), поэтому
   // при смене проекта/initialTab весь ProjectModal перемонтируется — ленивая инициализация
   // ниже достаточна, отдельный эффект синхронизации не нужен (был react-hooks/set-state-in-effect).
-  // На desktop/embedded и на mobile отдельной вкладки "Pliki" больше нет (файлы — компактная
-  // полка: в шапке на desktop/embedded, внутри прокручиваемого контента на mobile — см. ниже),
-  // поэтому initialTab='files' безопасно откатывается на 'materials' в обоих случаях; сама полка
-  // вместо этого открывается развёрнутой (filesShelfExpanded ниже). Настоящая вкладка "Pliki"
-  // остаётся только у variant='modal' (fallback вне embedded/mobile).
+  // На desktop/embedded и на mobile отдельной вкладки "Pliki" больше нет: desktop показывает
+  // файловый блок в правой колонке, mobile — над аккордеонами. Поэтому initialTab='files'
+  // безопасно откатывается на 'materials'; настоящая вкладка остаётся только у modal-fallback.
   const [activeTab, setActiveTab] = useState(
     ((isEmbedded || isMobileVariant) && initialTab === 'files') ? 'materials' : initialTab
   );
-  // Развёрнутость полки Pliki (isEmbedded — в шапке; isMobileVariant — в контенте) — состояние
-  // поднято сюда (контролируемый FilesTab через expanded/onExpandedChange), потому что от него
-  // зависит CSS-раскладка шапки на desktop/embedded (полка занимает всю ширину под компактной
-  // строкой Klient/.../Zapisz); один и тот же стейт переиспользуется для mobile, т.к. варианты
-  // взаимно исключают друг друга — в любой момент активен ровно один.
-  const [filesShelfExpanded, setFilesShelfExpanded] = useState(initialTab === 'files');
   // Окно «Klient i projekt»: в embedded и mobile управляется из App (карандаш в левой панели /
   // мобильном дереве Projekty — feat/mobile-project-list-parity), когда App передаёт проп; иначе
   // (modal-fallback, или mobile без внешнего управления) — локально (ℹ️ в шапке).
   const [localClientInfoOpen, setLocalClientInfoOpen] = useState(false);
+  const [desktopStoTarget, setDesktopStoTarget] = useState(null);
   const isClientInfoControlled = (isEmbedded || isMobileVariant) && clientInfoOpenProp !== undefined;
   const clientInfoOpen = isClientInfoControlled ? clientInfoOpenProp : localClientInfoOpen;
   const setClientInfoOpen = (open) => {
@@ -172,12 +165,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   const calcServices  = client.calc_services  || [];
   const calcExpenses  = client.calc_expenses  || [];
 
-  // Единый расчёт (dashboardHelpers.projectTotals) — та же формула, что и в финансовой панели
-  // sidebar (ProjectListPanel), не две независимые реализации.
-  const { materials: totalMaterials, services: totalServices, expenses: totalExpenses, total: totalProjectCost } = projectTotals(client);
+  // Единый расчёт из utils/projectPricing — та же формула, что и в финансовой панели,
+  // Bilans и клиентском портале, без независимых реализаций.
+  const { materials: totalMaterials, services: totalServices, expenses: totalExpenses } = projectTotals(client);
 
   // isDirty: сравниваем только то что реально меняет пользователь.
-  // budget НЕ сравниваем — это чисто производное значение (totalProjectCost × budget_coefficient),
+  // budget НЕ сравниваем — это чисто производное значение
+  // (Materiały × budget_coefficient + Usługi),
   // пересчитывается автоматически ниже и может отличаться от сохранённого на копейки из-за
   // округления, что вызывало бы ложный isDirty. budget_coefficient, наоборот, теперь СРАВНИВАЕМ —
   // это единственное поле, которое реально меняет пользователь (в т.ч. из sidebar-панели
@@ -218,7 +212,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     closeMobileRowEditor,
     flushAutosave: flushItemsAutosave,
   });
-  // Автопересчёт Budżet при изменении Koszty (totalProjectCost). ВАЖНО: источник коэффициента —
+  // Автопересчёт Budżet при изменении Materiały/Usługi. ВАЖНО: источник коэффициента —
   // исключительно client.budget_coefficient (единый источник истины для финансовой панели в
   // sidebar — ProjectListPanel пишет туда через тот же setClient/activeClient; в mobile Workspace
   // коэффициент/Budżet не редактируются вовсе, см. Mobile Project Workspace v1 п.2 — Szczegóły
@@ -227,9 +221,13 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // меняется между рендерами, поэтому добавление в deps безопасно и не создаёт цикл.
   useEffect(() => {
     const coef = Number(client.budget_coefficient) || 2.0;
-    const newBudget = parseFloat((totalProjectCost * coef).toFixed(2));
+    const newBudget = parseFloat(calculateProjectWycena({
+      materialsTotal: totalMaterials,
+      servicesTotal: totalServices,
+      multiplier: coef,
+    }).toFixed(2));
     setClient(prev => ({ ...prev, budget: newBudget }));
-  }, [totalProjectCost, client.budget_coefficient, setClient]);
+  }, [totalMaterials, totalServices, client.budget_coefficient, setClient]);
 
   // Baza materiałów: fokus otwiera istniejące pozycje także przy pustym zapytaniu;
   // wpisany tekst filtruje po name/symbol, a widok ogranicza listę do 12 pozycji.
@@ -639,16 +637,29 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
     />
   );
 
-  // Desktop workspace (embedded): пять секций одинаковой ширины друг под другом.
-  // Общие для desktop/embedded и mobile аккордеон-секции (redesign 2026-10-18 — mobile получает
-  // точно такой же WorkspaceSection-дизайн заголовков, что и desktop; внутри Materiały/Usługi/
-  // Rozliczenia различается только СОДЕРЖИМОЕ секции — desktop-таблица vs mobile-карточки/
-  // ProjectCashLedger без desktopLayout, тот же компонент, что и раньше был во вкладке Rozliczenia).
-  // Zadania/Informacje ниже уже были variant-agnostic (layout="workspace") — без изменений.
+  // Desktop workspace follows the same single vertical flow as mobile. The desktop-only files
+  // shelf is first; mobile mounts its own right-rail shelf above this flow.
   const renderWorkspaceSections = () => (
     <div className={ms.workspaceSections}>
+      {!isMobileVariant && (
+        <div className={ms.workspaceFiles}>
+          <FilesTab
+            variant="shelf"
+            desktopWorkspaceLayout
+            desktopStoTarget={desktopStoTarget}
+            clientId={client.id}
+            currentProfile={currentProfile}
+            coverUrl={client.cover_url}
+            onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
+            category={fileCategory}
+            onCategoryChange={onFileCategoryChange}
+          />
+        </div>
+      )}
+
       <WorkspaceSection
         title="Materiały"
+        accent="materials"
         meta={calcMaterials.length > 0 ? `${calcMaterials.length} poz.` : null}
         summary={`${totalMaterials.toFixed(2)} zł`}
         open={workspaceSections.isOpen('materials')}
@@ -677,6 +688,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
 
       <WorkspaceSection
         title="Usługi"
+        accent="services"
         meta={calcServices.length > 0 ? `${calcServices.length} poz.` : null}
         summary={`${totalServices.toFixed(2)} zł`}
         open={workspaceSections.isOpen('services')}
@@ -705,11 +717,10 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       </WorkspaceSection>
 
       {/* Rozliczenia — тот же ProjectCashLedger, что в Bilans klienta; смонтирован всегда (в т.ч.
-          в свёрнутой секции), поэтому несохранённая операция не теряется при сворачивании.
-          Mobile: без desktopLayout/compactHeader/współczynnika — тот же набор пропсов, что раньше
-          был во вкладке Rozliczenia (коэффициент на mobile по-прежнему не редактируется). */}
+          в свёрнутой секции), поэтому несохранённая операция не теряется при сворачивании. */}
       <WorkspaceSection
         title="Rozliczenia"
+        accent="expenses"
         summary={`Saldo ${formatDesktopCashMoney(projectCashSaldo)} zł`}
         open={workspaceSections.isOpen('cash')}
         onToggle={() => toggleWorkspaceSection('cash')}
@@ -922,28 +933,16 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         </div>
         )}
 
-        {/* Desktop workspace 2026-10: строки Klient/Projekt больше нет (клиент и проект видны в
-            дереве слева, редактирование — карандашом там же); папки файлов тоже переключаются
-            слева. Здесь — лента файлов выбранной папки + строка .sto, а справа от неё компактные
-            Firma/Moje и Zapisz, чтобы не тратить отдельную строку по высоте. */}
+        {/* Desktop workspace: PRO100 stays in the same compact header row as project actions.
+            FilesTab renders it into this slot through a portal, keeping one files query/state. */}
         {isEmbedded && (
-          <div className={ms.workspaceShelfRow}>
-            <div className={ms.workspaceShelfMain}>
-              <FilesTab
-                variant="shelf"
-                clientId={client.id}
-                currentProfile={currentProfile}
-                coverUrl={client.cover_url}
-                onCoverChange={(url) => { setClient(prev => ({ ...prev, cover_url: url })); onCoverChange?.(client.id, url); }}
-                expanded={filesShelfExpanded}
-                onExpandedChange={setFilesShelfExpanded}
-                externalFolderControls={fileCategory !== undefined}
-                category={fileCategory}
-                onCategoryChange={onFileCategoryChange}
-                uploadTriggerRef={fileUploadTriggerRef}
-                onUploadingChange={onFilesUploadingChange}
-              />
-            </div>
+          <div className={ms.workspaceActionsRow}>
+            <div
+              ref={setDesktopStoTarget}
+              className={ms.workspaceStoSlot}
+              data-testid="project-sto-header"
+              aria-label="Plik PRO100"
+            />
             {renderScopeAndSaveActions()}
           </div>
         )}

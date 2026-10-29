@@ -1,0 +1,35 @@
+.overlay { position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; padding: 16px; background: var(--scrim-overlay); }
+.dialog { width: min(680px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); color: var(--text-main); box-shadow: var(--shadow-modal); }
+.header, .actions, .addSupplierRow, .supplierLinkHeader { display: flex; align-items: center; }
+.header { justify-content: space-between; gap: 12px; }
+.header h2 { margin: 0; font-size: var(--font-size-xl); }
+.closeButton, .removeButton { border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: 22px; cursor: pointer; }
+.form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.form > label, .gridTwo label { display: flex; flex-direction: column; gap: 4px; color: var(--text-muted); font-size: var(--font-size-xs); font-weight: 700; }
+.form input, .form select { min-width: 0; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--input-border); border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-main); font: inherit; }
+.gridTwo, .linkFields, .quickCreate { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.suppliersFieldset { min-width: 0; margin: 4px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.suppliersFieldset legend { padding: 0 6px; color: var(--text-main); font-weight: 800; }
+.addSupplierRow { gap: 8px; }
+.addSupplierRow select { flex: 1; }
+.quickCreate { grid-template-columns: 1fr 1fr auto; margin-top: 9px; padding: 9px; border-radius: var(--radius-md); background: var(--bg-kanban-col); }
+.linkList { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.supplierLink { padding: 9px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-base); }
+.supplierLinkHeader { gap: 10px; }
+.supplierLinkHeader strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preferredLabel { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: var(--font-size-xs); white-space: nowrap; }
+.linkFields { margin-top: 8px; }
+.emptyLinks { margin: 4px 0; color: var(--text-muted); font-size: var(--font-size-sm); }
+.actions { justify-content: flex-end; gap: 8px; }
+.primaryButton, .secondaryButton, .linkButton { min-height: 32px; padding: 0 11px; border-radius: var(--radius-md); font: inherit; font-size: var(--font-size-sm); font-weight: 700; cursor: pointer; }
+.primaryButton { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.secondaryButton { border: 1px solid var(--border); background: var(--btn-sec-bg); color: var(--text-main); }
+.linkButton { border: 0; background: transparent; color: var(--accent); }
+.primaryButton:disabled, .secondaryButton:disabled { opacity: .55; cursor: not-allowed; }
+.error { margin: 0; color: var(--danger); font-size: var(--font-size-sm); }
+@media (max-width: 600px) {
+  .dialog { padding: 14px; }
+  .gridTwo, .linkFields, .quickCreate { grid-template-columns: 1fr; }
+  .addSupplierRow { align-items: stretch; flex-direction: column; }
+  .supplierLinkHeader { flex-wrap: wrap; }
+}

@@ -13,18 +13,21 @@ describe('loadBootstrapData', () => {
       listMaterials: vi.fn(async () => [{ id: 'material' }]),
       listServices: vi.fn(async () => [{ id: 'service' }]),
     };
+    const supplierSource = { list: vi.fn(async () => [{ id: 'supplier' }]) };
 
-    const pending = loadBootstrapData({ clientSource, catalogSource });
+    const pending = loadBootstrapData({ clientSource, catalogSource, supplierSource });
 
     expect(clientSource.list).toHaveBeenCalledOnce();
     expect(catalogSource.listMaterials).toHaveBeenCalledOnce();
     expect(catalogSource.listServices).toHaveBeenCalledOnce();
+    expect(supplierSource.list).toHaveBeenCalledOnce();
 
     resolveClients([{ id: 'client' }]);
     await expect(pending).resolves.toEqual({
       clients: [{ id: 'client' }],
       materials: [{ id: 'material' }],
       services: [{ id: 'service' }],
+      suppliers: [{ id: 'supplier' }],
       errors: {},
     });
   });
@@ -36,11 +39,13 @@ describe('loadBootstrapData', () => {
       listMaterials: vi.fn(async () => [{ id: 'material' }]),
       listServices: vi.fn(async () => [{ id: 'service' }]),
     };
+    const supplierSource = { list: vi.fn(async () => [{ id: 'supplier' }]) };
 
-    await expect(loadBootstrapData({ clientSource, catalogSource })).resolves.toEqual({
+    await expect(loadBootstrapData({ clientSource, catalogSource, supplierSource })).resolves.toEqual({
       clients: null,
       materials: [{ id: 'material' }],
       services: [{ id: 'service' }],
+      suppliers: [{ id: 'supplier' }],
       errors: { clients: networkError },
     });
   });
@@ -51,10 +56,12 @@ describe('loadBootstrapData', () => {
       listMaterials: vi.fn(async () => [{ id: 'material' }]),
       listServices: vi.fn(async () => [{ id: 'service' }]),
     };
+    const supplierSource = { list: vi.fn(async () => [{ id: 'supplier' }]) };
 
     await expect(loadBootstrapData({
       clientSource,
       catalogSource,
+      supplierSource,
       resources: ['materials'],
     })).resolves.toEqual({
       materials: [{ id: 'material' }],
@@ -62,9 +69,10 @@ describe('loadBootstrapData', () => {
     });
     expect(clientSource.list).not.toHaveBeenCalled();
     expect(catalogSource.listServices).not.toHaveBeenCalled();
+    expect(supplierSource.list).not.toHaveBeenCalled();
   });
 
   it('exports the complete resource list used by initial loading', () => {
-    expect(BOOTSTRAP_RESOURCES).toEqual(['clients', 'materials', 'services']);
+    expect(BOOTSTRAP_RESOURCES).toEqual(['clients', 'materials', 'services', 'suppliers']);
   });
 });

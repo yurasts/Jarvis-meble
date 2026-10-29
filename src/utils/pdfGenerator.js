@@ -1,8 +1,14 @@
+import { calculateProjectWycena, projectTotals } from './projectPricing';
+
 // Функция генерации Оферты/Сметы
 export const generatePDF = (client) => {
-  const mCost = (client.calc_materials || []).reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-  const sCost = (client.calc_services || []).reduce((sum, item) => sum + (Number(item.price) * (Number(item.quantity) || 1)), 0);
+  const { materials: mCost, services: sCost } = projectTotals(client);
   const tCost = mCost + sCost;
+  const wycena = calculateProjectWycena({
+    materialsTotal: mCost,
+    servicesTotal: sCost,
+    multiplier: client.budget_coefficient,
+  });
   const today = new Date().toLocaleDateString('pl-PL');
   const printWindow = window.open('', '_blank');
   
@@ -33,7 +39,7 @@ export const generatePDF = (client) => {
     ${(client.calc_services || []).map(s => `<tr><td>${s.name}</td><td>${s.quantity || 1}</td><td>${Number(s.price).toFixed(2)} PLN</td><td><strong>${(Number(s.price) * (s.quantity || 1)).toFixed(2)} PLN</strong></td></tr>`).join('')}
     ${(client.calc_services || []).length === 0 ? '<tr><td colspan="4" style="text-align:center;">Brak usług</td></tr>' : ''}</table>
     <div class="total-box"><div style="font-size: 16px; color: #4a5568; margin-bottom: 10px;">Suma kosztów składowych: ${Number(tCost).toFixed(2)} PLN</div>
-    <div style="font-size: 24px; color: #2b6cb0; font-weight: bold;">CAŁKOWITY KOSZT PROJEKTU: ${Number(client.budget).toFixed(2)} PLN</div></div>
+    <div style="font-size: 24px; color: #2b6cb0; font-weight: bold;">CAŁKOWITY KOSZT PROJEKTU: ${wycena.toFixed(2)} PLN</div></div>
     <div class="footer">Wygenerowano automatycznie. Oferta ma charakter informacyjny.</div></body></html>`;
   
   printWindow.document.write(html);
