@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  BASE_MATERIAL_COLUMNS,
   MATERIAL_COLUMNS,
   SERVICE_COLUMNS,
   createCatalogRepository,
@@ -8,6 +9,10 @@ import {
 vi.mock('../supabase', () => ({ supabase: {} }));
 
 describe('catalogRepository', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
   it('loads only material fields used by the application', async () => {
     const rows = [{ id: 1, name: 'Board' }];
     const select = vi.fn(async () => ({ data: rows, error: null }));
@@ -16,6 +21,32 @@ describe('catalogRepository', () => {
     await expect(createCatalogRepository({ client }).listMaterials()).resolves.toEqual(rows);
     expect(client.from).toHaveBeenCalledWith('materials');
     expect(select).toHaveBeenCalledWith(MATERIAL_COLUMNS);
+  });
+
+  it('falls back to the base material columns when the supplier embed is unavailable', async () => {
+    const rows = [{ id: 1, name: 'Board' }];
+    const embedError = new Error('relation "public.material_suppliers" does not exist');
+    const select = vi.fn()
+      .mockResolvedValueOnce({ data: null, error: embedError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+    const client = { from: vi.fn(() => ({ select })) };
+    const logger = { error: vi.fn() };
+
+    await expect(createCatalogRepository({ client, logger }).listMaterials()).resolves.toEqual(rows);
+    expect(select).toHaveBeenNthCalledWith(1, MATERIAL_COLUMNS);
+    expect(select).toHaveBeenNthCalledWith(2, BASE_MATERIAL_COLUMNS);
+    expect(logger.error).toHaveBeenCalledWith(embedError);
+  });
+
+  it('still throws when even the base material columns fail to load', async () => {
+    const embedError = new Error('relation "public.material_suppliers" does not exist');
+    const baseError = new Error('network error');
+    const select = vi.fn()
+      .mockResolvedValueOnce({ data: null, error: embedError })
+      .mockResolvedValueOnce({ data: null, error: baseError });
+    const client = { from: vi.fn(() => ({ select })) };
+
+    await expect(createCatalogRepository({ client }).listMaterials()).rejects.toBe(baseError);
   });
 
   it('loads only service fields used by the application', async () => {
