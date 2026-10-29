@@ -46,14 +46,22 @@ export default function MaterialEditorDialog({ material, suppliers, onCreateSupp
     link.supplier_id === supplierId ? { ...link, [field]: value } : link
   )));
 
+  // Pierwszy przypisany dostawca automatycznie staje się domyślny (is_preferred) — zarówno tu,
+  // jak i w bezpieczniku submit() poniżej muszą liczyć to tak samo.
+  const newLinkEntry = (supplierId, currentLinks) => ({
+    supplier_id: supplierId,
+    supplier_sku: '',
+    supplier_price: '',
+    is_preferred: currentLinks.length === 0,
+  });
+
+  // Wybór w <select> dodaje dostawcę OD RAZU (onChange) — bez osobnego przycisku „Dodaj”, który
+  // był pułapką UX: wybrany, widoczny w polu dostawca nie trafiał do links, dopóki ktoś nie
+  // kliknął „Dodaj”, więc samo „Zapisz” go gubiło (zostawał pusty array, materiał zapisywał się
+  // bez dostawcy).
   const addSupplier = (supplierId) => {
     if (!supplierId || links.some(link => link.supplier_id === supplierId)) return;
-    setLinks(current => [...current, {
-      supplier_id: supplierId,
-      supplier_sku: '',
-      supplier_price: '',
-      is_preferred: current.length === 0,
-    }]);
+    setLinks(current => [...current, newLinkEntry(supplierId, current)]);
     setSupplierToAdd('');
   };
 
@@ -68,20 +76,22 @@ export default function MaterialEditorDialog({ material, suppliers, onCreateSupp
     is_preferred: link.supplier_id === supplierId,
   })));
 
+  const quickSupplierPayload = () => ({
+    name: quickName.trim(),
+    address: quickAddress.trim(),
+    google_maps_url: '',
+    phone: '',
+    email: '',
+    contact_person: '',
+    notes: '',
+  });
+
   const createSupplier = async () => {
     if (!quickName.trim()) return;
     setSaving(true);
     setError('');
     try {
-      const saved = await onCreateSupplier({
-        name: quickName.trim(),
-        address: quickAddress.trim(),
-        google_maps_url: '',
-        phone: '',
-        email: '',
-        contact_person: '',
-        notes: '',
-      });
+      const saved = await onCreateSupplier(quickSupplierPayload());
       setCreatedSuppliers(current => [...current, saved]);
       addSupplier(saved.id);
       setQuickCreateOpen(false);
@@ -99,6 +109,34 @@ export default function MaterialEditorDialog({ material, suppliers, onCreateSupp
     setSaving(true);
     setError('');
     try {
+      let pendingLinks = links;
+
+      // Bezpiecznik: addSupplier() wyżej dodaje do links natychmiast przy onChange, więc w
+      // normalnym użyciu supplierToAdd jest tu zawsze puste — ale Zapisz i tak nie może zgubić
+      // wybranego dostawcy, gdyby selekcja z jakiegoś powodu nie trafiła jeszcze do listy.
+      if (supplierToAdd && !pendingLinks.some(link => link.supplier_id === supplierToAdd)) {
+        pendingLinks = [...pendingLinks, newLinkEntry(supplierToAdd, pendingLinks)];
+      }
+
+      // To samo dla otwartej, niezatwierdzonej mini-formy „+ Utwórz nowego” — Zapisz tworzy
+      // i przypisuje tego dostawcę zamiast cicho go ignorować.
+      let createdSupplier = null;
+      if (quickCreateOpen && quickName.trim()) {
+        createdSupplier = await onCreateSupplier(quickSupplierPayload());
+        pendingLinks = [...pendingLinks, newLinkEntry(createdSupplier.id, pendingLinks)];
+      }
+
+      if (pendingLinks !== links) {
+        setLinks(pendingLinks);
+        setSupplierToAdd('');
+      }
+      if (createdSupplier) {
+        setCreatedSuppliers(current => [...current, createdSupplier]);
+        setQuickCreateOpen(false);
+        setQuickName('');
+        setQuickAddress('');
+      }
+
       await onSave({
         fields: {
           name: form.name.trim(),
@@ -107,7 +145,7 @@ export default function MaterialEditorDialog({ material, suppliers, onCreateSupp
           unit: form.unit,
           price: Number(form.price),
         },
-        links: normalizePreferredSupplierLinks(links),
+        links: normalizePreferredSupplierLinks(pendingLinks),
       });
       onClose();
     } catch (saveError) {
@@ -144,11 +182,11 @@ export default function MaterialEditorDialog({ material, suppliers, onCreateSupp
           <fieldset className={s.suppliersFieldset}>
             <legend>Dostawcy</legend>
             <div className={s.addSupplierRow}>
-              <select aria-label="Dodaj dostawcę" value={supplierToAdd} onChange={event => setSupplierToAdd(event.target.value)}>
+              {/* Wybór dodaje dostawcę od razu (onChange) — nie czeka na osobny przycisk. */}
+              <select aria-label="Dodaj dostawcę" value={supplierToAdd} onChange={event => addSupplier(event.target.value)}>
                 <option value="">Wybierz dostawcę…</option>
                 {availableSuppliers.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
               </select>
-              <button type="button" className={s.secondaryButton} disabled={!supplierToAdd} onClick={() => addSupplier(supplierToAdd)}>Dodaj</button>
               <button type="button" className={s.linkButton} onClick={() => setQuickCreateOpen(current => !current)}>+ Utwórz nowego</button>
             </div>
 
