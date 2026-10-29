@@ -332,14 +332,18 @@ reset role;
 
 set local request.jwt.claims = '{"role":"anon"}';
 set local role anon;
-select ok(not has_table_privilege('anon', 'public.clients', 'select'), 'anonymous cannot select clients');
+select ok(
+  not has_table_privilege('anon', 'public.clients', 'select')
+    and not has_table_privilege('anon', 'public.suppliers', 'select')
+    and not has_table_privilege('anon', 'public.material_suppliers', 'select'),
+  'anonymous cannot select clients or supplier directory data'
+);
 select is((select count(*) from public.profiles), 0::bigint, 'anonymous sees no profiles');
 select is(
   (
     select
       (select count(*) from public.materials)
       + (select count(*) from public.services)
-      + (select count(*) from public.suppliers)
       + (select count(*) from public.knowledge_base)
       + (select count(*) from public.audit_log)
   ),
