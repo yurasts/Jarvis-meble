@@ -56,6 +56,18 @@ describe('catalogRepository', () => {
     expect(select).toHaveBeenCalledWith(MATERIAL_COLUMNS);
   });
 
+  it('replaces all supplier links atomically through the database function', async () => {
+    const links = [{ supplier_id: 's1', is_preferred: true }];
+    const rpc = vi.fn(async () => ({ data: links, error: null }));
+    const repository = createCatalogRepository({ client: { rpc } });
+
+    await expect(repository.replaceMaterialSuppliers(7, links)).resolves.toEqual(links);
+    expect(rpc).toHaveBeenCalledWith('set_material_suppliers', {
+      p_material_id: 7,
+      p_links: links,
+    });
+  });
+
   it('creates and updates services with the selected application columns', async () => {
     const saved = { id: 8, name: 'Assembly', price: 90, is_favorite: true };
     const single = vi.fn(async () => ({ data: saved, error: null }));

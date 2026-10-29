@@ -211,6 +211,10 @@ html[data-theme="forest"] .client-card:hover {
   --section-services-border:  #c6f6d5;
   --section-expenses-border:  #fed7d7;
 
+  /* Карточки секций рабочей области (Materiały/Usługi/Rozliczenia/Zadania/Informacje,
+     WorkspaceSection.module.css) — лёгкая тень, чтобы карточки не сливались в одно полотно. */
+  --section-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(15, 23, 42, 0.06);
+
   /* Состояния MaterialPicker/ServicePicker и строк-«в процессе замены» (ProjectModal,
      DesktopProjectItemsTable, MobileProjectItemRow) — refactor/design-tokens-cleanup. */
   --tone-replace-bg:              #dbeafe; /* строка-цель активной замены материала; подсвеченный option в picker'е */
@@ -264,11 +268,13 @@ html[data-theme="forest"] .client-card:hover {
 
   /* Размеры шрифта */
   --font-size-2xs:  10px;
+  --font-size-2xs:  8px;
   --font-size-xs:   11px;
   --font-size-sm:   12px;
   --font-size-md:   13px;
   --font-size-base: 14px;
   --font-size-lg:   16px;
+  --control-height-compact: 28px;
   --font-size-icon: 18px;
 }
 
@@ -279,10 +285,13 @@ html[data-theme="forest"] {
   --favorite-bg:          rgba(246, 173, 85, 0.14);
   --favorite-border:      rgba(246, 173, 85, 0.42);
   --section-materials-ink:  #63b3ed;
+  --section-materials-line: #63b3ed;
   --section-materials-tint: #0f2236;
   --section-services-ink:   #68d391;
+  --section-services-line:  #68d391;
   --section-services-tint:  #0f2a1a;
   --section-expenses-ink:   #fc8181;
+  --section-expenses-line:  #fc8181;
   --section-expenses-tint:  #2d1515;
   --section-files-ink:      #b794f4;
   --section-files-tint:     #1a102e;
@@ -290,6 +299,8 @@ html[data-theme="forest"] {
   --section-materials-border: #1a3a5c;
   --section-services-border:  #1a4a2e;
   --section-expenses-border:  #7b2020;
+
+  --section-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
 
   --tone-replace-bg:              #17365c;
   --picker-replace-bg:            #17365c;

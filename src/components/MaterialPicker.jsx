@@ -1,6 +1,8 @@
 import { createPortal } from 'react-dom';
+import { Search } from 'lucide-react';
 import s from './MaterialPicker.module.css';
 import CatalogFavoriteButton from './CatalogFavoriteButton';
+import { materialSupplierNames } from '../utils/materialSuppliers';
 
 const actionVariant = (emphasis, selected) => (emphasis ? 'emphasis' : selected ? 'selected' : 'default');
 
@@ -64,21 +66,24 @@ const MaterialPicker = ({
         </div>
       )}
       <div className={s.searchRow}>
-        <input
-          ref={searchInputRef}
-          type="text"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={isOpen}
-          aria-controls="material-picker-options"
-          aria-activedescendant={isOpen && groups[highlightedIndex] ? `material-option-${highlightedIndex}` : undefined}
-          placeholder="🔍 Szukaj materiału w bazie…"
-          value={searchTerm}
-          onFocus={onSearchFocus}
-          onChange={event => onSearchChange(event.target.value)}
-          onKeyDown={onSearchKeyDown}
-          className={s.searchInput}
-        />
+        <div className={s.searchFieldWrap}>
+          <Search aria-hidden="true" size={14} className={s.searchIcon} />
+          <input
+            ref={searchInputRef}
+            type="text"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={isOpen}
+            aria-controls="material-picker-options"
+            aria-activedescendant={isOpen && groups[highlightedIndex] ? `material-option-${highlightedIndex}` : undefined}
+            placeholder="Szukaj materiału w bazie…"
+            value={searchTerm}
+            onFocus={onSearchFocus}
+            onChange={event => onSearchChange(event.target.value)}
+            onKeyDown={onSearchKeyDown}
+            className={s.searchInput}
+          />
+        </div>
         <button type="button" onClick={onManualAdd} className={s.manualAddBtn}>
           + Ręcznie
         </button>
@@ -112,6 +117,7 @@ const MaterialPicker = ({
             const isExpanded = expandedGroupId === group.key;
             const primaryOffer = group.offers[0];
             const emphasis = hasMultipleOffers || isReplacing;
+            const groupSupplierNames = [...new Set(group.offers.flatMap(materialSupplierNames))];
 
             return (
               <div
@@ -137,6 +143,9 @@ const MaterialPicker = ({
                     {group.label}
                   </button>
                   <span className={s.optionMeta}>
+                    {groupSupplierNames.length > 0 && <span className={s.optionSupplierBadges}>
+                      {groupSupplierNames.map(name => <span key={name}>{name}</span>)}
+                    </span>}
                     {hasMultipleOffers
                       ? <>{group.offers.length} wariantów</>
                       : <><strong className={s.optionMetaPrice}>{Number(primaryOffer.price).toFixed(2)} zł</strong>{' · '}{primaryOffer.unit || 'szt'}</>}
@@ -163,7 +172,11 @@ const MaterialPicker = ({
                               {offer.name}
                             </div>
                             <div className={s.offerSupplier}>
-                              {offer.supplier || 'Dostawca nieokreślony'}{offer.category ? ` · ${offer.category}` : ''}{offer.symbol ? ` · ${offer.symbol}` : ''}
+                              <span className={s.offerSuppliers}>
+                                {(materialSupplierNames(offer).length ? materialSupplierNames(offer) : ['Dostawca nieokreślony'])
+                                  .map(name => <span key={name}>{name}</span>)}
+                              </span>
+                              {offer.category ? ` · ${offer.category}` : ''}{offer.symbol ? ` · ${offer.symbol}` : ''}
                             </div>
                           </div>
                           <span className={s.offerPrice}>

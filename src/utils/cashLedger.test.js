@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  plannedWycena,
   sortCashDesc,
   summarizeCash,
   transactionsForProject,
@@ -30,14 +29,5 @@ describe('cashLedger utilities', () => {
   it('sorts by operation date and creation time, newest first', () => {
     expect(sortCashDesc(transactions).map(item => item.id)).toEqual(['c', 'b', 'a']);
     expect(transactions.map(item => item.id)).toEqual(['a', 'b', 'c']);
-  });
-
-  it('uses a saved estimate when available', () => {
-    expect(plannedWycena({ budget: '4200', budget_coefficient: 2.5 }, 1000)).toBe(4200);
-  });
-
-  it('falls back to project cost times coefficient', () => {
-    expect(plannedWycena({ budget: 0, budget_coefficient: 2.5 }, 1000)).toBe(2500);
-    expect(plannedWycena({}, 1000)).toBe(2000);
   });
 });

@@ -38,6 +38,20 @@ const renderLedger = (overrides = {}) => {
 };
 
 describe('ProjectCashLedger integration', () => {
+  it('shows Wycena with the multiplier applied only to materials', () => {
+    renderLedger({
+      client: {
+        ...client,
+        budget: 6773,
+        calc_materials: [{ id: 'm1', price: 2780.70, quantity: 1 }],
+        calc_services: [{ id: 's1', price: 605.80, quantity: 1 }],
+      },
+    });
+
+    expect(screen.getByText('6167.20 zł')).toBeInTheDocument();
+    expect(screen.queryByText('6773.00 zł')).not.toBeInTheDocument();
+  });
+
   it('creates an inflow from the visible editor', async () => {
     const user = userEvent.setup();
     const { props } = renderLedger({ transactions: [] });

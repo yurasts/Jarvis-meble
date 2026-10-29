@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { transactionsForProject, sortCashDesc, summarizeCash, plannedWycena } from '../utils/cashLedger';
-import { projectTotals } from './dashboardHelpers';
+import { transactionsForProject, sortCashDesc, summarizeCash } from '../utils/cashLedger';
+import { calculateProjectWycena, projectTotals } from '../utils/projectPricing';
 import { resolveDisplayStatus, statusColorVar } from '../utils/projectStatuses';
 import s from './ProjectCashLedger.module.css';
 
@@ -111,10 +111,14 @@ const ProjectCashLedger = forwardRef(function ProjectCashLedger({
   const list = sortCashDesc(transactionsForProject(transactions, projectId));
   const { wplaty, wydatki, saldo } = summarizeCash(list);
 
-  const { materials, services, total: totalCost } = projectTotals(client);
+  const { materials, services } = projectTotals(client);
   const coef = Number(coefficientValue ?? client.budget_coefficient) || 2;
   const hasCoefficientEditor = typeof onCoefficientEdit === 'function';
-  const wycena = coefficientValue !== undefined ? totalCost * coef : plannedWycena(client, totalCost);
+  const wycena = calculateProjectWycena({
+    materialsTotal: materials,
+    servicesTotal: services,
+    multiplier: coef,
+  });
 
   const closeEditor = () => {
     setEditingKey(null);

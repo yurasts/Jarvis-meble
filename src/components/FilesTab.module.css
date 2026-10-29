@@ -258,16 +258,20 @@
 .stoFilename,
 .stoMissing {
   min-width: 0;
+  overflow: hidden;
   font-size: 11px;
   line-height: 13px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.stoMissing { flex: 1 1 auto; }
 
 .stoLabel,
 .stoMissing { color: var(--text-muted); }
 
 .stoFilename {
-  overflow: hidden;
+  flex: 1 1 auto;
   color: var(--accent);
   font-weight: 600;
   text-overflow: ellipsis;

@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { Search } from 'lucide-react';
 import s from './ServicePicker.module.css';
 import CatalogFavoriteButton from './CatalogFavoriteButton';
 
@@ -38,21 +39,24 @@ const ServicePicker = ({
       )}
 
       <div className={s.searchRow}>
-        <input
-          ref={searchInputRef}
-          type="text"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={isOpen}
-          aria-controls="service-picker-options"
-          aria-activedescendant={isOpen && services[highlightedIndex] ? `service-option-${highlightedIndex}` : undefined}
-          placeholder={'🔍 Szukaj usługi w bazie…'}
-          value={searchTerm}
-          onFocus={onSearchFocus}
-          onChange={event => onSearchChange(event.target.value)}
-          onKeyDown={onSearchKeyDown}
-          className={s.searchInput}
-        />
+        <div className={s.searchFieldWrap}>
+          <Search aria-hidden="true" size={14} className={s.searchIcon} />
+          <input
+            ref={searchInputRef}
+            type="text"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={isOpen}
+            aria-controls="service-picker-options"
+            aria-activedescendant={isOpen && services[highlightedIndex] ? `service-option-${highlightedIndex}` : undefined}
+            placeholder={'Szukaj usługi w bazie…'}
+            value={searchTerm}
+            onFocus={onSearchFocus}
+            onChange={event => onSearchChange(event.target.value)}
+            onKeyDown={onSearchKeyDown}
+            className={s.searchInput}
+          />
+        </div>
         <button type="button" onClick={onManualAdd} className={s.manualAddBtn}>
           {'+ Ręcznie'}
         </button>

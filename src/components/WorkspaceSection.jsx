@@ -19,12 +19,18 @@ export default function WorkspaceSection({
   flush = false,
   className,
   children,
+  // Цвет акцентной полосы/плашки раздела (Segmented Section Cards): 'materials' | 'services' |
+  // 'expenses' сопоставлены с существующими --section-*-line/-tint/-ink (src/index.css, те же
+  // токены, что и у шапок modal-fallback вкладок). 'neutral' (Zadania/Informacje) — спокойный
+  // var(--accent) без собственной заливки шапки.
+  accent = 'neutral',
 }) {
   const bodyId = useId();
   return (
     <section
       className={[s.section, open ? s.sectionOpen : '', className].filter(Boolean).join(' ')}
       aria-label={label || title}
+      data-accent={accent}
     >
       <div className={s.header}>
         {/* Паттерн аккордеона: заголовок h3 содержит кнопку-переключатель. */}

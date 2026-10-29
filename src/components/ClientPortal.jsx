@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../supabase';
+import { calculateProjectWycena, projectTotals } from '../utils/projectPricing';
 
 const ClientPortal = () => {
   const { token } = useParams(); // Непредсказуемый portal_token из ссылки
@@ -22,10 +23,12 @@ const ClientPortal = () => {
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>⏳ Ładowanie projektu...</div>;
   if (!client) return <div style={{ padding: '40px', textAlign: 'center', color: 'red', fontFamily: 'sans-serif' }}>❌ Nie znaleziono projektu. Sprawdź poprawność linku.</div>;
 
-  // Считаем итоговую стоимость
-  const totalMatCost = (client.calc_materials || []).reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
-  const totalSrvCost = (client.calc_services || []).reduce((sum, item) => sum + (Number(item.price) * (Number(item.quantity) || 1)), 0);
-  const totalCost = totalMatCost + totalSrvCost;
+  const { materials: totalMatCost, services: totalSrvCost } = projectTotals(client);
+  const totalCost = calculateProjectWycena({
+    materialsTotal: totalMatCost,
+    servicesTotal: totalSrvCost,
+    multiplier: client.budget_coefficient,
+  });
 
   return (
     <div style={{ fontFamily: 'Segoe UI, Roboto, sans-serif', backgroundColor: '#f4f7f6', minHeight: '100vh', color: '#2d3748' }}>

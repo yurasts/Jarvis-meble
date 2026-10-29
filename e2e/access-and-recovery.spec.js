@@ -14,7 +14,7 @@ test('designer can open an assigned project but cannot create a new one', async 
 
   await page.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
   await page.getByRole('button', { name: /Szafa/ }).click();
-  await expect(page.getByRole('group', { name: 'Foldery plików projektu' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Kategorie plików projektu' })).toBeVisible();
   await page.getByRole('button', { name: 'Edytuj dane: Anna Kowalska' }).click();
   await expect(page.getByLabel('Nazwa projektu')).toHaveValue('Szafa istniejąca');
 });

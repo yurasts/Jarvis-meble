@@ -37,7 +37,7 @@ insert into public.services (id, name, price)
 values (9201, 'Matrix service', 20);
 
 insert into public.suppliers (id, name)
-values (9301, 'Matrix supplier');
+values ('79999999-9999-9999-9999-999999999999', 'Matrix supplier');
 
 insert into public.knowledge_base (id, source_table, source_id, content)
 values ('74444444-4444-4444-4444-444444444444', 'materials', '9101', 'Matrix knowledge');
@@ -73,14 +73,14 @@ select is(
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
       and c.relname = any (array[
-        'audit_log', 'clients', 'hardware', 'knowledge_base', 'materials',
+        'audit_log', 'clients', 'hardware', 'knowledge_base', 'materials', 'material_suppliers',
         'media', 'pro100_library_categories', 'pro100_library_files',
         'profiles', 'project_cash_transactions', 'project_files', 'projects',
         'services', 'suppliers', 'tasks', 'user_activity_logs', 'user_presence'
       ])
       and c.relrowsecurity
   ),
-  17::bigint,
+  18::bigint,
   'all exposed public tables have RLS enabled'
 );
 
@@ -332,14 +332,18 @@ reset role;
 
 set local request.jwt.claims = '{"role":"anon"}';
 set local role anon;
-select ok(not has_table_privilege('anon', 'public.clients', 'select'), 'anonymous cannot select clients');
+select ok(
+  not has_table_privilege('anon', 'public.clients', 'select')
+    and not has_table_privilege('anon', 'public.suppliers', 'select')
+    and not has_table_privilege('anon', 'public.material_suppliers', 'select'),
+  'anonymous cannot select clients or supplier directory data'
+);
 select is((select count(*) from public.profiles), 0::bigint, 'anonymous sees no profiles');
 select is(
   (
     select
       (select count(*) from public.materials)
       + (select count(*) from public.services)
-      + (select count(*) from public.suppliers)
       + (select count(*) from public.knowledge_base)
       + (select count(*) from public.audit_log)
   ),

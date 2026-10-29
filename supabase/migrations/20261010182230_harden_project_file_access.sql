@@ -69,6 +69,11 @@ CREATE OR REPLACE FUNCTION public.current_role_name()
   select role from public.profiles where id = auth.uid();
 $function$;
 
+-- CI rebuilds an isolated baseline from the current declarative schema before
+-- replaying historical migrations. DROP keeps this historical migration
+-- replayable after later versions extend the TABLE return signature.
+DROP FUNCTION IF EXISTS public.get_portal_data(uuid);
+
 CREATE OR REPLACE FUNCTION public.get_portal_data(p_token uuid)
   RETURNS TABLE (
     full_name      text,

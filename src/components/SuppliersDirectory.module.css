@@ -1,0 +1,45 @@
+.directory { min-width: 0; padding: 20px; color: var(--text-main); background: var(--bg-base); }
+.header, .controls, .cardHeader, .cardActions, .dialogHeader, .dialogActions, .titleGroup { display: flex; align-items: center; }
+.header { justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.titleGroup { gap: 10px; min-width: 0; }
+.header h2, .dialogHeader h2 { margin: 0; font-size: var(--font-size-xl); }
+.header p { margin: 3px 0 0; color: var(--text-muted); font-size: var(--font-size-xs); }
+.controls { gap: 12px; margin-bottom: 16px; }
+.controls > input { flex: 1; min-width: 0; height: 36px; padding: 0 11px; border: 1px solid var(--input-border); border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-main); }
+.archiveFilter { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--font-size-sm); white-space: nowrap; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+.card { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); }
+.archivedCard { opacity: .72; }
+.cardHeader { align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cardHeader h3 { margin: 0; font-size: var(--font-size-md); overflow-wrap: anywhere; }
+.materialCount, .archivedBadge { display: inline-flex; padding: 2px 7px; border-radius: 999px; background: var(--bg-kanban-col); color: var(--text-muted); font-size: var(--font-size-xs); font-weight: 700; white-space: nowrap; }
+.archivedBadge { margin-top: 5px; }
+.details { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; color: var(--text-muted); font-size: var(--font-size-sm); }
+.details a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.details a:hover, .mapButton:hover { text-decoration: underline; }
+.notes { margin: 12px 0 0; padding: 8px; border-radius: var(--radius-md); background: var(--bg-kanban-col); color: var(--text-muted); font-size: var(--font-size-xs); white-space: pre-wrap; }
+.cardActions { justify-content: flex-end; gap: 7px; margin-top: 13px; }
+.primaryButton, .secondaryButton, .mapButton, .backButton, .iconButton { min-height: 32px; padding: 0 11px; border-radius: var(--radius-md); font: inherit; font-size: var(--font-size-sm); font-weight: 700; cursor: pointer; }
+.primaryButton { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-contrast); }
+.secondaryButton, .backButton { border: 1px solid var(--border); background: var(--btn-sec-bg); color: var(--text-main); }
+.mapButton { display: inline-flex; align-items: center; border: 1px solid var(--accent); color: var(--accent); text-decoration: none; }
+.iconButton { border: 0; background: transparent; color: var(--text-muted); font-size: 22px; }
+.primaryButton:disabled, .secondaryButton:disabled { opacity: .55; cursor: wait; }
+.empty { grid-column: 1 / -1; padding: 28px; border: 1px dashed var(--border); border-radius: var(--radius-lg); color: var(--text-muted); text-align: center; }
+.error { margin: 8px 0; color: var(--danger); font-size: var(--font-size-sm); }
+.overlay { position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; padding: 16px; background: var(--scrim-overlay); }
+.dialog { width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); box-shadow: var(--shadow-modal); }
+.dialogHeader { justify-content: space-between; gap: 12px; }
+.form { display: flex; flex-direction: column; gap: 11px; margin-top: 16px; }
+.form label { display: flex; flex-direction: column; gap: 4px; color: var(--text-muted); font-size: var(--font-size-xs); font-weight: 700; }
+.form input, .form textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--input-border); border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-main); font: inherit; }
+.formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dialogActions { justify-content: flex-end; gap: 8px; margin-top: 4px; }
+@media (max-width: 768px) {
+  .directory { min-height: 100dvh; padding: 12px; }
+  .header, .controls { align-items: stretch; flex-direction: column; }
+  .header .primaryButton { width: 100%; }
+  .cards { grid-template-columns: 1fr; }
+  .formGrid { grid-template-columns: 1fr; }
+  .cardActions { flex-wrap: wrap; }
+}

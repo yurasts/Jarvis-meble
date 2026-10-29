@@ -17,6 +17,7 @@ import {
 } from './utils/catalogPriority';
 import clientsRepository from './data/clientsRepository';
 import catalogRepository from './data/catalogRepository';
+import suppliersRepository from './data/suppliersRepository';
 import { BOOTSTRAP_RESOURCES, loadBootstrapData } from './data/bootstrapData';
 import useCashTransactions from './components/useCashTransactions';
 import { DEFAULT_PROJECT_FILE_CATEGORY } from './utils/projectFileCategories';
@@ -40,6 +41,7 @@ const Settings = lazy(() => import('./components/Settings'))
 const AiAssistant = lazy(() => import('./components/AiAssistant'))
 const MobileClientBalanceScreen = lazy(() => import('./components/MobileClientBalanceScreen'))
 const Pro100Library = lazy(() => import('./components/Pro100Library'))
+const MaterialEditorDialog = lazy(() => import('./components/MaterialEditorDialog'))
 
 function ContentLoading() {
   return (
@@ -67,6 +69,7 @@ const BOOTSTRAP_RESOURCE_LABELS = {
   clients: 'projekty',
   materials: 'materia\u0142y',
   services: 'us\u0142ugi',
+  suppliers: 'dostawcy',
 }
 
 const initials = (name) =>
@@ -147,6 +150,7 @@ function App() {
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
   const [servicesList, setServicesList] = useState([])
+  const [suppliers, setSuppliers] = useState([])
   const [bootstrapErrors, setBootstrapErrors] = useState({})
   const [bootstrapLoading, setBootstrapLoading] = useState(false)
   // Archiwum / Kosz: обычные списки (дерево, панель, доска, поиск) показывают только активные
@@ -214,12 +218,7 @@ function App() {
   const [address,  setAddress]  = useState('')
 
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false)
-  const [duplicateFound,      setDuplicateFound]      = useState(null)
-  const [matName,     setMatName]     = useState('')
-  const [matSymbol,   setMatSymbol]   = useState('')
-  const [matCategory, setMatCategory] = useState('Płyta')
-  const [matUnit,     setMatUnit]     = useState('szt')
-  const [matPrice,    setMatPrice]    = useState('')
+  const [editingMaterial, setEditingMaterial] = useState(null)
 
   const topbarRef = useRef(null)
   const bottomNavRef = useRef(null)
@@ -254,6 +253,7 @@ function App() {
     if (data.clients) setClients(data.clients)
     if (data.materials) setMaterials(sortMaterialsByWorkflow(data.materials))
     if (data.services) setServicesList(data.services)
+    if (data.suppliers) setSuppliers(data.suppliers)
     setBootstrapErrors(current => {
       const next = { ...current }
       resources.forEach((resource) => {
@@ -278,11 +278,9 @@ function App() {
   }, [authUserId, fetchBootstrapData])
 
   const [projectModalTab, setProjectModalTab] = useState('materials')
-  // Desktop workspace 2026-10: папка файлов активного проекта выбирается в левой панели (под
-  // проектом) и передаётся в FilesTab; "+" там же вызывает загрузку через fileUploadTriggerRef.
+  // Активная категория файлов desktop-workspace контролируется здесь и передаётся в файловый блок
+  // правой колонки; при переходе на другой проект возвращаемся к категории по умолчанию.
   const [fileCategory, setFileCategory] = useState(DEFAULT_PROJECT_FILE_CATEGORY)
-  const [filesUploading, setFilesUploading] = useState(false)
-  const fileUploadTriggerRef = useRef(null)
   // Окно «Klient i projekt» (бывший ℹ️ в шапке) открывается карандашом у клиента в левой панели.
   const [clientEditOpen, setClientEditOpen] = useState(false)
   // Проект, для которого после переключения нужно открыть это окно (карандаш у другого клиента).
@@ -466,58 +464,72 @@ function App() {
     }
   }
 
-  async function handleAddMaterial(e) {
-    e.preventDefault()
-    const candidate = {
-      name: matName.trim(),
-      symbol: matSymbol.trim() || null,
-      category: matCategory,
-      unit: matUnit,
-      price: Number(matPrice),
-    }
-    const existing = findEquivalentMaterial(materials, candidate)
-    if (existing) {
-      setDuplicateFound({
-        existing,
-        newPrice: Number(matPrice),
-        samePrice: Math.abs(Number(existing.price) - Number(matPrice)) < 0.001
-      })
-      return
-    }
-    try {
-      const saved = await catalogRepository.createMaterial({ ...candidate, price_history: [] })
-      setMaterials(current => sortMaterialsByWorkflow([...current, saved]))
-      setMatName(''); setMatSymbol(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
-      setIsMaterialModalOpen(false)
-    } catch {
-      // Keep the form open so the user can retry.
-    }
-  }
-
-  async function handleConfirmPriceUpdate() {
-    const { existing, newPrice } = duplicateFound
-    const today   = new Date().toISOString().split('T')[0]
-    const history = [...(existing.price_history || []), { price: existing.price, date: today }]
-    try {
-      const saved = await catalogRepository.updateMaterial(existing.id, {
-        price: newPrice,
-        price_history: history,
-      })
-      setMaterials(current => sortMaterialsByWorkflow(current.map(m => m.id === existing.id ? saved : m)))
-      setDuplicateFound(null)
-      setMatName(''); setMatSymbol(''); setMatCategory('Płyta'); setMatUnit('szt'); setMatPrice('')
-      setIsMaterialModalOpen(false)
-    } catch {
-      // Keep the confirmation open so the user can retry.
-    }
-  }
-
   async function reloadMaterials() {
     try {
       setMaterials(sortMaterialsByWorkflow(await catalogRepository.listMaterials()))
     } catch {
       // Keep the last successful catalog when refresh fails.
     }
+  }
+
+  async function reloadSuppliers() {
+    try {
+      setSuppliers(await suppliersRepository.list())
+    } catch {
+      // Keep the last successful directory when refresh fails.
+    }
+  }
+
+  async function saveMaterialWithSuppliers({ fields, links }) {
+    const duplicate = findEquivalentMaterial(materials, fields)
+    if (duplicate && duplicate.id !== editingMaterial?.id) {
+      throw new Error(`Materiał „${duplicate.name}” już istnieje w katalogu.`)
+    }
+
+    let saved
+    if (editingMaterial) {
+      const priceChanged = Math.abs(Number(editingMaterial.price) - Number(fields.price)) > 0.001
+      const priceHistory = priceChanged
+        ? [...(editingMaterial.price_history || []), {
+          price: editingMaterial.price,
+          date: new Date().toISOString().split('T')[0],
+        }]
+        : editingMaterial.price_history || []
+      saved = await catalogRepository.updateMaterial(editingMaterial.id, {
+        ...fields,
+        price_history: priceHistory,
+      })
+    } else {
+      saved = await catalogRepository.createMaterial({ ...fields, price_history: [] })
+    }
+
+    await catalogRepository.replaceMaterialSuppliers(saved.id, links)
+    await Promise.all([reloadMaterials(), reloadSuppliers()])
+    return saved
+  }
+
+  async function createSupplier(fields) {
+    const saved = await suppliersRepository.create(fields)
+    setSuppliers(current => [...current, { ...saved, material_count: 0 }]
+      .sort((a, b) => a.name.localeCompare(b.name, 'pl')))
+    return saved
+  }
+
+  async function updateSupplier(id, fields) {
+    const saved = await suppliersRepository.update(id, fields)
+    setSuppliers(current => current.map(supplier => supplier.id === id
+      ? { ...supplier, ...saved }
+      : supplier))
+    await reloadMaterials()
+    return saved
+  }
+
+  async function setSupplierArchived(id, isArchived) {
+    const saved = await suppliersRepository.setArchived(id, isArchived)
+    setSuppliers(current => current.map(supplier => supplier.id === id
+      ? { ...supplier, ...saved }
+      : supplier))
+    return saved
   }
 
   const autosaveProjectItems = useCallback(async (projectId, fields) => {
@@ -768,11 +780,6 @@ function App() {
         onOpenLibrary={openPro100Library}
         libraryActive={showDesktopLibrary}
         onEditClient={requestEditClient}
-        workspaceOpen={showWorkspace}
-        activeFileCategory={fileCategory}
-        onSelectFileCategory={setFileCategory}
-        onUploadFile={() => fileUploadTriggerRef.current?.()}
-        filesUploading={filesUploading}
         archivedClients={archivedClients}
         trashClients={trashClients}
         canManageLifecycle={canManageLifecycle}
@@ -930,8 +937,6 @@ function App() {
             onRetryCash={loadCashTransactions}
             fileCategory={fileCategory}
             onFileCategoryChange={setFileCategory}
-            fileUploadTriggerRef={fileUploadTriggerRef}
-            onFilesUploadingChange={setFilesUploading}
             clientInfoOpen={clientEditOpen}
             onClientInfoOpenChange={setClientEditOpen}
             onAutosaveItems={autosaveProjectItems}
@@ -970,7 +975,12 @@ function App() {
           <MaterialsList
             materials={prioritizedMaterials}
             servicesList={prioritizedServices}
-            setIsMaterialModalOpen={setIsMaterialModalOpen}
+            suppliers={suppliers}
+            onAddMaterial={() => { setEditingMaterial(null); setIsMaterialModalOpen(true) }}
+            onEditMaterial={(material) => { setEditingMaterial(material); setIsMaterialModalOpen(true) }}
+            onCreateSupplier={createSupplier}
+            onUpdateSupplier={updateSupplier}
+            onSetSupplierArchived={setSupplierArchived}
             onPricesUpdated={reloadMaterials}
             isDark={isDarkish}
             onToggleFavorite={toggleCatalogFavorite}
@@ -1056,63 +1066,17 @@ function App() {
         />
       )}
 
-      {/* Модал: новый материал */}
+      {/* Jeden edytor obsługuje tworzenie i edycję materiału oraz jego wielu dostawców. */}
       {isMaterialModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsMaterialModalOpen(false)}>
-          <div className="modal-content" style={{ width:'100%', maxWidth:'500px', boxSizing:'border-box' }} onClick={e => e.stopPropagation()}>
-            <h2>Dodaj nowy materiał</h2>
-            <form onSubmit={handleAddMaterial}>
-              <div className="form-group"><label>Pełna nazwa</label><input type="text" required value={matName} onChange={e => setMatName(e.target.value)} /></div>
-              <div className="form-group"><label>Artykuł</label><input type="text" value={matSymbol} onChange={e => setMatSymbol(e.target.value)} placeholder="np. W960 SM lub BL-71B3550" /></div>
-              <div className="form-group">
-                <label>Kategoria</label>
-                <select value={matCategory} onChange={e => setMatCategory(e.target.value)} style={{ padding:'10px', borderRadius:'6px', border:'1px solid #ccc' }}>
-                  <option value="Płyta">Płyta</option><option value="Obrzeże">Obrzeże</option>
-                  <option value="Zawiasy">Zawiasy</option><option value="Prowadnice">Prowadnice</option>
-                  <option value="HDF">HDF</option><option value="Laminat">Laminat</option>
-                  <option value="Akcesoria">Akcesoria (Okucia)</option><option value="Inne">Inne</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Jm</label>
-                <select value={matUnit} onChange={e => setMatUnit(e.target.value)} style={{ padding:'10px', borderRadius:'6px', border:'1px solid #ccc' }}>
-                  <option value="szt">Sztuki</option><option value="mb">Metry bieżące</option>
-                  <option value="m2">Metry kwadratowe</option><option value="kpl">Komplet</option>
-                </select>
-              </div>
-              <div className="form-group"><label>Cena brutto (PLN)</label><input type="number" step="0.01" required value={matPrice} onChange={e => setMatPrice(e.target.value)} /></div>
-
-              {duplicateFound && (
-                <div style={{ margin:'10px 0', padding:'12px', borderRadius:'8px',
-                  background: duplicateFound.samePrice ? '#fffbeb' : '#fff5f5',
-                  border: `1px solid ${duplicateFound.samePrice ? '#f6e05e' : '#feb2b2'}` }}>
-                  {duplicateFound.samePrice ? (
-                    <div style={{ fontSize:'13px', color:'#744210' }}>
-                      ⚠️ Materiał <strong>{duplicateFound.existing.name}</strong> już istnieje z tą samą ceną ({duplicateFound.existing.price} zł).
-                      <button onClick={() => setDuplicateFound(null)} style={{ marginLeft:'10px', background:'none', border:'none', color:'#3182ce', cursor:'pointer', fontWeight:'bold', fontSize:'12px' }}>OK</button>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize:'13px', color:'#742a2a' }}>
-                      🔄 Znaleziono istniejący materiał!<br />
-                      <strong>{duplicateFound.existing.name}</strong><br />
-                      <span style={{ color:'#718096' }}>Stara cena:</span> <strong>{duplicateFound.existing.price} zł</strong>
-                      {' → '}
-                      <span style={{ color:'#718096' }}>Nowa cena:</span> <strong style={{ color:'#e53e3e' }}>{duplicateFound.newPrice} zł</strong>
-                      <div style={{ display:'flex', gap:'8px', marginTop:'10px' }}>
-                        <button onClick={handleConfirmPriceUpdate} style={{ background:'#38a169', color:'#fff', border:'none', padding:'6px 14px', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', fontSize:'12px' }}>Zaktualizuj cenę</button>
-                        <button onClick={() => setDuplicateFound(null)} style={{ background:'#e2e8f0', color:'#2d3748', border:'none', padding:'6px 14px', borderRadius:'6px', cursor:'pointer', fontWeight:'bold', fontSize:'12px' }}>Anuluj</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => { setIsMaterialModalOpen(false); setDuplicateFound(null) }}>Anuluj</button>
-                <button type="submit" className="btn-primary">Zapisz</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Suspense fallback={<OverlayLoading />}>
+          <MaterialEditorDialog
+            material={editingMaterial}
+            suppliers={suppliers}
+            onCreateSupplier={createSupplier}
+            onSave={saveMaterialWithSuppliers}
+            onClose={() => { setIsMaterialModalOpen(false); setEditingMaterial(null) }}
+          />
+        </Suspense>
       )}
 
       {/* Мобильный экран Projekty смонтирован всегда, чтобы поиск и фильтр не сбрасывались

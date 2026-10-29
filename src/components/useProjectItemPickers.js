@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { groupMaterialsForPicker, materialMatchesQuery } from '../utils/materialPickerGroups';
 import { sortCatalogByPriority } from '../utils/catalogPriority';
+import { materialHasSupplier, materialSupplierNames } from '../utils/materialSuppliers';
 
 const useProjectItemPickers = ({
   materials,
@@ -82,7 +83,7 @@ const useProjectItemPickers = ({
   ), [materials]);
 
   const materialSupplierOptions = useMemo(() => (
-    [...new Set((materials || []).map(material => material.supplier).filter(Boolean))]
+    [...new Set((materials || []).flatMap(materialSupplierNames))]
       .sort((left, right) => String(left).localeCompare(String(right), 'pl'))
   ), [materials]);
 
@@ -91,7 +92,7 @@ const useProjectItemPickers = ({
     const matchingMaterials = sortCatalogByPriority((materials || []).filter(material => (
       materialMatchesQuery(material, query)
       && (!materialCategoryFilter || material.category === materialCategoryFilter)
-      && (!materialSupplierFilter || material.supplier === materialSupplierFilter)
+      && materialHasSupplier(material, materialSupplierFilter)
     )));
     return groupMaterialsForPicker(matchingMaterials);
   }, [materialCategoryFilter, materialSearchTerm, materialSupplierFilter, materials]);

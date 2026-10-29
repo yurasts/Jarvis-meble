@@ -6,7 +6,8 @@ CREATE OR REPLACE FUNCTION public.get_portal_data (
     deadline       date,
     status         text,
     calc_materials jsonb,
-    calc_services  jsonb
+    calc_services  jsonb,
+    budget_coefficient numeric
   )
   LANGUAGE sql
   STABLE
@@ -18,7 +19,8 @@ CREATE OR REPLACE FUNCTION public.get_portal_data (
     deadline,
     status::text,
     calc_materials::jsonb,
-    calc_services::jsonb
+    calc_services::jsonb,
+    coalesce(budget_coefficient, 2.0)::numeric
   from public.clients
   where portal_token = p_token
     and lifecycle_status <> 'trash';

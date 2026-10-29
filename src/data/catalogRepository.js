@@ -10,6 +10,7 @@ export const MATERIAL_COLUMNS = [
   'symbol',
   'price_history',
   'is_favorite',
+  'material_suppliers(id,supplier_id,supplier_sku,supplier_price,is_preferred,created_at,supplier:suppliers(id,name,address,google_maps_url,phone,email,contact_person,is_archived))',
 ].join(',');
 
 export const SERVICE_COLUMNS = ['id', 'name', 'price', 'is_favorite'].join(',');
@@ -38,6 +39,13 @@ export const createCatalogRepository = ({ client = supabase } = {}) => ({
 
   async updateMaterial(id, fields) {
     return unwrap(await client.from('materials').update(fields).eq('id', id).select(MATERIAL_COLUMNS).single());
+  },
+
+  async replaceMaterialSuppliers(materialId, links) {
+    return unwrap(await client.rpc('set_material_suppliers', {
+      p_material_id: materialId,
+      p_links: links,
+    })) || [];
   },
 
   async updateService(id, fields) {

@@ -4,6 +4,7 @@ export const createStorageBucket = (client, bucketName, logger = console) => {
     upload: (path, file, options) => bucket().upload(path, file, options),
     getPublicUrl: path => bucket().getPublicUrl(path),
     download: path => bucket().download(path),
+    list: (folder, options) => bucket().list(folder, options),
     async remove(path) {
       if (!path) return null;
       const { error } = await bucket().remove([path]);
