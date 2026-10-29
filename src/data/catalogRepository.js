@@ -1,6 +1,10 @@
 import { supabase } from '../supabase';
 
-export const MATERIAL_COLUMNS = [
+// Базовые поля materials, не зависящие от material_suppliers/suppliers — если эти таблицы ещё не
+// развёрнуты на окружении (миграции не выполнены) или запрос с embed по какой-то другой причине
+// падает, listMaterials() ниже повторяет select именно этим списком, чтобы Baza materiałów не
+// обнулялась целиком из-за недоступности связи поставщиков.
+export const BASE_MATERIAL_COLUMNS = [
   'id',
   'name',
   'category',
@@ -10,6 +14,10 @@ export const MATERIAL_COLUMNS = [
   'symbol',
   'price_history',
   'is_favorite',
+].join(',');
+
+export const MATERIAL_COLUMNS = [
+  ...BASE_MATERIAL_COLUMNS.split(','),
   'material_suppliers(id,supplier_id,supplier_sku,supplier_price,is_preferred,created_at,supplier:suppliers(id,name,address,google_maps_url,phone,email,contact_person,is_archived))',
 ].join(',');
 
@@ -20,9 +28,17 @@ const unwrap = ({ data, error }) => {
   return data;
 };
 
-export const createCatalogRepository = ({ client = supabase } = {}) => ({
+export const createCatalogRepository = ({ client = supabase, logger = console } = {}) => ({
   async listMaterials() {
-    return unwrap(await client.from('materials').select(MATERIAL_COLUMNS)) || [];
+    const result = await client.from('materials').select(MATERIAL_COLUMNS);
+    if (result.error) {
+      logger.error(result.error);
+      // Graceful fallback: material_suppliers/suppliers mogły jeszcze nie zostać wdrożone (migracje
+      // nie zostały wypchnięte) albo zapytanie z embed padło z innego powodu — podstawowa lista
+      // materiałów i tak musi się wczytać, bez linków do dostawców.
+      return unwrap(await client.from('materials').select(BASE_MATERIAL_COLUMNS)) || [];
+    }
+    return result.data || [];
   },
 
   async listServices() {
