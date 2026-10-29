@@ -31,29 +31,45 @@ ALTER TABLE public.suppliers
   ALTER COLUMN notes SET NOT NULL;
 
 -- The legacy directory used a bigint identity. Nothing referenced it, so rows can
--- safely receive stable UUIDs before material_suppliers is introduced.
-ALTER TABLE public.suppliers
-  ADD COLUMN supplier_uuid uuid DEFAULT gen_random_uuid();
+-- safely receive stable UUIDs before material_suppliers is introduced. The type
+-- guard also makes the migration replayable on CI's current-schema baseline.
+DO $migration$
+DECLARE
+  supplier_id_type text;
+BEGIN
+  SELECT data_type
+  INTO supplier_id_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = 'suppliers'
+    AND column_name = 'id';
 
-UPDATE public.suppliers
-SET supplier_uuid = gen_random_uuid()
-WHERE supplier_uuid IS NULL;
+  IF supplier_id_type IS DISTINCT FROM 'uuid' THEN
+    ALTER TABLE public.suppliers
+      ADD COLUMN supplier_uuid uuid DEFAULT gen_random_uuid();
 
-ALTER TABLE public.suppliers
-  ALTER COLUMN supplier_uuid SET NOT NULL,
-  DROP CONSTRAINT suppliers_pkey,
-  DROP COLUMN id;
+    UPDATE public.suppliers
+    SET supplier_uuid = gen_random_uuid()
+    WHERE supplier_uuid IS NULL;
 
-ALTER TABLE public.suppliers
-  RENAME COLUMN supplier_uuid TO id;
+    ALTER TABLE public.suppliers
+      ALTER COLUMN supplier_uuid SET NOT NULL,
+      DROP CONSTRAINT suppliers_pkey,
+      DROP COLUMN id;
 
-ALTER TABLE public.suppliers
-  ALTER COLUMN id SET DEFAULT gen_random_uuid(),
-  ADD CONSTRAINT suppliers_pkey PRIMARY KEY (id);
+    ALTER TABLE public.suppliers
+      RENAME COLUMN supplier_uuid TO id;
 
-DROP SEQUENCE IF EXISTS public.suppliers_id_seq;
+    ALTER TABLE public.suppliers
+      ALTER COLUMN id SET DEFAULT gen_random_uuid(),
+      ADD CONSTRAINT suppliers_pkey PRIMARY KEY (id);
 
-CREATE UNIQUE INDEX suppliers_name_normalized_uidx
+    DROP SEQUENCE IF EXISTS public.suppliers_id_seq;
+  END IF;
+END;
+$migration$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS suppliers_name_normalized_uidx
   ON public.suppliers (lower(btrim(name)));
 
 DROP POLICY IF EXISTS suppliers_all_staff ON public.suppliers;
@@ -67,7 +83,7 @@ CREATE POLICY suppliers_staff_all ON public.suppliers
 REVOKE ALL ON TABLE public.suppliers FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER ON TABLE public.suppliers TO authenticated;
 
-CREATE TABLE public.material_suppliers (
+CREATE TABLE IF NOT EXISTS public.material_suppliers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   material_id bigint NOT NULL REFERENCES public.materials(id) ON DELETE CASCADE,
   supplier_id uuid NOT NULL REFERENCES public.suppliers(id) ON DELETE CASCADE,
@@ -79,10 +95,10 @@ CREATE TABLE public.material_suppliers (
   CONSTRAINT material_suppliers_supplier_price_check CHECK (supplier_price IS NULL OR supplier_price >= 0)
 );
 
-CREATE INDEX material_suppliers_supplier_id_idx
+CREATE INDEX IF NOT EXISTS material_suppliers_supplier_id_idx
   ON public.material_suppliers (supplier_id);
 
-CREATE UNIQUE INDEX material_suppliers_one_preferred_idx
+CREATE UNIQUE INDEX IF NOT EXISTS material_suppliers_one_preferred_idx
   ON public.material_suppliers (material_id)
   WHERE is_preferred;
 
@@ -160,6 +176,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.material_suppliers_sync_legacy_name() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.material_suppliers_sync_legacy_name() TO service_role, postgres;
 
+DROP TRIGGER IF EXISTS material_suppliers_sync_legacy_name ON public.material_suppliers;
 CREATE TRIGGER material_suppliers_sync_legacy_name
   AFTER INSERT OR UPDATE OR DELETE ON public.material_suppliers
   FOR EACH ROW
@@ -208,6 +225,7 @@ CREATE TRIGGER suppliers_set_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.suppliers_set_updated_at();
 
+DROP TRIGGER IF EXISTS suppliers_sync_legacy_name ON public.suppliers;
 CREATE TRIGGER suppliers_sync_legacy_name
   AFTER UPDATE OF name ON public.suppliers
   FOR EACH ROW
