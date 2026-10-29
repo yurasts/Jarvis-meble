@@ -90,8 +90,8 @@ test('supplier directory, material links and secondary-supplier project filterin
 
   await page.getByRole('button', { name: '← Materiały' }).click();
   await page.getByRole('button', { name: 'Edytuj materiał Płyta testowa' }).click();
+  // Wybór w <select> dodaje dostawcę od razu — nie ma już osobnego przycisku „Dodaj”.
   await page.getByLabel('Dodaj dostawcę').selectOption(beta.id);
-  await page.getByRole('button', { name: 'Dodaj', exact: true }).click();
   await page.getByRole('button', { name: 'Zapisz' }).click();
 
   await expect.poll(() => state.materialSupplierLinks.filter(link => link.material_id === 501).length).toBe(2);
