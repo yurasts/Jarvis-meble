@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import FilesTab from './FilesTab';
 import SupplierOrderGroups from './SupplierOrderGroups';
+import CabinetCalculator from './CabinetCalculator';
 import ProjectCashLedger from './ProjectCashLedger';
 import ProjectTasksPanel from './ProjectTasksPanel';
 import ProjectImportantPoints from './ProjectImportantPoints';
@@ -176,6 +177,35 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
   // na nowo z katalogu).
   const materialsById = useMemo(() => new Map((materials || []).map(material => [material.id, material])), [materials]);
   const [materialOrdersOpen, setMaterialOrdersOpen] = useState(false);
+
+  // Kalkulator szafek (Szybka wycena) — ADR-010, Etap A. Panel sam liczy wszystko z katalogu
+  // (materials/servicesList), tu tylko merge wyliczonych pozycji do sumy projektu: istniejąca
+  // pozycja (to samo item.id) dostaje DOLICZONĄ ilość, a nie nadpisaną — kalkulator można
+  // uruchomić kilka razy w tej samej karcie projektu bez utraty wcześniej dodanych sztuk.
+  const [cabinetCalculatorOpen, setCabinetCalculatorOpen] = useState(false);
+  const mergeCalculatedLines = (currentItems, lines) => {
+    const merged = [...currentItems];
+    lines.forEach(({ item, quantity }) => {
+      const existingIndex = merged.findIndex(entry => entry.id === item.id);
+      if (existingIndex >= 0) {
+        merged[existingIndex] = {
+          ...merged[existingIndex],
+          quantity: (Number(merged[existingIndex].quantity) || 0) + quantity,
+        };
+      } else {
+        merged.push({ ...item, quantity, ...authorMeta() });
+      }
+    });
+    return merged;
+  };
+  const addCalculatedItems = ({ materialLines, serviceLines }) => {
+    if (materialLines.length > 0) {
+      updateItems('calc_materials', mergeCalculatedLines(calcMaterials, materialLines), { immediate: true });
+    }
+    if (serviceLines.length > 0) {
+      updateItems('calc_services', mergeCalculatedLines(calcServices, serviceLines), { immediate: true });
+    }
+  };
 
   const setMaterialSupplierOverride = (index, supplierId) => {
     updateItems('calc_materials', calcMaterials.map((item, itemIndex) => (
@@ -705,17 +735,30 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         summary={`${totalMaterials.toFixed(2)} zł`}
         open={workspaceSections.isOpen('materials')}
         onToggle={() => toggleWorkspaceSection('materials')}
-        // «📦 Zamówienia» — tylko desktop workspace (grupowanie wg dostawcy, kopiowanie zamówienia
-        // do schowka); mobile ma własny, osobny widok pozycji bez tej funkcji.
-        actions={!isMobileVariant && calcMaterials.length > 0 && (
-          <button
-            type="button"
-            className={workspaceSectionButtons.secondary}
-            aria-pressed={materialOrdersOpen}
-            onClick={() => setMaterialOrdersOpen(open => !open)}
-          >
-            📦 Zamówienia
-          </button>
+        // «📐 Kalkulator szafek» i «📦 Zamówienia» — tylko desktop workspace (mobile ma własny,
+        // osobny widok pozycji bez tych funkcji). Kalkulator dostępny zawsze (służy do DODANIA
+        // pierwszych materiałów w pustym projekcie), Zamówienia tylko gdy jest co grupować.
+        actions={!isMobileVariant && (
+          <>
+            <button
+              type="button"
+              className={workspaceSectionButtons.secondary}
+              aria-pressed={cabinetCalculatorOpen}
+              onClick={() => setCabinetCalculatorOpen(open => !open)}
+            >
+              📐 Kalkulator szafek
+            </button>
+            {calcMaterials.length > 0 && (
+              <button
+                type="button"
+                className={workspaceSectionButtons.secondary}
+                aria-pressed={materialOrdersOpen}
+                onClick={() => setMaterialOrdersOpen(open => !open)}
+              >
+                📦 Zamówienia
+              </button>
+            )}
+          </>
         )}
         flush
       >
@@ -729,6 +772,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           </div>
         ) : (
           <>
+            {cabinetCalculatorOpen && (
+              <CabinetCalculator
+                materials={materials}
+                servicesList={servicesList}
+                projectMultiplier={client.budget_coefficient}
+                onAddToProject={addCalculatedItems}
+              />
+            )}
             {materialOrdersOpen && (
               <SupplierOrderGroups
                 items={calcMaterials}

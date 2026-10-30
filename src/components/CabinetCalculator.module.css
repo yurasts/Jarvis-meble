@@ -1,0 +1,216 @@
+/* Kalkulator szafek (Szybka wycena) — panel w sekcji Materiały, nad tabelą pozycji.
+   Ten sam wzorzec co SupplierOrderGroups.module.css: dashed separator u góry, własne tło. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px dashed var(--border);
+  background: var(--bg-kanban-col);
+}
+
+.title {
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+/* --- Blok 1: materiały/usługi z katalogu --- */
+.materialsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.materialField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.materialField select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+}
+.materialField select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* --- Blok 2: dodawanie modułów w 1 klik --- */
+.addModuleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.addModuleButton {
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.addModuleButton:hover { background: var(--accent-soft); }
+
+/* --- Blok 3: lista modułów + podsumowanie --- */
+.empty {
+  margin: 0;
+  padding: 6px 2px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.moduleList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moduleRow {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+}
+
+.moduleRowMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.moduleName {
+  flex: 1 1 140px;
+  min-width: 0;
+  align-self: center;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dimField,
+.countField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.dimField input,
+.countField input {
+  box-sizing: border-box;
+  height: 24px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--input-bg) 70%, transparent);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+}
+.dimField input { width: 58px; }
+.countField input { width: 42px; }
+.dimField input:focus,
+.countField input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--input-bg);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.removeButton {
+  flex-shrink: 0;
+  align-self: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tone-danger);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.moduleLine {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.summary {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 10px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+.summaryGrid strong { color: var(--text-main); }
+
+.wycenaRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.wycenaLabel {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.wycenaValue {
+  color: var(--section-materials-ink);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+}
+
+.addToProjectButton {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.addToProjectButton:hover { filter: brightness(0.96); }
+.addToProjectButton:disabled { opacity: 0.5; cursor: default; }
