@@ -194,15 +194,39 @@
   font-weight: 700;
 }
 
+/* Sama suma też jest klikalna (otwiera Szczegóły wyceny) — stąd <button>, nie <strong>. */
 .wycenaValue {
+  border: none;
+  background: transparent;
+  padding: 0;
   color: var(--section-materials-ink);
+  font: inherit;
   font-size: var(--font-size-lg);
   font-weight: 800;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
+.wycenaValue:hover { color: var(--accent); }
+
+.detailsButton {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.detailsButton:hover { border-color: var(--accent); color: var(--accent); }
+.detailsButton:disabled { opacity: 0.5; cursor: default; }
 
 .addToProjectButton {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 8px 12px;
   border: none;
   border-radius: var(--radius-md);

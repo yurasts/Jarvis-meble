@@ -149,6 +149,7 @@ function App() {
   const [menuOpen,  setMenuOpen]    = useState(false)
   const [clients,   setClients]     = useState([])
   const [materials, setMaterials]   = useState([])
+  const [materialKitItems, setMaterialKitItems] = useState([])
   const [servicesList, setServicesList] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [bootstrapErrors, setBootstrapErrors] = useState({})
@@ -252,6 +253,7 @@ function App() {
     if (bootstrapRequestRef.current !== requestId) return
     if (data.clients) setClients(data.clients)
     if (data.materials) setMaterials(sortMaterialsByWorkflow(data.materials))
+    if (data.materialKitItems) setMaterialKitItems(data.materialKitItems)
     if (data.services) setServicesList(data.services)
     if (data.suppliers) setSuppliers(data.suppliers)
     setBootstrapErrors(current => {
@@ -974,6 +976,7 @@ function App() {
         {activeTab === 'materials' && (
           <MaterialsList
             materials={prioritizedMaterials}
+            materialKitItems={materialKitItems}
             servicesList={prioritizedServices}
             suppliers={suppliers}
             onAddMaterial={() => { setEditingMaterial(null); setIsMaterialModalOpen(true) }}
@@ -1071,6 +1074,8 @@ function App() {
         <Suspense fallback={<OverlayLoading />}>
           <MaterialEditorDialog
             material={editingMaterial}
+            materials={materials}
+            materialKitItems={materialKitItems}
             suppliers={suppliers}
             onCreateSupplier={createSupplier}
             onSave={saveMaterialWithSuppliers}

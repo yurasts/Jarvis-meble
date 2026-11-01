@@ -2,7 +2,7 @@ import clientsRepository from './clientsRepository';
 import catalogRepository from './catalogRepository';
 import suppliersRepository from './suppliersRepository';
 
-export const BOOTSTRAP_RESOURCES = ['clients', 'materials', 'services', 'suppliers'];
+export const BOOTSTRAP_RESOURCES = ['clients', 'materials', 'materialKitItems', 'services', 'suppliers'];
 
 export const loadBootstrapData = async ({
   clientSource = clientsRepository,
@@ -13,6 +13,7 @@ export const loadBootstrapData = async ({
   const loaders = {
     clients: () => clientSource.list(),
     materials: () => catalogSource.listMaterials(),
+    materialKitItems: () => catalogSource.listMaterialKitItems(),
     services: () => catalogSource.listServices(),
     suppliers: () => supplierSource.list(),
   };

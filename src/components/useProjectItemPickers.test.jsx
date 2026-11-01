@@ -74,6 +74,20 @@ describe('useProjectItemPickers', () => {
     expect(result.current.material.groups[0].offers[0].id).toBe('board-a');
   });
 
+  it('never offers a kit component (is_kit_component) as a standalone project material', () => {
+    const materialsWithKitComponent = [
+      ...materials,
+      { id: 'merivobox-side', name: 'Boki Merivobox M L-500 białe (kpl L+P)', category: 'Prowadnice', is_kit_component: true },
+    ];
+    const { result } = renderHook(() => useProjectItemPickers(createProps({ materials: materialsWithKitComponent })));
+
+    const allOfferIds = result.current.material.groups.flatMap(group => group.offers.map(offer => offer.id));
+    expect(allOfferIds).not.toContain('merivobox-side');
+
+    act(() => result.current.material.setSearchTerm('Merivobox'));
+    expect(result.current.material.groups).toHaveLength(0);
+  });
+
   it('sorts and filters available services', () => {
     const { result } = renderHook(() => useProjectItemPickers(createProps()));
 

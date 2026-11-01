@@ -37,7 +37,7 @@ test('calculator: add a drawer cabinet and a wardrobe section, resize, and add t
   await expect(rows).toHaveCount(2);
   const drawerRow = rows.filter({ hasText: 'Szafka dolna z szufladami' });
   const wardrobeRow = rows.filter({ hasText: 'Szafa / Garderoba' });
-  await expect(drawerRow.getByText(/Prowadnice: 3 kpl\./)).toBeVisible();
+  await expect(drawerRow.getByText(/Szufl\. zewn\.: 3 kpl\./)).toBeVisible();
   await expect(wardrobeRow.getByText(/Zawiasy: \d+ szt\./)).toBeVisible();
 
   const bodySheetsBefore = await calculator.getByText(/Korpus: .* m² →/).textContent();
@@ -73,4 +73,55 @@ test('calculator: add a drawer cabinet and a wardrobe section, resize, and add t
   const services = page.getByRole('region', { name: 'Usługi' });
   await expect(services.getByText(cuttingService.name)).toBeVisible();
   await expect(services.getByText(edgingService.name)).toBeVisible();
+});
+
+const drawerExternal = { id: 7, name: 'MERIVOBOX E wysoka szuflada zewnętrzna', category: 'Prowadnice', unit: 'kpl', price: 300, price_history: [] };
+const drawerInternal = { id: 8, name: 'MERIVOBOX M niska szuflada wewnętrzna', category: 'Prowadnice', unit: 'kpl', price: 210, price_history: [] };
+
+test('calculator: 6 identical tumby, each with 1 external MERIVOBOX E drawer + 1 internal MERIVOBOX M drawer', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1300 });
+  const state = await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edge, hinge, drawerExternal, drawerInternal, countertop],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Anna Kowalska', exact: true }).click();
+  await page.getByRole('button', { name: /^Szafa istniejąca/ }).click();
+
+  const materials = page.getByRole('region', { name: 'Materiały' });
+  await materials.getByRole('button', { name: '📐 Kalkulator szafek' }).click();
+  const calculator = page.getByText('📐 Kalkulator szafek — Szybka wycena').locator('..');
+
+  // Blok 1 proponuje osobne selecty zewn./wewn., domyślnie dopasowane po nazwie z katalogu.
+  await expect(calculator.getByLabel('Szuflada / Prowadnica zewn.')).toHaveValue(String(drawerExternal.id));
+  await expect(calculator.getByLabel('Szuflada / Prowadnica wewn.')).toHaveValue(String(drawerInternal.id));
+
+  await calculator.getByRole('button', { name: '+ 🗄️ Szafka dolna z szufladami' }).click();
+  const drawerRow = calculator.locator('li').filter({ hasText: 'Szafka dolna z szufladami' });
+  await drawerRow.getByLabel('Szufl. zewn.').fill('1');
+  await drawerRow.getByLabel('Szufl. wewn.').fill('1');
+  await drawerRow.getByLabel('Ilość').fill('6');
+
+  await expect(calculator.getByText(/Szufl\. zewn\.: 6 kpl\..*Szufl\. wewn\.: 6 kpl\./)).toBeVisible();
+  await expect(calculator.getByText('Szuflady zewn.: 6 kpl.')).toBeVisible();
+  await expect(calculator.getByText('Szuflady wewn.: 6 kpl.')).toBeVisible();
+
+  // Szczegóły wyceny pokazują obie pozycje osobno, z honestymi cenami z katalogu.
+  await calculator.getByRole('button', { name: '🔍 Szczegóły wyceny' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Szczegółowa kalkulacja wyceny' });
+  const extRow = dialog.locator('tr').filter({ hasText: drawerExternal.name });
+  await expect(extRow).toContainText('6 kpl.');
+  await expect(extRow).toContainText('1800.00');
+  const intRow = dialog.locator('tr').filter({ hasText: drawerInternal.name });
+  await expect(intRow).toContainText('6 kpl.');
+  await expect(intRow).toContainText('1260.00');
+  await dialog.getByRole('button', { name: 'Zamknij' }).click();
+
+  await calculator.getByRole('button', { name: '📥 Dodaj wyliczone pozycje do projektu' }).click();
+  await expect(calculator.getByRole('button', { name: '✓ Dodano!' })).toBeVisible();
+
+  await expect.poll(() => state.projects[0].calc_materials?.find(item => item.id === drawerExternal.id)?.quantity).toBe(6);
+  await expect.poll(() => state.projects[0].calc_materials?.find(item => item.id === drawerInternal.id)?.quantity).toBe(6);
 });
