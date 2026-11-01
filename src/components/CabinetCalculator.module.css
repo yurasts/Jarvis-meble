@@ -17,6 +17,32 @@
   font-weight: 700;
 }
 
+.saveStatus {
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.saveStatus[data-variant="saved"] { color: var(--tone-success); }
+.saveStatus[data-variant="error"] { color: var(--tone-danger); }
+
+/* --- Lestnicza ustawień globalnych (Etap B, progressive disclosure) --- */
+.ladderRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ladderCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 /* --- Blok 1: materiały/usługi z katalogu --- */
 .materialsGrid {
   display: grid;
@@ -159,6 +185,104 @@
 .moduleLine {
   margin: 4px 0 0;
   color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+/* --- Lestnicza chipów modułu (Korpus=Front, Obrzeże=Front, typ szuflady, TIP-ON...) --- */
+.chipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-kanban-col);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.chipSelect {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+.chipSelect select {
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-2xs);
+}
+
+.segmented {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.segmented button {
+  padding: 2px 8px;
+  border: none;
+  background: var(--bg-kanban-col);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+}
+.segmented button[data-active="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+}
+
+.innerDrawerStep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 0 14px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+.innerDrawerStep select {
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-2xs);
+}
+
+.innerDrawerCount {
+  box-sizing: border-box;
+  width: 42px;
+  height: 22px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
   font-size: var(--font-size-2xs);
 }
 

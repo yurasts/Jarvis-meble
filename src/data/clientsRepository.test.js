@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CLIENT_COLUMNS, LEGACY_CLIENT_COLUMNS, createClientsRepository } from './clientsRepository';
+import {
+  CLIENT_COLUMNS,
+  CLIENT_COLUMNS_WITHOUT_CALCULATOR_STATE,
+  LEGACY_CLIENT_COLUMNS,
+  createClientsRepository,
+} from './clientsRepository';
 
 vi.mock('../supabase', () => ({ supabase: {} }));
 
@@ -61,28 +66,100 @@ describe('clientsRepository', () => {
     await expect(createClientsRepository({ client }).list()).rejects.toBe(databaseError);
   });
 
-  it('reads the lifecycle columns', () => {
-    expect(CLIENT_COLUMNS.split(',')).toEqual(expect.arrayContaining(['lifecycle_status', 'lifecycle_changed_at']));
+  it('reads the lifecycle and calculator_state columns', () => {
+    expect(CLIENT_COLUMNS.split(',')).toEqual(expect.arrayContaining([
+      'calculator_state', 'lifecycle_status', 'lifecycle_changed_at',
+    ]));
     expect(LEGACY_CLIENT_COLUMNS).not.toContain('lifecycle');
+    expect(LEGACY_CLIENT_COLUMNS).not.toContain('calculator_state');
+    expect(CLIENT_COLUMNS_WITHOUT_CALCULATOR_STATE).not.toContain('calculator_state');
+    expect(CLIENT_COLUMNS_WITHOUT_CALCULATOR_STATE).toContain('lifecycle_status');
   });
 
-  it('falls back to legacy columns before the lifecycle migration and treats rows as active', async () => {
+  it('falls back to legacy columns when BOTH newer migrations are missing (oldest possible database)', async () => {
     const missingColumn = { code: '42703', message: 'column clients.lifecycle_status does not exist' };
-    const select = vi.fn(async columns => (columns === CLIENT_COLUMNS
-      ? { data: null, error: missingColumn }
-      : { data: [{ id: 1 }], error: null }));
+    const select = vi.fn(async columns => (columns === LEGACY_CLIENT_COLUMNS
+      ? { data: [{ id: 1 }], error: null }
+      : { data: null, error: missingColumn }));
     const client = { from: vi.fn(() => ({ select })) };
     const repository = createClientsRepository({ client });
 
     await expect(repository.list()).resolves.toEqual([
-      { id: 1, lifecycle_status: 'active', lifecycle_changed_at: null },
+      { id: 1, calculator_state: {}, lifecycle_status: 'active', lifecycle_changed_at: null },
     ]);
     await repository.list();
     expect(select.mock.calls.map(([columns]) => columns)).toEqual([
       CLIENT_COLUMNS,
+      CLIENT_COLUMNS_WITHOUT_CALCULATOR_STATE,
       LEGACY_CLIENT_COLUMNS,
       LEGACY_CLIENT_COLUMNS,
     ]);
+  });
+
+  // Zgłoszenie: po merge'u kodu Etapu B, przed `supabase db push` migracji calculator_state,
+  // SELECT z pełnym CLIENT_COLUMNS padał (kolumna jeszcze nie istnieje) i cała lista projektów
+  // się nie wczytywała ("Nie udało się załadować: projekty"). Lifecycle jest dużo starszą,
+  // już-wgraną migracją — więc druga próba (bez calculator_state, z lifecycle) musi się powieść.
+  it('falls back to columns without calculator_state when only that (newer) migration is missing', async () => {
+    const missingColumn = { code: 'PGRST204', message: "Could not find the 'calculator_state' column of 'clients' in the schema cache" };
+    const select = vi.fn(async columns => (columns === CLIENT_COLUMNS
+      ? { data: null, error: missingColumn }
+      : { data: [{ id: 1, lifecycle_status: 'archived', lifecycle_changed_at: '2026-01-01T00:00:00Z' }], error: null }));
+    const client = { from: vi.fn(() => ({ select })) };
+    const repository = createClientsRepository({ client });
+
+    await expect(repository.list()).resolves.toEqual([
+      { id: 1, lifecycle_status: 'archived', lifecycle_changed_at: '2026-01-01T00:00:00Z', calculator_state: {} },
+    ]);
+    await repository.list();
+    expect(select.mock.calls.map(([columns]) => columns)).toEqual([
+      CLIENT_COLUMNS,
+      CLIENT_COLUMNS_WITHOUT_CALCULATOR_STATE,
+      CLIENT_COLUMNS_WITHOUT_CALCULATOR_STATE,
+    ]);
+  });
+
+  describe('update() tolerates a missing calculator_state column (migration not pushed yet)', () => {
+    it('drops calculator_state from the payload and retries with the rest of the fields', async () => {
+      const missingColumn = { code: 'PGRST204', message: "Could not find the 'calculator_state' column" };
+      const calls = [];
+      const update = vi.fn((fields) => {
+        calls.push(fields);
+        return { eq: vi.fn(async () => ('calculator_state' in fields
+          ? { data: null, error: missingColumn }
+          : { data: null, error: null })) };
+      });
+      const client = { from: vi.fn(() => ({ update })) };
+
+      await createClientsRepository({ client })
+        .update(42, { status: 'production', calculator_state: { modules: [] } });
+
+      expect(calls).toEqual([
+        { status: 'production', calculator_state: { modules: [] } },
+        { status: 'production' },
+      ]);
+    });
+
+    it('resolves without a second write when calculator_state was the only field', async () => {
+      const missingColumn = { code: '42703' };
+      const eq = vi.fn(async () => ({ data: null, error: missingColumn }));
+      const update = vi.fn(() => ({ eq }));
+      const client = { from: vi.fn(() => ({ update })) };
+
+      await expect(createClientsRepository({ client }).update(42, { calculator_state: {} }))
+        .resolves.toBeUndefined();
+      expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    it('still throws for an unrelated update error', async () => {
+      const databaseError = new Error('RLS denied');
+      const eq = vi.fn(async () => ({ data: null, error: databaseError }));
+      const update = vi.fn(() => ({ eq }));
+      const client = { from: vi.fn(() => ({ update })) };
+
+      await expect(createClientsRepository({ client }).update(42, { calculator_state: {} }))
+        .rejects.toBe(databaseError);
+    });
   });
 
   it('changes the lifecycle of several projects in one request', async () => {

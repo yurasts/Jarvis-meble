@@ -92,6 +92,17 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       void scheduleItemsAutosave(field, newItems, options);
     }
   }, [scheduleItemsAutosave, setClient]);
+  // Kalkulator szafek — osobny autozapis (status "✓ Zapisano w projekcie" we własnej szapce
+  // kalkulatora, nie w głównym wskaźniku Materiały/Usługi powyżej) tej samej klasy co
+  // calc_materials/calc_services: debounce 600ms, persist przez ten sam onAutosaveItems.
+  const {
+    status: calculatorSaveStatus,
+    schedule: scheduleCalculatorAutosave,
+  } = useProjectItemsAutosave({ projectId: client.id, onPersist: persistItems });
+  const handleCalculatorStateChange = useCallback((state) => {
+    setClient(current => ({ ...current, calculator_state: state }));
+    void scheduleCalculatorAutosave('calculator_state', state);
+  }, [scheduleCalculatorAutosave, setClient]);
   const {
     expandedItemKey,
     setExpandedItemKey,
@@ -774,10 +785,14 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
           <>
             {cabinetCalculatorOpen && (
               <CabinetCalculator
+                key={client.id}
                 materials={materials}
                 servicesList={servicesList}
                 projectMultiplier={client.budget_coefficient}
                 onAddToProject={addCalculatedItems}
+                initialState={client.calculator_state}
+                onStateChange={handleCalculatorStateChange}
+                saveStatus={calculatorSaveStatus}
               />
             )}
             {materialOrdersOpen && (
