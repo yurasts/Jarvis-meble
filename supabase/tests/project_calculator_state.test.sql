@@ -31,10 +31,11 @@ reset role;
 
 set local request.jwt.claims = '{"role":"anon"}';
 set local role anon;
-select is(
-  (select count(*) from public.clients where id = 9901),
-  0::bigint,
-  'anonymous users cannot read the project (and so cannot read calculator_state either)'
+select throws_ok(
+  $$select * from public.clients where id = 9901$$,
+  '42501',
+  null,
+  'anonymous requests are rejected before the project (and calculator_state with it) can be exposed'
 );
 reset role;
 
