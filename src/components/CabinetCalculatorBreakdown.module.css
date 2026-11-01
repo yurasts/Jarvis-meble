@@ -11,7 +11,8 @@
 }
 
 .dialog {
-  width: min(820px, 100%);
+  width: 100%;
+  max-width: min(1040px, 96vw);
   max-height: calc(100dvh - 32px);
   overflow: auto;
   border: 1px solid var(--border);
@@ -58,8 +59,15 @@
   font-weight: 700;
 }
 
+/* Desktop/tablet: tabela na pełną szerokość modalu, zawsze zmieszczona — table-layout: fixed z
+   procentowymi kolumnami (patrz colgroup w JSX) gwarantuje, że Cena/Wartość/Po ×N nigdy nie
+   wypadają poza kontener, nawet przy bardzo długich nazwach MERIVOBOX — te łamią się w 1-2
+   zgrabne linie (word-break) zamiast rozpychać tabelę w bok. */
+.tableScroll { width: 100%; }
+
 .table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--font-size-xs);
 }
@@ -69,30 +77,36 @@
   color: var(--text-muted);
   text-align: left;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .table td {
   padding: 5px 8px;
   border-bottom: 1px solid var(--border);
   color: var(--text-main);
-  white-space: nowrap;
+  vertical-align: top;
 }
 .table tbody tr:last-child td { border-bottom: none; }
-.table td:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
+
+.colPozycja { width: 18%; }
+.colMaterial { width: 38%; }
+.colIlosc { width: 14%; }
+.colCena { width: 10%; }
+.colWartosc { width: 10%; }
+.colPoX { width: 10%; }
+
+.materialCell { white-space: normal; word-break: break-word; }
+
+/* Ilość/Cena/Wartość/Po ×N — zawsze w 1 linii, wyrównane do prawej (druga tabela Usługi ma te
+   same 3 ostatnie kolumny bez colgroup — ta sama reguła po pozycji w wierszu). */
+.table td:nth-child(n+3) {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.poX { font-weight: 600; }
 
 .muted { color: var(--text-muted); }
-
-.infoRow { background: var(--bg-kanban-col); color: var(--text-muted); }
-
-.infoBadge {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--text-main) 10%, transparent);
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  font-weight: 600;
-  white-space: nowrap;
-}
 
 .totals {
   display: flex;
@@ -130,7 +144,45 @@
   font-weight: 800;
 }
 
-@media (max-width: 700px) {
-  .dialog { width: 100%; }
-  .table { display: block; overflow-x: auto; }
+/* Wąski ekran: tabela ZAWSZE jako stos kompaktowych kart (nigdy scroll w bok) — każdy <tr> to
+   karta, każdy <td> to jedna linia "Etykieta: wartość" (etykieta z data-label w JSX). */
+@media (max-width: 640px) {
+  .dialog { max-width: 100%; }
+
+  .table, .table thead, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table thead { display: none; }
+
+  .table tr {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-kanban-col);
+  }
+  .table tbody tr:last-child { margin-bottom: 0; }
+  .table tr:has(td[colspan]) { background: transparent; border-style: dashed; }
+
+  .table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    border-bottom: none;
+    white-space: normal;
+    text-align: left;
+  }
+  .table td[data-label]::before {
+    content: attr(data-label) ':';
+    flex: 0 0 auto;
+    margin-right: 6px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .table td:first-child {
+    padding-top: 0;
+    color: var(--text-main);
+    font-weight: 700;
+  }
+  .table td:first-child::before { content: none; }
+  .materialCell { text-align: right; }
 }

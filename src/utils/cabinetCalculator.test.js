@@ -4,11 +4,10 @@ import {
   COUNTERTOP_SHEET_LENGTH_M,
   USABLE_SHEET_AREA_M2,
   buildCabinetCostBreakdown,
-  calculateCabinetMaterialsCost,
-  calculateCabinetWycena,
   computeModule,
   createCabinetModule,
   detectDrawerSystem,
+  drawerTypeToSystem,
   getHingesPerDoor,
   resolveCountertopQuantity,
   summarizeCabinetModules,
@@ -42,12 +41,18 @@ describe('computeModule — W x H x D to m2', () => {
     expect(result.frontEdgeMeters).toBeCloseTo(3.124, 4);
     expect(result.cuttingMeters).toBeCloseTo(8.752, 3);
     expect(result.hinges).toBe(2);
-    expect(result.legs).toBe(4);
+    expect(result.frontLegs).toBe(2);
+    expect(result.rearAxiloLegs).toBe(2);
   });
 
-  it('base_doors: widening past 900mm switches legs from 4 to 6', () => {
-    expect(computeModule(createCabinetModule('base_doors', { W: 900 })).legs).toBe(4);
-    expect(computeModule(createCabinetModule('base_doors', { W: 901 })).legs).toBe(6);
+  // Etap B: nogi dzielą się 50/50 przód (zwykłe)/tył (Axilo) — ten sam próg szerokości co w Etapie A.
+  it('base_doors: widening past 900mm splits legs 3+3 instead of 2+2', () => {
+    const narrow = computeModule(createCabinetModule('base_doors', { W: 900 }));
+    const wide = computeModule(createCabinetModule('base_doors', { W: 901 }));
+    expect(narrow.frontLegs).toBe(2);
+    expect(narrow.rearAxiloLegs).toBe(2);
+    expect(wide.frontLegs).toBe(3);
+    expect(wide.rearAxiloLegs).toBe(3);
   });
 
   it('base_drawers: external drawer sets match the default count, internal defaults to 0', () => {
@@ -79,6 +84,18 @@ describe('computeModule — W x H x D to m2', () => {
     expect(noDrawers.externalDrawerSets).toBe(0);
     expect(withDrawers.bodyAreaM2).toBeGreaterThan(noDrawers.bodyAreaM2);
     expect(withDrawers.frontAreaM2).toBeCloseTo(noDrawers.frontAreaM2, 5);
+  });
+
+  // Etap A liczył tall_cabinet na sztywno 4 nogi niezależnie od szerokości — Etap B ujednolicił
+  // go z resztą typów podłogowych (base_doors/base_drawers/wardrobe_section), bo zgłoszenie mówi
+  // wprost o tym samym podziale 50/50 dla WSZYSTKICH czterech typów.
+  it('tall_cabinet: legs now split by width too (50/50, same threshold as the other floor types)', () => {
+    const narrow = computeModule(createCabinetModule('tall_cabinet', { W: 600 }));
+    const wide = computeModule(createCabinetModule('tall_cabinet', { W: 901 }));
+    expect(narrow.frontLegs).toBe(2);
+    expect(narrow.rearAxiloLegs).toBe(2);
+    expect(wide.frontLegs).toBe(3);
+    expect(wide.rearAxiloLegs).toBe(3);
   });
 
   it('tall_cabinet/wardrobe_section: external+internal drawers add box area but never touch doors-driven fronts/hinges', () => {
@@ -121,7 +138,8 @@ describe('computeModule — W x H x D to m2', () => {
     expect(result.frontEdgeMeters).toBe(0);
     expect(result.cuttingMeters).toBe(0);
     expect(result.hinges).toBe(0);
-    expect(result.legs).toBe(0);
+    expect(result.frontLegs).toBe(0);
+    expect(result.rearAxiloLegs).toBe(0);
   });
 
   it('countertop: linear meters scale with qty only in the summary, not per unit', () => {
@@ -131,6 +149,22 @@ describe('computeModule — W x H x D to m2', () => {
 
   it('throws for an unknown module type instead of silently returning zeros', () => {
     expect(() => computeModule({ type: 'not_a_real_type' })).toThrow();
+  });
+
+  describe('tipOnUnits — Etap B, krok 4.3: 1 szt. per door, only on door-bearing types, only when tipOn is set', () => {
+    it('counts 1 TIP-ON per door when tipOn is set', () => {
+      expect(computeModule(createCabinetModule('base_doors', { doors: 2, tipOn: true })).tipOnUnits).toBe(2);
+      expect(computeModule(createCabinetModule('wall_cabinet', { doors: 1, tipOn: true })).tipOnUnits).toBe(1);
+    });
+
+    it('is 0 when the chip is off, even with doors present', () => {
+      expect(computeModule(createCabinetModule('base_doors', { doors: 2 })).tipOnUnits).toBe(0);
+    });
+
+    it('is 0 for types without doors (base_drawers/countertop), even if tipOn is somehow set', () => {
+      expect(computeModule(createCabinetModule('base_drawers', { tipOn: true })).tipOnUnits).toBe(0);
+      expect(computeModule(createCabinetModule('countertop', { tipOn: true })).tipOnUnits).toBe(0);
+    });
   });
 });
 
@@ -146,6 +180,19 @@ describe('detectDrawerSystem', () => {
     expect(detectDrawerSystem('Blum Tandem L-500')).toBe('wood');
     expect(detectDrawerSystem('')).toBe('wood');
     expect(detectDrawerSystem(undefined)).toBe('wood');
+  });
+});
+
+describe('drawerTypeToSystem — Etap B per-module drawer type chip', () => {
+  it('maps concrete types to their geometry system', () => {
+    expect(drawerTypeToSystem('merivobox_e')).toBe('metal');
+    expect(drawerTypeToSystem('merivobox_m')).toBe('metal');
+    expect(drawerTypeToSystem('tandem')).toBe('wood');
+  });
+
+  it('returns null for "inherit" (or anything unrecognized) — caller falls back to the global system', () => {
+    expect(drawerTypeToSystem('inherit')).toBeNull();
+    expect(drawerTypeToSystem(undefined)).toBeNull();
   });
 });
 
@@ -197,17 +244,12 @@ describe('body edge banding — only the front-visible edge, never the full peri
       const module = createCabinetModule(type);
       const result = computeModule(module);
       if (result.bodyAreaM2 === 0) return;
-      // Pełny periметr typowej forматki korpusu byłby rzędu 2*(W+H) na sztukę — dla pierwszej
-      // lepszej konfiguracji to zawsze grubo ponad to, co faktycznie liczy bodyEdgeMeters. Sama
-      // wartość dodatnia + rozsądny rząd wielkości (mniej niż 2x cuttingMeters) jest wystarczającym
-      // sygnałem, że nie kromkujemy wszystkich czterech boków każdej forматki.
       expect(result.bodyEdgeMeters).toBeGreaterThan(0);
       expect(result.bodyEdgeMeters).toBeLessThan(result.cuttingMeters);
     },
   );
 
   it('a representative multi-module kitchen keeps total edge meaningfully below cutting length', () => {
-    // 3 dolne szafki, 2 górne, 1 słupek, 1 blat — zestaw bliski realnej kuchni ze zgłoszenia.
     const summary = summarizeCabinetModules([
       createCabinetModule('base_doors', { qty: 2 }),
       createCabinetModule('base_drawers', { qty: 1 }),
@@ -215,8 +257,6 @@ describe('body edge banding — only the front-visible edge, never the full peri
       createCabinetModule('tall_cabinet', { H: 2445, doors: 3, qty: 1 }),
       createCabinetModule('countertop', { W: 3255, qty: 1 }),
     ]);
-    // Przed poprawkami ten stosunek wychodził bliski 1 (obrzeże ~= cięcie); po poprawkach jest
-    // wyraźnie niższy, bo korpus kromkuje tylko 1 krawędź na formatkę, a blat już nie dokłada nic.
     expect(summary.edgeMeters / summary.cuttingMeters).toBeLessThan(0.9);
     expect(summary.countertopMeters).toBeCloseTo(3.255, 5);
   });
@@ -253,7 +293,8 @@ describe('summarizeCabinetModules — sheet conversion', () => {
     expect(summary.bodySheets).toBe(2);
     expect(summary.frontSheets).toBe(1);
     expect(summary.hdfSheets).toBe(1);
-    expect(summary.legs).toBe(12); // 2x4 (base_doors, 600mm) + 1x4 (base_drawers, 600mm)
+    expect(summary.frontLegs).toBe(6); // 2x2 (base_doors, 600mm) + 1x2 (base_drawers, 600mm)
+    expect(summary.rearAxiloLegs).toBe(6);
     expect(summary.externalDrawerSets).toBe(3);
     expect(summary.internalDrawerSets).toBe(0);
     expect(summary.hinges).toBe(4); // 2 doors total x 2 hinges (H=820 <= 900mm bracket)
@@ -287,63 +328,106 @@ describe('summarizeCabinetModules — sheet conversion', () => {
       expect(summary.bodySheets).toBeGreaterThanOrEqual(0);
     });
   });
-});
 
-describe('calculateCabinetMaterialsCost + calculateCabinetWycena', () => {
-  const summary = summarizeCabinetModules([
-    createCabinetModule('base_doors', { qty: 2 }),
-    createCabinetModule('base_drawers', { qty: 1 }),
-  ]);
-  const prices = {
-    bodySheetPrice: 180,
-    frontSheetPrice: 220,
-    edgePricePerMeter: 3.5,
-    hingePrice: 6,
-    externalDrawerSetPrice: 45,
-    internalDrawerSetPrice: 999, // nieużywane w tym fixture (internalDrawerSets=0) — strażnik na błędne zliczenie
-    countertopQuantity: 0,
-    countertopPrice: 150,
-    cuttingServicePricePerMeter: 2,
-    edgingServicePricePerMeter: 1.5,
-  };
-
-  it('prices materials (sheets, edge, hinges, drawer sets) and services (cutting, edging) separately', () => {
-    const cost = calculateCabinetMaterialsCost(summary, prices);
-    expect(cost.materialsTotal).toBeCloseTo(817.3552, 2);
-    expect(cost.servicesTotal).toBeCloseTo(86.3648, 2);
-  });
-
-  it('prices the countertop as quantity x price — caller resolves quantity honestly per unit', () => {
-    const withCountertop = calculateCabinetMaterialsCost(summary, { ...prices, countertopQuantity: 3.26, countertopPrice: 150 });
-    const without = calculateCabinetMaterialsCost(summary, prices);
-    expect(withCountertop.materialsTotal - without.materialsTotal).toBeCloseTo(3.26 * 150, 2);
-  });
-
-  it('treats a missing price as 0 instead of throwing (material not selected yet)', () => {
-    const cost = calculateCabinetMaterialsCost(summary, {});
-    expect(cost.materialsTotal).toBe(0);
-    expect(cost.servicesTotal).toBe(0);
-  });
-
-  it('prices external and internal drawer sets separately (e.g. MERIVOBOX E zewn. vs M wewn.)', () => {
-    const tumbaSummary = summarizeCabinetModules([
-      createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1 }),
-    ]);
-    const cost = calculateCabinetMaterialsCost(tumbaSummary, {
-      externalDrawerSetPrice: 300, internalDrawerSetPrice: 210,
+  describe('Etap B — progressive routing (płyta korpus/front/front góra, obrzeże korpus/front)', () => {
+    it('bodyFromFrontBoard (global default) moves every module\'s body area into the front board pool', () => {
+      const modules = [createCabinetModule('base_doors', { qty: 1 })];
+      const normal = summarizeCabinetModules(modules);
+      const routed = summarizeCabinetModules(modules, { bodyFromFrontBoard: true });
+      expect(routed.bodyAreaM2).toBe(0);
+      expect(routed.frontAreaM2).toBeCloseTo(normal.frontAreaM2 + normal.bodyAreaM2, 5);
     });
-    expect(cost.materialsTotal).toBeCloseTo(300 + 210, 6);
+
+    it('a per-module chip (bodyFromFront: true) overrides the global default for just that module', () => {
+      const perUnit = computeModule(createCabinetModule('base_doors'));
+      const summary = summarizeCabinetModules([
+        createCabinetModule('base_doors', { qty: 1, bodyFromFront: true }),
+        createCabinetModule('base_doors', { qty: 1 }),
+      ]); // global default stays OFF
+      expect(summary.bodyAreaM2).toBeCloseTo(perUnit.bodyAreaM2, 5); // only the un-overridden module
+      expect(summary.frontAreaM2).toBeCloseTo(perUnit.frontAreaM2 * 2 + perUnit.bodyAreaM2, 5);
+    });
+
+    it('edgeBodyFromFrontColor (global default) routes body edge meters into the front edge pool, total unchanged', () => {
+      const modules = [createCabinetModule('base_doors', { qty: 1 })];
+      const normal = summarizeCabinetModules(modules);
+      const routed = summarizeCabinetModules(modules, { edgeBodyFromFrontColor: true });
+      expect(routed.bodyEdgeMeters).toBe(0);
+      expect(routed.frontEdgeMeters).toBeCloseTo(normal.frontEdgeMeters + normal.bodyEdgeMeters, 5);
+      expect(routed.edgeMeters).toBeCloseTo(normal.edgeMeters, 5);
+    });
+
+    it('a per-module chip (edgeFromFront: true) overrides the global default for just that module', () => {
+      const summary = summarizeCabinetModules([createCabinetModule('base_doors', { qty: 1, edgeFromFront: true })]);
+      expect(summary.bodyEdgeMeters).toBe(0);
+      expect(summary.frontEdgeMeters).toBeGreaterThan(0);
+    });
+
+    it('separateTopFrontBoard routes wall_cabinet fronts into the "top" pool automatically (always "góra")', () => {
+      const modules = [
+        createCabinetModule('wall_cabinet', { qty: 1 }),
+        createCabinetModule('base_doors', { qty: 1 }),
+      ];
+      const normal = summarizeCabinetModules(modules);
+      const routed = summarizeCabinetModules(modules, { separateTopFrontBoard: true });
+      const wallUnit = computeModule(createCabinetModule('wall_cabinet'));
+      expect(routed.frontTopAreaM2).toBeCloseTo(wallUnit.frontAreaM2, 5);
+      expect(routed.frontAreaM2).toBeCloseTo(normal.frontAreaM2 - wallUnit.frontAreaM2, 5);
+    });
+
+    it('tall_cabinet/wardrobe_section use frontPosition ("dol" default vs "gora") to pick the board pool', () => {
+      const dolSummary = summarizeCabinetModules(
+        [createCabinetModule('tall_cabinet', { qty: 1, frontPosition: 'dol' })], { separateTopFrontBoard: true },
+      );
+      const goraSummary = summarizeCabinetModules(
+        [createCabinetModule('tall_cabinet', { qty: 1, frontPosition: 'gora' })], { separateTopFrontBoard: true },
+      );
+      expect(dolSummary.frontTopAreaM2).toBe(0);
+      expect(dolSummary.frontAreaM2).toBeGreaterThan(0);
+      expect(goraSummary.frontAreaM2).toBe(0);
+      expect(goraSummary.frontTopAreaM2).toBeGreaterThan(0);
+    });
+
+    it('without separateTopFrontBoard, nothing ever routes to the "top" pool, even for wall_cabinet', () => {
+      const summary = summarizeCabinetModules([createCabinetModule('wall_cabinet', { qty: 1 })]);
+      expect(summary.frontTopAreaM2).toBe(0);
+      expect(summary.frontTopSheets).toBe(0);
+    });
   });
 
-  it('computes the final Wycena with the same formula as the rest of the project: materials*multiplier + services', () => {
-    const cost = calculateCabinetMaterialsCost(summary, prices);
-    const wycena = calculateCabinetWycena({
-      materialsTotal: cost.materialsTotal,
-      servicesTotal: cost.servicesTotal,
-      multiplier: 2,
+  describe('Etap B — per-module drawer type override (externalDrawersByType/internalDrawersByType)', () => {
+    it('modules without an override fall into "inherit"; overridden modules go into their own bucket', () => {
+      const summary = summarizeCabinetModules([
+        createCabinetModule('base_drawers', { externalDrawers: 1, qty: 1 }),
+        createCabinetModule('base_drawers', { externalDrawers: 1, qty: 1, drawerType: 'merivobox_e' }),
+        createCabinetModule('base_drawers', { externalDrawers: 1, qty: 1, drawerType: 'tandem' }),
+      ]);
+      expect(summary.externalDrawersByType.inherit).toBe(1);
+      expect(summary.externalDrawersByType.merivobox_e).toBe(1);
+      expect(summary.externalDrawersByType.tandem).toBe(1);
+      expect(summary.externalDrawersByType.merivobox_m).toBe(0);
+      expect(summary.externalDrawerSets).toBe(3); // total unaffected by the type split
     });
-    expect(wycena).toBeCloseTo(cost.materialsTotal * 2 + cost.servicesTotal, 6);
-    expect(wycena).toBeCloseTo(1721.0752, 2);
+
+    it('a merivobox_e/merivobox_m override also switches that module\'s own box geometry to metal', () => {
+      const inheritWood = computeModule(createCabinetModule('base_drawers', { externalDrawers: 1 }));
+      const overridden = summarizeCabinetModules([
+        createCabinetModule('base_drawers', { externalDrawers: 1, qty: 1, drawerType: 'merivobox_e' }),
+      ]); // global options empty -> would default to wood, override forces metal for this module
+      expect(overridden.hdfAreaM2).toBeLessThan(inheritWood.hdfAreaM2);
+    });
+
+    it('internalDrawersByType separates M niska (default/explicit) from E wysoka per module', () => {
+      const summary = summarizeCabinetModules([
+        createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1, qty: 1 }),
+        createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1, qty: 1, internalDrawerType: 'merivobox_m' }),
+        createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1, qty: 1, internalDrawerType: 'merivobox_e' }),
+      ]);
+      expect(summary.internalDrawersByType.inherit).toBe(1);
+      expect(summary.internalDrawersByType.merivobox_m).toBe(1);
+      expect(summary.internalDrawersByType.merivobox_e).toBe(1);
+      expect(summary.internalDrawerSets).toBe(3);
+    });
   });
 });
 
@@ -355,10 +439,18 @@ describe('buildCabinetCostBreakdown', () => {
   const selections = {
     bodyMaterial: { name: 'PL W960 SM Biały', price: 180 },
     frontMaterial: { name: 'U702 ST9 Kaszmir', price: 220 },
-    edgeMaterial: { name: 'ABS 2mm Biały', price: 3.5 },
+    frontMaterialTop: { name: 'U960 SM Biały', price: 230 },
+    edgeMaterialBody: { name: 'ABS W960 SM', price: 1.13 },
+    edgeMaterialFront: { name: 'ABS U702', price: 3.5 },
+    edgeMaterialTop: { name: 'ABS U960', price: 3.6 },
     hinge: { name: 'BLUM Zawias 110°', price: 6 },
-    drawerRunnerExternal: { name: 'Blum Tandem L-500', price: 45 },
-    drawerRunnerInternal: { name: 'Blum Tandem L-500', price: 45 },
+    externalDrawerByType: { inherit: { name: 'Blum Tandem L-500', price: 45 } },
+    internalDrawerByType: { inherit: { name: 'Blum Tandem L-500', price: 45 } },
+    legFront: { name: 'Nogi zwykłe', price: 1 },
+    legRearAxilo: { name: 'Nóżka Axilo HAFELE H-100 mm', price: 4.19 },
+    hdfMaterial: { name: 'HDF BIAŁY 2850x2070x3mm', price: 56.73 },
+    hangerMaterial: { name: 'ZAWIESZKA CAMAR 806 KPL', price: 8 },
+    tipOnMaterial: { name: 'TIP-ON STRONG IF BIAŁY MAGNES MOCNY', price: 14.19 },
     countertop: { name: 'Blat laminowany', price: 150, unit: 'mb' },
     cuttingService: { name: 'Cięcie płyty', price: 2 },
     edgingService: { name: 'Oklejanie PCV', price: 1.5 },
@@ -371,61 +463,88 @@ describe('buildCabinetCostBreakdown', () => {
     expect(byKey('bodySheet')).toMatchObject({ item: selections.bodyMaterial, quantity: summary.bodySheets, unitPrice: 180 });
     expect(byKey('bodySheet').quantityLabel).toBe(`${summary.bodySheets} ark. (${summary.bodyAreaM2.toFixed(2)} m²)`);
     expect(byKey('frontSheet').quantityLabel).toBe(`${summary.frontSheets} ark. (${summary.frontAreaM2.toFixed(2)} m²)`);
+    expect(byKey('frontTopSheet')).toBeUndefined(); // frontTopSheets=0 — separateTopFrontBoard not used here
     expect(byKey('hinge')).toMatchObject({ quantity: summary.hinges, value: summary.hinges * 6 });
-    expect(byKey('drawerRunnerExternal')).toMatchObject({ quantity: summary.externalDrawerSets, value: summary.externalDrawerSets * 45 });
-    expect(byKey('drawerRunnerInternal')).toBeUndefined(); // internalDrawerSets=0 dla tego fixture — wiersz pominięty
+    expect(byKey('drawerExt_inherit')).toMatchObject({ quantity: summary.externalDrawerSets, value: summary.externalDrawerSets * 45 });
+    expect(byKey('drawerInt_inherit')).toBeUndefined(); // internalDrawerSets=0 for this fixture
 
     const cutting = breakdown.serviceRows.find(row => row.key === 'cutting');
     expect(cutting.value).toBeCloseTo(cutting.quantity * 2, 6);
   });
 
-  it('shows two separate priced rows — Szuflada zewn. and Szuflada wewn. — the internal one only when internal sets exist', () => {
-    const noInternalSummary = summarizeCabinetModules([
-      createCabinetModule('base_drawers', { externalDrawers: 3, internalDrawers: 0 }),
-    ]);
-    const noInternalBreakdown = buildCabinetCostBreakdown(noInternalSummary, selections, 2);
-    expect(noInternalBreakdown.materialRows.find(row => row.key === 'drawerRunnerInternal')).toBeUndefined();
-
-    const withInternalSummary = summarizeCabinetModules([
-      createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1 }),
-    ]);
-    const withInternalBreakdown = buildCabinetCostBreakdown(withInternalSummary, {
-      ...selections,
-      drawerRunnerExternal: { name: 'MERIVOBOX E wysoka szuflada zewnętrzna', price: 300 },
-      drawerRunnerInternal: { name: 'MERIVOBOX M niska szuflada wewnętrzna', price: 210 },
-    }, 2);
-    const extRow = withInternalBreakdown.materialRows.find(row => row.key === 'drawerRunnerExternal');
-    const intRow = withInternalBreakdown.materialRows.find(row => row.key === 'drawerRunnerInternal');
-    expect(extRow).toMatchObject({ quantity: 1, unitPrice: 300, value: 300 });
-    expect(intRow).toMatchObject({ quantity: 1, unitPrice: 210, value: 210 });
-  });
-
-  it('realistic scenario: 6 identical tumby, each with 1 external MERIVOBOX E + 1 internal MERIVOBOX M', () => {
-    const summaryOf6 = summarizeCabinetModules(
-      [createCabinetModule('base_drawers', { W: 600, H: 820, D: 520, externalDrawers: 1, internalDrawers: 1, qty: 6 })],
-      { externalDrawerSystem: 'metal', internalDrawerSystem: 'metal' },
-    );
-    expect(summaryOf6.externalDrawerSets).toBe(6);
-    expect(summaryOf6.internalDrawerSets).toBe(6);
-
-    const breakdown = buildCabinetCostBreakdown(summaryOf6, {
-      drawerRunnerExternal: { name: 'MERIVOBOX E wysoka szuflada zewnętrzna', price: 300 },
-      drawerRunnerInternal: { name: 'MERIVOBOX M niska szuflada wewnętrzna', price: 210 },
-    }, 2);
-    const extRow = breakdown.materialRows.find(row => row.key === 'drawerRunnerExternal');
-    const intRow = breakdown.materialRows.find(row => row.key === 'drawerRunnerInternal');
-    expect(extRow.value).toBeCloseTo(6 * 300, 6);
-    expect(intRow.value).toBeCloseTo(6 * 210, 6);
-  });
-
-  it('marks HDF/Nogi/Zawieszki as informational — computed, but no price/selector', () => {
+  it('HDF/Nogi (przednie+Axilo)/Zawieszki are real priced rows now, not informational-only (Etap A)', () => {
     const breakdown = buildCabinetCostBreakdown(summary, selections, 2);
-    expect(breakdown.infoRows.map(row => row.key)).toEqual(['hdf', 'legs', 'hangers']);
-    expect(breakdown.infoRows.find(row => row.key === 'legs').quantityLabel).toBe(`${summary.legs} szt.`);
-    breakdown.infoRows.forEach((row) => {
-      expect(row).not.toHaveProperty('value');
-      expect(row).not.toHaveProperty('unitPrice');
-    });
+    const hdfRow = breakdown.materialRows.find(row => row.key === 'hdf');
+    const legFrontRow = breakdown.materialRows.find(row => row.key === 'legFront');
+    const legRearRow = breakdown.materialRows.find(row => row.key === 'legRearAxilo');
+    expect(hdfRow).toMatchObject({ quantity: summary.hdfSheets, unitPrice: 56.73 });
+    expect(legFrontRow).toMatchObject({ quantity: summary.frontLegs, unitPrice: 1 });
+    expect(legRearRow).toMatchObject({ quantity: summary.rearAxiloLegs, unitPrice: 4.19 });
+    expect(legFrontRow.value).toBeCloseTo(summary.frontLegs * 1, 6);
+    expect(legRearRow.value).toBeCloseTo(summary.rearAxiloLegs * 4.19, 6);
+    // base_doors/base_drawers never produce hangers -> row hidden (qty 0, filtered out).
+    expect(breakdown.materialRows.find(row => row.key === 'hanger')).toBeUndefined();
+  });
+
+  it('creates a separate priced row per drawer TYPE, shown only when its own quantity is > 0', () => {
+    const withTypes = summarizeCabinetModules([
+      createCabinetModule('base_drawers', { externalDrawers: 1, qty: 1 }),
+      createCabinetModule('base_drawers', { externalDrawers: 1, qty: 1, drawerType: 'merivobox_e' }),
+    ]);
+    const breakdown = buildCabinetCostBreakdown(withTypes, {
+      externalDrawerByType: {
+        inherit: { name: 'Blum Tandem L-500', price: 45 },
+        merivobox_e: { name: 'MERIVOBOX E wysoka szuflada zewnętrzna', price: 300 },
+      },
+    }, 2);
+    const inheritRow = breakdown.materialRows.find(row => row.key === 'drawerExt_inherit');
+    const eRow = breakdown.materialRows.find(row => row.key === 'drawerExt_merivobox_e');
+    expect(inheritRow).toMatchObject({ quantity: 1, unitPrice: 45, value: 45 });
+    expect(eRow).toMatchObject({ quantity: 1, unitPrice: 300, value: 300 });
+    expect(breakdown.materialRows.find(row => row.key === 'drawerExt_merivobox_m')).toBeUndefined();
+    expect(breakdown.materialRows.find(row => row.key === 'drawerExt_tandem')).toBeUndefined();
+  });
+
+  // Dokładnie scenariusz ze zgłoszenia: jedna tumba z niską wewnętrzną M (210 zł), druga z wysoką
+  // wewnętrzną E ze szkłem (290 zł) — każda wyceniona swoją własną pozycją katalogu.
+  it('realistic scenario: one tumba with internal M niska (210 zł), another with internal E wysoka (290 zł)', () => {
+    const summaryMixed = summarizeCabinetModules([
+      createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1, internalDrawerType: 'merivobox_m', qty: 1 }),
+      createCabinetModule('base_drawers', { externalDrawers: 1, internalDrawers: 1, internalDrawerType: 'merivobox_e', qty: 1 }),
+    ]);
+    const breakdown = buildCabinetCostBreakdown(summaryMixed, {
+      internalDrawerByType: {
+        merivobox_m: { name: 'MERIVOBOX M niska szuflada wewnętrzna', price: 210 },
+        merivobox_e: { name: 'MERIVOBOX E wysoka szuflada wewnętrzna ze szkłem', price: 290 },
+      },
+    }, 2);
+    const mRow = breakdown.materialRows.find(row => row.key === 'drawerInt_merivobox_m');
+    const eRow = breakdown.materialRows.find(row => row.key === 'drawerInt_merivobox_e');
+    expect(mRow).toMatchObject({ quantity: 1, value: 210 });
+    expect(eRow).toMatchObject({ quantity: 1, value: 290 });
+  });
+
+  it('TIP-ON is a real priced row, 1 per door, only when tipOn is set on a door-bearing module', () => {
+    const tipOnSummary = summarizeCabinetModules([createCabinetModule('base_doors', { doors: 2, tipOn: true, qty: 1 })]);
+    const breakdown = buildCabinetCostBreakdown(tipOnSummary, {
+      tipOnMaterial: { name: 'TIP-ON STRONG IF BIAŁY MAGNES MOCNY', price: 14.19 },
+    }, 2);
+    const row = breakdown.materialRows.find(r => r.key === 'tipOn');
+    expect(row).toMatchObject({ quantity: 2, unitPrice: 14.19, value: 2 * 14.19 });
+  });
+
+  // Etap B, krok 1.4: w rozliczeniu widać tylko pozycje realnie użyte w projekcie.
+  it('never shows a row with zero quantity', () => {
+    const breakdown = buildCabinetCostBreakdown(summary, selections, 2);
+    breakdown.materialRows.forEach(row => expect(row.quantity).toBeGreaterThan(0));
+    breakdown.serviceRows.forEach(row => expect(row.quantity).toBeGreaterThan(0));
+  });
+
+  it('shows no rows at all for an empty project', () => {
+    const emptyBreakdown = buildCabinetCostBreakdown(summarizeCabinetModules([]), selections, 2);
+    expect(emptyBreakdown.materialRows).toEqual([]);
+    expect(emptyBreakdown.serviceRows).toEqual([]);
+    expect(emptyBreakdown.materialsTotal).toBe(0);
   });
 
   it('shows whole sheets, not meters, when the countertop material is priced "szt"', () => {
@@ -440,20 +559,6 @@ describe('buildCabinetCostBreakdown', () => {
     expect(row.value).toBeCloseTo(3 * 600, 6);
   });
 
-  it('sums rows into totals that match calculateCabinetMaterialsCost for the equivalent flat prices', () => {
-    const breakdown = buildCabinetCostBreakdown(summary, selections, 2);
-    const equivalentCost = calculateCabinetMaterialsCost(summary, {
-      bodySheetPrice: 180, frontSheetPrice: 220, edgePricePerMeter: 3.5, hingePrice: 6,
-      externalDrawerSetPrice: 45, internalDrawerSetPrice: 45,
-      countertopQuantity: 0, countertopPrice: 150,
-      cuttingServicePricePerMeter: 2, edgingServicePricePerMeter: 1.5,
-    });
-    // calculateCabinetMaterialsCost uses raw (unrounded) edge/cutting meters, breakdown rounds to
-    // 2 decimals for display — expect them close, not bit-for-bit identical.
-    expect(breakdown.materialsTotal).toBeCloseTo(equivalentCost.materialsTotal, 1);
-    expect(breakdown.servicesTotal).toBeCloseTo(equivalentCost.servicesTotal, 1);
-  });
-
   it('RAZEM equals materials*multiplier + services, the same formula used everywhere else', () => {
     const breakdown = buildCabinetCostBreakdown(summary, selections, 3);
     expect(breakdown.multiplier).toBe(3);
@@ -466,9 +571,14 @@ describe('buildCabinetCostBreakdown', () => {
     expect(breakdown.multiplier).toBe(2);
   });
 
-  it('never throws when no material/service has been selected yet', () => {
+  it('never throws when no material/service has been selected — rows with real quantity still show, just unpriced', () => {
     const breakdown = buildCabinetCostBreakdown(summary, {}, 2);
-    expect(breakdown.materialRows.every(row => row.item === null)).toBe(true);
+    expect(breakdown.materialRows.length).toBeGreaterThan(0);
+    breakdown.materialRows.forEach((row) => {
+      expect(row.item).toBeNull();
+      expect(row.unitPrice).toBe(0);
+      expect(row.value).toBe(0);
+    });
     expect(breakdown.materialsTotal).toBe(0);
     expect(breakdown.wycena).toBe(0);
   });

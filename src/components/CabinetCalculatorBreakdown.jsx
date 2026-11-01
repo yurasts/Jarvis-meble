@@ -4,9 +4,10 @@ const PLN = value => `${Number(value || 0).toFixed(2)} zł`;
 
 // Modal «Szczegóły wyceny» — постатейная расшифровка Orientacyjna wycena из Kalkulator szafek.
 // Чисто презентационный компонент: все суммы уже посчитаны в cabinetCalculator.js
-// (buildCabinetCostBreakdown) — тут только отображение, никакой арифметики.
+// (buildCabinetCostBreakdown) — тут только отображение, никакой арифметики. Строки с нулевым
+// количеством туда уже не попадают (Etap B, krok 1.4) — показываем только то, что пришло.
 export default function CabinetCalculatorBreakdown({ breakdown, onClose }) {
-  const { materialRows, infoRows, serviceRows, materialsTotal, materialsScaled, servicesTotal, multiplier, wycena } = breakdown;
+  const { materialRows, serviceRows, materialsTotal, materialsScaled, servicesTotal, multiplier, wycena } = breakdown;
 
   return (
     <div className={s.overlay} role="presentation" onMouseDown={event => {
@@ -19,63 +20,77 @@ export default function CabinetCalculatorBreakdown({ breakdown, onClose }) {
         </header>
 
         <div className={s.body}>
-          <h4 className={s.blockTitle}>Materiały (liczone × współczynnik)</h4>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th>Pozycja (Kategoria)</th>
-                <th>Wybrany materiał</th>
-                <th>Wyliczona ilość</th>
-                <th>Cena jedn. (zł)</th>
-                <th>Wartość (zł)</th>
-                <th>Po współczynniku ×{multiplier} (zł)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {materialRows.map(row => (
-                <tr key={row.key}>
-                  <td>{row.label}</td>
-                  <td>{row.item?.name || <span className={s.muted}>— nie wybrano —</span>}</td>
-                  <td>{row.quantityLabel}</td>
-                  <td>{row.unitPrice.toFixed(2)}</td>
-                  <td>{row.value.toFixed(2)}</td>
-                  <td>{row.scaledValue.toFixed(2)}</td>
+          <h4 className={s.blockTitle}>Materiały (× współczynnik)</h4>
+          <div className={s.tableScroll}>
+            <table className={s.table}>
+              <colgroup>
+                <col className={s.colPozycja} />
+                <col className={s.colMaterial} />
+                <col className={s.colIlosc} />
+                <col className={s.colCena} />
+                <col className={s.colWartosc} />
+                <col className={s.colPoX} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Pozycja</th>
+                  <th>Wybrany materiał</th>
+                  <th>Ilość</th>
+                  <th>Cena jedn.</th>
+                  <th>Wartość</th>
+                  <th>Po ×{multiplier}</th>
                 </tr>
-              ))}
-              {infoRows.map(row => (
-                <tr key={row.key} className={s.infoRow}>
-                  <td>{row.label}</td>
-                  <td className={s.muted}>—</td>
-                  <td>{row.quantityLabel}</td>
-                  <td colSpan={3}><span className={s.infoBadge}>informacyjnie (0.00 zł)</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {materialRows.map(row => (
+                  <tr key={row.key}>
+                    <td data-label="Pozycja">{row.label}</td>
+                    <td data-label="Wybrany materiał" className={s.materialCell}>
+                      {row.item?.name || <span className={s.muted}>— nie wybrano —</span>}
+                    </td>
+                    <td data-label="Ilość">{row.quantityLabel}</td>
+                    <td data-label="Cena jedn.">{row.unitPrice.toFixed(2)}</td>
+                    <td data-label="Wartość">{row.value.toFixed(2)}</td>
+                    <td data-label={`Po ×${multiplier}`} className={s.poX}>{row.scaledValue.toFixed(2)}</td>
+                  </tr>
+                ))}
+                {materialRows.length === 0 && (
+                  <tr><td colSpan={6} className={s.muted}>Brak pozycji — dodaj moduł, żeby zobaczyć rozliczenie.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <h4 className={s.blockTitle}>Usługi (bez mnożnika)</h4>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th>Usługa</th>
-                <th>Wybrana pozycja</th>
-                <th>Ilość</th>
-                <th>Cena jedn. (zł)</th>
-                <th>Wartość (zł)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {serviceRows.map(row => (
-                <tr key={row.key}>
-                  <td>{row.label}</td>
-                  <td>{row.item?.name || <span className={s.muted}>— nie wybrano —</span>}</td>
-                  <td>{row.quantity.toFixed(2)} mb</td>
-                  <td>{row.unitPrice.toFixed(2)}</td>
-                  <td>{row.value.toFixed(2)}</td>
+          <div className={s.tableScroll}>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  <th>Usługa</th>
+                  <th>Wybrana pozycja</th>
+                  <th>Ilość</th>
+                  <th>Cena jedn.</th>
+                  <th>Wartość</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {serviceRows.map(row => (
+                  <tr key={row.key}>
+                    <td data-label="Usługa">{row.label}</td>
+                    <td data-label="Wybrana pozycja" className={s.materialCell}>
+                      {row.item?.name || <span className={s.muted}>— nie wybrano —</span>}
+                    </td>
+                    <td data-label="Ilość">{row.quantity.toFixed(2)} mb</td>
+                    <td data-label="Cena jedn.">{row.unitPrice.toFixed(2)}</td>
+                    <td data-label="Wartość">{row.value.toFixed(2)}</td>
+                  </tr>
+                ))}
+                {serviceRows.length === 0 && (
+                  <tr><td colSpan={5} className={s.muted}>Brak usług.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <div className={s.totals}>
             <div className={s.totalRow}>

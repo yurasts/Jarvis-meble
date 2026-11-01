@@ -61,6 +61,7 @@ const emptyProject = {
   budget_coefficient: 2,
   cover_url: null,
   important_points: [],
+  calculator_state: {},
 };
 
 const requestBody = (request) => {

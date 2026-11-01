@@ -101,6 +101,7 @@ test('calculator: 6 identical tumby, each with 1 external MERIVOBOX E drawer + 1
   await calculator.getByRole('button', { name: '+ 🗄️ Szafka dolna z szufladami' }).click();
   const drawerRow = calculator.locator('li').filter({ hasText: 'Szafka dolna z szufladami' });
   await drawerRow.getByLabel('Szufl. zewn.').fill('1');
+  await drawerRow.getByLabel('+ Szufl. wewnętrzna').check();
   await drawerRow.getByLabel('Szufl. wewn.').fill('1');
   await drawerRow.getByLabel('Ilość').fill('6');
 
