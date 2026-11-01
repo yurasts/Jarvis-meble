@@ -11,6 +11,7 @@ describe('loadBootstrapData', () => {
     };
     const catalogSource = {
       listMaterials: vi.fn(async () => [{ id: 'material' }]),
+      listMaterialKitItems: vi.fn(async () => [{ kit_material_id: 1, component_material_id: 2, quantity: 1 }]),
       listServices: vi.fn(async () => [{ id: 'service' }]),
     };
     const supplierSource = { list: vi.fn(async () => [{ id: 'supplier' }]) };
@@ -19,6 +20,7 @@ describe('loadBootstrapData', () => {
 
     expect(clientSource.list).toHaveBeenCalledOnce();
     expect(catalogSource.listMaterials).toHaveBeenCalledOnce();
+    expect(catalogSource.listMaterialKitItems).toHaveBeenCalledOnce();
     expect(catalogSource.listServices).toHaveBeenCalledOnce();
     expect(supplierSource.list).toHaveBeenCalledOnce();
 
@@ -26,6 +28,7 @@ describe('loadBootstrapData', () => {
     await expect(pending).resolves.toEqual({
       clients: [{ id: 'client' }],
       materials: [{ id: 'material' }],
+      materialKitItems: [{ kit_material_id: 1, component_material_id: 2, quantity: 1 }],
       services: [{ id: 'service' }],
       suppliers: [{ id: 'supplier' }],
       errors: {},
@@ -37,6 +40,7 @@ describe('loadBootstrapData', () => {
     const clientSource = { list: vi.fn(async () => { throw networkError; }) };
     const catalogSource = {
       listMaterials: vi.fn(async () => [{ id: 'material' }]),
+      listMaterialKitItems: vi.fn(async () => []),
       listServices: vi.fn(async () => [{ id: 'service' }]),
     };
     const supplierSource = { list: vi.fn(async () => [{ id: 'supplier' }]) };
@@ -44,6 +48,7 @@ describe('loadBootstrapData', () => {
     await expect(loadBootstrapData({ clientSource, catalogSource, supplierSource })).resolves.toEqual({
       clients: null,
       materials: [{ id: 'material' }],
+      materialKitItems: [],
       services: [{ id: 'service' }],
       suppliers: [{ id: 'supplier' }],
       errors: { clients: networkError },
@@ -73,6 +78,6 @@ describe('loadBootstrapData', () => {
   });
 
   it('exports the complete resource list used by initial loading', () => {
-    expect(BOOTSTRAP_RESOURCES).toEqual(['clients', 'materials', 'services', 'suppliers']);
+    expect(BOOTSTRAP_RESOURCES).toEqual(['clients', 'materials', 'materialKitItems', 'services', 'suppliers']);
   });
 });

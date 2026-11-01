@@ -91,6 +91,7 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
   services = [],
   suppliers = [],
   materialSupplierLinks = [],
+  materialKitItems = [],
 } = {}) {
   const remainingFailures = { ...failures };
   const defaultProfiles = [{
@@ -110,10 +111,11 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
     userPresence: userPresence.map(presence => ({ ...presence })),
     driveSyncState: driveSyncState ? { ...driveSyncState } : null,
     projectFiles: projectFiles.map(file => ({ ...file })),
-    materials: materials.map(item => ({ is_favorite: false, ...item })),
+    materials: materials.map(item => ({ is_favorite: false, is_kit_component: false, ...item })),
     services: services.map(item => ({ is_favorite: false, ...item })),
     suppliers: suppliers.map(item => ({ is_archived: false, ...item })),
     materialSupplierLinks: materialSupplierLinks.map(item => ({ ...item })),
+    materialKitItems: materialKitItems.map(item => ({ ...item })),
     requests: {},
   };
 
@@ -329,6 +331,11 @@ export async function installAuthenticatedSupabaseMock(page, initialProjects = [
 
     if (resource === 'material_suppliers') {
       await jsonResponse(route, state.materialSupplierLinks);
+      return;
+    }
+
+    if (resource === 'material_kit_items') {
+      await jsonResponse(route, state.materialKitItems);
       return;
     }
 

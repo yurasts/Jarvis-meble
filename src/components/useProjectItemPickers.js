@@ -90,7 +90,8 @@ const useProjectItemPickers = ({
   const filteredMaterialGroups = useMemo(() => {
     const query = materialSearchTerm.trim();
     const matchingMaterials = sortCatalogByPriority((materials || []).filter(material => (
-      materialMatchesQuery(material, query)
+      !material.is_kit_component
+      && materialMatchesQuery(material, query)
       && (!materialCategoryFilter || material.category === materialCategoryFilter)
       && materialHasSupplier(material, materialSupplierFilter)
     )));

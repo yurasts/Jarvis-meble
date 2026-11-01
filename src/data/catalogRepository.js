@@ -14,6 +14,7 @@ export const BASE_MATERIAL_COLUMNS = [
   'symbol',
   'price_history',
   'is_favorite',
+  'is_kit_component',
 ].join(',');
 
 export const MATERIAL_COLUMNS = [
@@ -22,6 +23,12 @@ export const MATERIAL_COLUMNS = [
 ].join(',');
 
 export const SERVICE_COLUMNS = ['id', 'name', 'price', 'is_favorite'].join(',');
+
+// material_kit_items ma DWA FK do materials (kit_material_id/component_material_id) — zamiast
+// rozwiązywać niejednoznaczny embed w jednym zapytaniu, trzymamy je jako osobny, płaski zasób
+// (ten sam wzorzec odporności na brak migracji co listMaterials/BASE_MATERIAL_COLUMNS wyżej) i
+// składamy "kit -> components" po stronie klienta z już wczytanej listy materials.
+export const KIT_ITEM_COLUMNS = ['kit_material_id', 'component_material_id', 'quantity'].join(',');
 
 const unwrap = ({ data, error }) => {
   if (error) throw error;
@@ -43,6 +50,17 @@ export const createCatalogRepository = ({ client = supabase, logger = console } 
 
   async listServices() {
     return unwrap(await client.from('services').select(SERVICE_COLUMNS)) || [];
+  },
+
+  async listMaterialKitItems() {
+    const result = await client.from('material_kit_items').select(KIT_ITEM_COLUMNS);
+    if (result.error) {
+      logger.error(result.error);
+      // Migracja material_kit_items mogła jeszcze nie zostać wypchnięta — skład zestawu jest
+      // czysto informacyjny (UI), więc jego brak nie może zablokować wczytania reszty katalogu.
+      return [];
+    }
+    return result.data || [];
   },
 
   async createMaterial(fields) {

@@ -91,4 +91,43 @@ describe('MaterialEditorDialog', () => {
       links: [expect.objectContaining({ supplier_id: 's3', is_preferred: true })],
     }));
   });
+
+  describe('🧩 Skład zestawu', () => {
+    const materials = [
+      { id: 1, name: 'MERIVOBOX E wysoka szuflada zewnętrzna', price: 300 },
+      { id: 2, name: 'Prowadnice Merivobox L-500 40kg (kpl L+P)', price: 25, unit: 'kpl' },
+    ];
+    const materialKitItems = [{ kit_material_id: 1, component_material_id: 2, quantity: 1 }];
+
+    it('shows the pill for a kit material and expands its components on click', async () => {
+      const user = userEvent.setup();
+      render(<MaterialEditorDialog
+        material={materials[0]}
+        materials={materials}
+        materialKitItems={materialKitItems}
+        suppliers={suppliers}
+        onCreateSupplier={vi.fn()}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />);
+
+      const pill = screen.getByRole('button', { name: '🧩 Skład zestawu (1 el.)' });
+      expect(screen.queryByText('Prowadnice Merivobox L-500 40kg (kpl L+P)')).not.toBeInTheDocument();
+      await user.click(pill);
+      expect(screen.getByText('Prowadnice Merivobox L-500 40kg (kpl L+P)')).toBeInTheDocument();
+    });
+
+    it('shows no pill for a material with no kit items (plain component or non-kit material)', () => {
+      render(<MaterialEditorDialog
+        material={materials[1]}
+        materials={materials}
+        materialKitItems={materialKitItems}
+        suppliers={suppliers}
+        onCreateSupplier={vi.fn()}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />);
+      expect(screen.queryByText(/Skład zestawu/)).not.toBeInTheDocument();
+    });
+  });
 });

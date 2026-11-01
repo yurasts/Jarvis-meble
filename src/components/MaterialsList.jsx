@@ -4,7 +4,9 @@ import { useIsDesktop } from '../utils/useIsDesktop';
 import MobileMaterialsCatalog from './MobileMaterialsCatalog';
 import CatalogFavoriteButton from './CatalogFavoriteButton';
 import SuppliersDirectory from './SuppliersDirectory';
+import KitBreakdownPill from './KitBreakdownPill';
 import { materialSupplierNames } from '../utils/materialSuppliers';
+import { kitComponentsFor } from '../utils/materialKits';
 import s from './MaterialsList.module.css';
 
 // Стрелка тренда цены
@@ -54,6 +56,7 @@ const PriceTrend = ({ mat }) => {
 
 const MaterialsList = ({
   materials,
+  materialKitItems,
   servicesList,
   suppliers,
   onAddMaterial,
@@ -79,6 +82,11 @@ const MaterialsList = ({
   const [searchMat,     setSearchMat]     = useState('');
   const [filterCatMat,  setFilterCatMat]  = useState('');
   const [activeDirectory, setActiveDirectory] = useState('materials');
+  // Drobne komponenty zestawów (MERIVOBOX i inne) są domyślnie ukryte — zaśmiecałyby listę; ten
+  // checkbox odkrywa je na żądanie (np. żeby poprawić cenę pojedynczej boczki).
+  const [showKitComponents, setShowKitComponents] = useState(false);
+  const kitComponentCount = materials.filter(m => m.is_kit_component).length;
+  const visibleMaterials = showKitComponents ? materials : materials.filter(m => !m.is_kit_component);
 
   if (activeDirectory === 'suppliers') {
     return <SuppliersDirectory
@@ -129,8 +137,8 @@ const MaterialsList = ({
               <h3 style={{ margin: 0, color: text, fontSize: '16px' }}>📦 Materiały</h3>
               <span style={{ fontSize: '12px', color: textLight }}>
                 {(searchMat || filterCatMat)
-                  ? `${materials.filter(m => { const q = searchMat.toLowerCase(); return (!q || (m.name||'').toLowerCase().includes(q) || (m.symbol||'').toLowerCase().includes(q)) && (!filterCatMat || m.category === filterCatMat); }).length} / ${materials.length}`
-                  : `${materials.length} poz.`}
+                  ? `${visibleMaterials.filter(m => { const q = searchMat.toLowerCase(); return (!q || (m.name||'').toLowerCase().includes(q) || (m.symbol||'').toLowerCase().includes(q)) && (!filterCatMat || m.category === filterCatMat); }).length} / ${visibleMaterials.length}`
+                  : `${visibleMaterials.length} poz.`}
               </span>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -166,6 +174,12 @@ const MaterialsList = ({
                 style={{ padding: '6px 10px', borderRadius: '6px', border: `1px solid ${border}`, background: 'transparent', color: textLight, cursor: 'pointer', fontSize: '12px' }}
               >✕ Wyczyść</button>
             )}
+            {kitComponentCount > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '0 6px', color: textLight, fontSize: '12px', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={showKitComponents} onChange={e => setShowKitComponents(e.target.checked)} />
+                Pokaż elementy składowe ({kitComponentCount})
+              </label>
+            )}
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -182,7 +196,7 @@ const MaterialsList = ({
                 </tr>
               </thead>
               <tbody>
-                {materials.filter(mat => {
+                {visibleMaterials.filter(mat => {
                     const q = searchMat.toLowerCase();
                     const supplierSearch = materialSupplierNames(mat).join(' ').toLowerCase();
                     const matchSearch = !q || (mat.name || '').toLowerCase().includes(q) || (mat.symbol || '').toLowerCase().includes(q) || supplierSearch.includes(q);
@@ -199,6 +213,7 @@ const MaterialsList = ({
                       <span className={s.catalogNameCell}>
                         <CatalogFavoriteButton item={mat} kind="material" onToggle={onToggleFavorite} compact />
                         <span>{mat.name}</span>
+                        <KitBreakdownPill components={kitComponentsFor(mat.id, materialKitItems, materials)} />
                       </span>
                     </td>
                     <td style={{ padding: '3px 8px', borderBottom: `1px solid ${border}`, color: textLight }}>{mat.unit}</td>

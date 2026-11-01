@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CabinetCalculator from './CabinetCalculator';
 
@@ -91,5 +91,162 @@ describe('CabinetCalculator', () => {
     fireEvent.click(screen.getByRole('button', { name: /Dodaj wyliczone pozycje/ }));
 
     expect(await screen.findByRole('button', { name: '✓ Dodano!' })).toBeInTheDocument();
+  });
+
+  describe('🔍 Szczegóły wyceny', () => {
+    const open = () => {
+      renderCalculator();
+      fireEvent.click(screen.getByRole('button', { name: '+ 🚪 Szafka dolna z drzwiami' }));
+      fireEvent.click(screen.getByRole('button', { name: '🔍 Szczegóły wyceny' }));
+      return within(screen.getByRole('dialog', { name: 'Szczegółowa kalkulacja wyceny' }));
+    };
+
+    it('is disabled until there is at least one module', () => {
+      renderCalculator();
+      expect(screen.getByRole('button', { name: '🔍 Szczegóły wyceny' })).toBeDisabled();
+    });
+
+    it('lists every Blok 1 material row with the selected name, quantity, unit price and value', () => {
+      const dialog = open();
+
+      // Dla base_doors domyślnej wielkości: 1 arkusz korpusu i frontu, 2 zawiasy, brak prowadnic/blatu.
+      const bodyRow = dialog.getByText('PL W960 SM Biały').closest('tr');
+      expect(bodyRow).toHaveTextContent('Płyta korpusu');
+      expect(bodyRow).toHaveTextContent('1 ark. (1.72 m²)');
+      expect(bodyRow).toHaveTextContent('180.00');
+
+      const hingeRow = dialog.getByText('BLUM Zawias 110°').closest('tr');
+      expect(hingeRow).toHaveTextContent('2 szt.');
+      expect(hingeRow).toHaveTextContent('12.00'); // 2 x 6 zł
+
+      // base_doors nie ma szuflad — Szuflada zewn. ma wybrany materiał, ale ilość/wartość = 0;
+      // wiersz Szuflada wewn. jest całkowicie pominięty (internalDrawerSets=0).
+      const runnerRow = dialog.getByText('Szuflada zewn.', { selector: 'td' }).closest('tr');
+      expect(runnerRow).toHaveTextContent('Blum Tandem L-500');
+      expect(runnerRow).toHaveTextContent('0 kpl.');
+      expect(dialog.queryByText('Szuflada wewn.', { selector: 'td' })).not.toBeInTheDocument();
+    });
+
+    it('marks HDF/Nogi/Zawieszki as informacyjnie (0.00 zł) — computed but not priced', () => {
+      const dialog = open();
+      ['HDF', 'Nogi', 'Zawieszki'].forEach((label) => {
+        const row = dialog.getByText(label, { selector: 'td' }).closest('tr');
+        expect(row).toHaveTextContent('informacyjnie (0.00 zł)');
+      });
+    });
+
+    it('lists the cutting/edging services without the multiplier applied', () => {
+      const dialog = open();
+      // Etykieta wiersza i nazwa wybranej usługi w katalogu brzmią tu identycznie
+      // ("Cięcie płyty" / "Oklejanie PCV"), stąd getAllByText — pierwszy trafiony węzeł
+      // leży i tak w tym samym <tr>, więc closest('tr') daje ten sam wiersz.
+      const cuttingRow = dialog.getAllByText('Cięcie płyty')[0].closest('tr');
+      expect(cuttingRow).toHaveTextContent('2.00'); // cena jedn.
+
+      const edgingRow = dialog.getAllByText('Oklejanie PCV')[0].closest('tr');
+      expect(edgingRow).toHaveTextContent('1.50');
+    });
+
+    it('shows totals that reconcile: materials, materials x multiplier, services, and RAZEM', () => {
+      const dialog = open();
+      expect(dialog.getByText('Suma materiałów (netto/bazowa):')).toBeInTheDocument();
+      expect(dialog.getByText('Materiały × współczynnik (×2):')).toBeInTheDocument();
+      expect(dialog.getByText('Suma usług:')).toBeInTheDocument();
+      const razem = dialog.getByText('RAZEM ORIENTACYJNA WYCENA:').closest('div');
+      expect(razem).toHaveTextContent('zł');
+    });
+
+    it('the headline Orientacyjna wycena figure is also clickable and opens the same modal', () => {
+      renderCalculator();
+      fireEvent.click(screen.getByRole('button', { name: '+ 🚪 Szafka dolna z drzwiami' }));
+      fireEvent.click(screen.getByText(/^\d+\.\d{2} zł$/));
+      expect(screen.getByRole('dialog', { name: 'Szczegółowa kalkulacja wyceny' })).toBeInTheDocument();
+    });
+
+    it('closes on the × button', () => {
+      const dialog = open();
+      fireEvent.click(dialog.getByRole('button', { name: 'Zamknij' }));
+      expect(screen.queryByRole('dialog', { name: 'Szczegółowa kalkulacja wyceny' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Szuflady zewnętrzne/wewnętrzne (MERIVOBOX)', () => {
+    // Realny scenariusz: 1 zewnętrzna szuflada z widocznym frontem (MERIVOBOX E) + 1 wewnętrzna,
+    // schowana za nim (MERIVOBOX M) — obie w kategorii Prowadnice, bez starego "m-runner".
+    const merivoboxMaterials = [
+      ...materials.filter(item => item.id !== 'm-runner'),
+      { id: 'm-merivobox-e', name: 'MERIVOBOX E wysoka szuflada zewnętrzna', category: 'Prowadnice', price: 300 },
+      { id: 'm-merivobox-m', name: 'MERIVOBOX M niska szuflada wewnętrzna', category: 'Prowadnice', price: 210 },
+    ];
+
+    it('Blok 1 oferuje dwa osobne selecty — zewn. domyślnie MERIVOBOX E, wewn. domyślnie MERIVOBOX M', () => {
+      renderCalculator({ materials: merivoboxMaterials });
+      expect(screen.getByLabelText('Szuflada / Prowadnica zewn.')).toHaveValue('m-merivobox-e');
+      expect(screen.getByLabelText('Szuflada / Prowadnica wewn.')).toHaveValue('m-merivobox-m');
+    });
+
+    it('moduł ma dwa pola — Szufl. zewn. i Szufl. wewn. — i liczy je osobno na żywo', () => {
+      renderCalculator({ materials: merivoboxMaterials });
+      fireEvent.click(screen.getByRole('button', { name: '+ 🗄️ Szafka dolna z szufladami' }));
+
+      fireEvent.change(screen.getByLabelText('Szufl. zewn.'), { target: { value: '1' } });
+      fireEvent.change(screen.getByLabelText('Szufl. wewn.'), { target: { value: '1' } });
+      expect(screen.getByText(/Szufl\. zewn\.: 1 kpl\..*Szufl\. wewn\.: 1 kpl\./)).toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Ilość'), { target: { value: '6' } });
+      expect(screen.getByText((_, node) => node?.textContent === 'Szuflady zewn.: 6 kpl.')).toBeInTheDocument();
+      expect(screen.getByText((_, node) => node?.textContent === 'Szuflady wewn.: 6 kpl.')).toBeInTheDocument();
+    });
+
+    it('Szczegóły wyceny pokazują obie pozycje osobno — 6 × MERIVOBOX E (300) i 6 × MERIVOBOX M (210)', () => {
+      renderCalculator({ materials: merivoboxMaterials });
+      fireEvent.click(screen.getByRole('button', { name: '+ 🗄️ Szafka dolna z szufladami' }));
+      fireEvent.change(screen.getByLabelText('Szufl. zewn.'), { target: { value: '1' } });
+      fireEvent.change(screen.getByLabelText('Szufl. wewn.'), { target: { value: '1' } });
+      fireEvent.change(screen.getByLabelText('Ilość'), { target: { value: '6' } });
+
+      fireEvent.click(screen.getByRole('button', { name: '🔍 Szczegóły wyceny' }));
+      const dialog = within(screen.getByRole('dialog', { name: 'Szczegółowa kalkulacja wyceny' }));
+
+      const extRow = dialog.getByText('MERIVOBOX E wysoka szuflada zewnętrzna').closest('tr');
+      expect(extRow).toHaveTextContent('Szuflada zewn.');
+      expect(extRow).toHaveTextContent('6 kpl.');
+      expect(extRow).toHaveTextContent('300.00');
+      expect(extRow).toHaveTextContent('1800.00');
+
+      const intRow = dialog.getByText('MERIVOBOX M niska szuflada wewnętrzna').closest('tr');
+      expect(intRow).toHaveTextContent('Szuflada wewn.');
+      expect(intRow).toHaveTextContent('6 kpl.');
+      expect(intRow).toHaveTextContent('210.00');
+      expect(intRow).toHaveTextContent('1260.00');
+    });
+
+    it('never offers a kit component (is_kit_component) in the Szuflada selects', () => {
+      renderCalculator({
+        materials: [
+          ...merivoboxMaterials,
+          { id: 'm-merivobox-side', name: 'Boki Merivobox M L-500 białe (kpl L+P)', category: 'Prowadnice', price: 12, is_kit_component: true },
+        ],
+      });
+      const externalSelect = screen.getByLabelText('Szuflada / Prowadnica zewn.');
+      const internalSelect = screen.getByLabelText('Szuflada / Prowadnica wewn.');
+      expect(within(externalSelect).queryByText('Boki Merivobox M L-500 białe (kpl L+P)')).not.toBeInTheDocument();
+      expect(within(internalSelect).queryByText('Boki Merivobox M L-500 białe (kpl L+P)')).not.toBeInTheDocument();
+    });
+
+    it('Dodaj wyliczone pozycje przenosi obie pozycje do projektu z ilością 6 każda', () => {
+      const { onAddToProject } = renderCalculator({ materials: merivoboxMaterials });
+      fireEvent.click(screen.getByRole('button', { name: '+ 🗄️ Szafka dolna z szufladami' }));
+      fireEvent.change(screen.getByLabelText('Szufl. zewn.'), { target: { value: '1' } });
+      fireEvent.change(screen.getByLabelText('Szufl. wewn.'), { target: { value: '1' } });
+      fireEvent.change(screen.getByLabelText('Ilość'), { target: { value: '6' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Dodaj wyliczone pozycje/ }));
+
+      const { materialLines } = onAddToProject.mock.calls[0][0];
+      const byId = id => materialLines.find(line => line.item.id === id);
+      expect(byId('m-merivobox-e')).toMatchObject({ quantity: 6 });
+      expect(byId('m-merivobox-m')).toMatchObject({ quantity: 6 });
+    });
   });
 });

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { normalizePreferredSupplierLinks } from '../utils/materialSuppliers';
+import { kitComponentsFor } from '../utils/materialKits';
+import KitBreakdownPill from './KitBreakdownPill';
 import s from './MaterialEditorDialog.module.css';
 
 const emptyMaterial = {
@@ -17,7 +19,8 @@ const initialLinks = (material) => (material?.material_suppliers || []).map(link
   is_preferred: Boolean(link.is_preferred),
 }));
 
-export default function MaterialEditorDialog({ material, suppliers, onCreateSupplier, onSave, onClose }) {
+export default function MaterialEditorDialog({ material, materials, materialKitItems, suppliers, onCreateSupplier, onSave, onClose }) {
+  const kitComponents = material ? kitComponentsFor(material.id, materialKitItems, materials) : [];
   const [form, setForm] = useState(() => material ? {
     name: material.name || '',
     symbol: material.symbol || '',
@@ -166,6 +169,7 @@ export default function MaterialEditorDialog({ material, suppliers, onCreateSupp
         </header>
         <form className={s.form} onSubmit={submit}>
           <label>Pełna nazwa<input required value={form.name} onChange={setField('name')} /></label>
+          {kitComponents.length > 0 && <KitBreakdownPill components={kitComponents} />}
           <div className={s.gridTwo}>
             <label>Artykuł<input value={form.symbol} onChange={setField('symbol')} /></label>
             <label>Cena brutto (PLN)<input required min="0" step="0.01" type="number" value={form.price} onChange={setField('price')} /></label>
