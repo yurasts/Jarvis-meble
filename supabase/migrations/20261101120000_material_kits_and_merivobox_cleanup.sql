@@ -51,12 +51,18 @@ where category = 'Inne'
   and name ilike 'MERIVOBOX %';
 
 -- Czwarty komplet (M niska szuflada wewnętrzna) może jeszcze nie istnieć w katalogu — dopisywany
--- tylko gdy naprawdę go nie ma (po nazwie, nie po id).
+-- tylko gdy naprawdę go nie ma, i tylko gdy katalog faktycznie ZNA już rodzinę MERIVOBOX (czyli to
+-- prawdziwy, niepusty katalog produkcyjny, a nie świeża/testowa baza bez żadnych danych) — inaczej
+-- ta migracja uruchomiona na czystej bazie (CI, `supabase db reset`) tworzyłaby z niczego cały
+-- produkt i wstawiała trwały wiersz do `materials`, co psuje niezwiązane testy pgTAP liczące
+-- wiersze tej tabeli (np. core_access_policies.test.sql zakłada pustą `materials` poza własnym
+-- fixture'em).
 insert into public.materials (name, category, unit, price)
 select 'MERIVOBOX M niska szuflada wewnętrzna, L=500 mm, 40 kg', 'Prowadnice', 'kpl', 210.00
-where not exists (
-  select 1 from public.materials where name ilike 'MERIVOBOX M niska szuflada wewnętrzna%'
-);
+where exists (select 1 from public.materials where name ilike 'MERIVOBOX %')
+  and not exists (
+    select 1 from public.materials where name ilike 'MERIVOBOX M niska szuflada wewnętrzna%'
+  );
 
 -- 2) Pełna lista 29 komponentów z faktur ABO (białe) i SOLpłyt (szare) — dokładne mapowanie
 --    symbol (Artykuł, niezmieniony — skaner faktur dalej go rozpoznaje) -> czytelna nazwa, plus
