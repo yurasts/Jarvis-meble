@@ -84,10 +84,10 @@ e) Ignoruj kolejność słów: "Biały Klasyczny SM" = "SM Biały Klasyczny" = "
 f) Skróty: PL=Płyta, ABS=Obrzeże ABS, HDF=Płyta HDF, LM=Laminat
 
 PRZYKŁADY DOPASOWANIA:
-- Faktura: "PL W960 SM 2800x2070x18 Biały Klasyczny SM" → Baza: "PL W960 SM 2800x2070x18 Biały Klasyczny SM" ✓ PASUJE
-- Faktura: "ABS W1000 ST9 23x0,8mm Biały Premium NEW" → Baza: "ABS W1000 ST9 23x0,8mm Biały Premium" ✓ PASUJE (ignoruj NEW)
-- Faktura: "Płyta wiórowa 18mm Biały Alpejski 2800x2070" → Baza: "PL U702 ST9 2800x2070x18 Biały Alpejski" ✓ PASUJE (kod U702=Biały Alpejski)
-- Faktura: "LAMINAT H3730 1000x1310 Hikora" → Baza: "LAMINAT H3730 ST10 1000x1310x0,6mm Hikora Naturalna" ✓ PASUJE
+- Faktura: "PL W960 SM 2800x2070x18 Biały Klasyczny SM" → Baza: "Płyta meblowa W960 SM Biały Klasyczny — 2800×2070×18 mm" ✓ PASUJE
+- Faktura: "ABS W1000 ST9 23x0,8mm Biały Premium NEW" → Baza: "Obrzeże ABS W1000 ST9 Biały Premium — 23×0,8 mm" ✓ PASUJE (ignoruj NEW)
+- Faktura: "Płyta wiórowa 18mm Biały Alpejski 2800x2070" → Baza: "Płyta meblowa W1100 ST9 Biały alpejski — 2800×2070×18 mm" ✓ PASUJE
+- Faktura: "LAMINAT H3730 1000x1310 Hikora" → Baza: "Laminat H3730 ST10 Hikora naturalna — 1000×1310×0,6 mm" ✓ PASUJE
 
 KROK 3 — Porównaj ceny:
 - Cena na fakturze = cena BRUTTO za jednostkę (z VAT 23%)
