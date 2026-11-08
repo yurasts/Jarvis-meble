@@ -12,6 +12,7 @@ import {
   resolveCountertopQuantity,
   summarizeCabinetModules,
 } from '../utils/cabinetCalculator';
+import { findCabinetDefaultMaterial } from '../utils/cabinetMaterialDefaults';
 import { sortCatalogByPriority } from '../utils/catalogPriority';
 import CabinetCalculatorBreakdown from './CabinetCalculatorBreakdown';
 import s from './CabinetCalculator.module.css';
@@ -32,6 +33,13 @@ const DEFAULT_SETTINGS = {
 const byCategory = (materials, category) => (materials || []).filter(item => item.category === category);
 const byNameHint = (items, hint) => {
   const matches = (items || []).filter(item => String(item.name || '').toLocaleLowerCase('pl').includes(hint));
+  return matches.length > 0 ? matches : items;
+};
+const byNameHints = (items, hints) => {
+  const matches = (items || []).filter(item => {
+    const name = String(item.name || '').toLocaleLowerCase('pl');
+    return hints.some(hint => name.includes(hint));
+  });
   return matches.length > 0 ? matches : items;
 };
 
@@ -89,7 +97,10 @@ const ROLE_OPTIONS = {
   hinge: { label: 'Zawiasy', pool: (materials) => byCategory(materials, 'Zawiasy') },
   drawerRunnerExternal: { label: 'Szuflada / Prowadnica zewn.', pool: drawerPool },
   drawerRunnerInternal: { label: 'Szuflada / Prowadnica wewn.', pool: drawerPool },
-  legFront: { label: 'Nogi przednie (zwykłe)', pool: (materials) => byNameHint(materials, 'nogi zwykłe') },
+  legFront: {
+    label: 'Nogi przednie (zwykłe)',
+    pool: (materials) => byNameHints(materials, ['nóżka meblowa cokołowa', 'standardowa', 'nogi zwykłe']),
+  },
   legRearAxilo: { label: 'Nogi tylne (Axilo)', pool: (materials) => byNameHint(materials, 'axilo') },
   hdfMaterial: { label: 'HDF', pool: (materials) => byNameHint(materials, 'hdf') },
   hangerMaterial: { label: 'Zawieszki', pool: (materials) => byNameHint(materials, 'zawieszka') },
@@ -214,6 +225,8 @@ export default function CabinetCalculator({
 
   const selectedId = (role, pools) => {
     if (selection[role] !== undefined) return selection[role];
+    const catalogueDefault = findCabinetDefaultMaterial(pools[role], role);
+    if (catalogueDefault) return catalogueDefault.id;
     if (role === 'frontMaterial') return suggestId(pools[role], selectedId('bodyMaterial', pools));
     if (role === 'edgeMaterialFront') return suggestId(pools[role], selectedId('edgeMaterialBody', pools));
     if (role === 'drawerRunnerInternal') {

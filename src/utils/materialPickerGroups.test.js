@@ -7,10 +7,10 @@ import {
 
 describe('materialPickerGroups', () => {
   const materials = [
-    { id: 'board-a', name: 'PL W960 2800x2070x18 Bia\u0142y', symbol: 'W960', category: 'P\u0142yta', supplier: 'ABC' },
+    { id: 'board-a', name: 'P\u0142yta meblowa W960 SM Bia\u0142y Klasyczny \u2014 2800\u00d72070\u00d718 mm', symbol: 'W960', category: 'P\u0142yta', supplier: 'ABC' },
     { id: 'board-b', name: 'W960 SM Bia\u0142y klasyczny', symbol: 'W960', category: 'P\u0142yta', supplier: 'XYZ' },
-    { id: 'abs-thin', name: 'ABS W960 23x0,8mm Bia\u0142y', symbol: 'W960', category: 'Obrze\u017ce', supplier: 'ABC' },
-    { id: 'abs-thick', name: 'ABS W960 43x2,0mm Bia\u0142y', symbol: 'W960', category: 'Obrze\u017ce', supplier: 'ABC' },
+    { id: 'abs-thin', name: 'Obrze\u017ce ABS W960 SM Bia\u0142y \u2014 23\u00d70,8 mm', symbol: 'W960', category: 'Obrze\u017ce', supplier: 'ABC' },
+    { id: 'abs-thick', name: 'Obrze\u017ce ABS W960 SM Bia\u0142y \u2014 43\u00d72,0 mm', symbol: 'W960', category: 'Obrze\u017ce', supplier: 'ABC' },
   ];
 
   it('groups equivalent boards while keeping ABS dimensions separate', () => {

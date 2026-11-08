@@ -44,7 +44,7 @@ const getBareNumericCode = (material) => {
 };
 
 const extractDimension = (material) => {
-  const normalized = String(material?.name || '').replace(/,/g, '.').replace(/[?*]/g, 'x');
+  const normalized = String(material?.name || '').replace(/,/g, '.').replace(/[×?*]/g, 'x');
   const matches = normalized.match(/\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?(?:\s*x\s*\d+(?:\.\d+)?)?/gi) || [];
   if (!matches.length) return '';
   return matches
