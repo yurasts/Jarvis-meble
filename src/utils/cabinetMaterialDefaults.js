@@ -1,44 +1,67 @@
-const searchableText = (item) => `${item?.name || ''} ${item?.symbol || ''}`
+const normalizeText = (value) => String(value || '')
   .toLocaleLowerCase('pl')
   .replaceAll('×', 'x');
 
-const includesAll = (...parts) => (item) => {
-  const text = searchableText(item);
+const includesAll = (value, parts) => {
+  const text = normalizeText(value);
   return parts.every(part => text.includes(part));
 };
 
-const matchesAny = (...matchers) => (item) => matchers.some(matcher => matcher(item));
+const inSymbol = (...parts) => (item) => includesAll(item?.symbol, parts);
+const inCatalogueText = (...parts) => (item) => (
+  includesAll(`${item?.name || ''} ${item?.symbol || ''}`, parts)
+);
 
-// Kolejność matcherów jest celowa: najpierw stabilny kod producenta/dekoru, a dopiero potem
-// zgodność ze starszą nazwą. Dzięki temu literackie nazwy katalogowe nie zmieniają domyślnego
-// wyposażenia kalkulatora, ale stare fixture'y i projekty pozostają obsługiwane.
+// Each role has ordered tiers: a stable manufacturer/decor symbol always wins over a textual
+// fallback. This matters after articles such as 71B3550 move out of name into symbol.
 const ROLE_DEFAULT_MATCHERS = {
-  bodyMaterial: matchesAny(
-    includesAll('w960', 'biały'),
-    includesAll('w960', 'bialy'),
-  ),
-  edgeMaterialBody: matchesAny(
-    includesAll('w960', '23x0,8'),
-    includesAll('w960', '23x0.8'),
-  ),
-  hinge: includesAll('71b3550'),
-  legFront: matchesAny(
-    includesAll('nóżka meblowa cokołowa', 'standardowa'),
-    includesAll('nogi zwykłe'),
-  ),
-  legRearAxilo: matchesAny(
-    includesAll('axilo', 'h=100'),
-    includesAll('axilo', 'h-100'),
-  ),
-  hdfMaterial: includesAll('hdf'),
-  hangerMaterial: includesAll('camar 806'),
-  tipOnMaterial: matchesAny(
-    includesAll('956a1004'),
-    includesAll('tip-on', 'długa', 'magnes'),
-  ),
+  bodyMaterial: [
+    inSymbol('w960'),
+    inCatalogueText('w960', 'biały'),
+    inCatalogueText('w960', 'bialy'),
+  ],
+  edgeMaterialBody: [
+    inSymbol('abs', 'w960'),
+    inCatalogueText('w960', '23x0,8'),
+    inCatalogueText('w960', '23x0.8'),
+  ],
+  hinge: [
+    (item) => normalizeText(item?.symbol).trim() === '71b3550',
+    (item) => normalizeText(item?.symbol).trim() === '71t3550',
+    inCatalogueText('71b3550'),
+    inCatalogueText('71t3550'),
+  ],
+  legFront: [
+    inCatalogueText('nóżka meblowa cokołowa', 'standardowa'),
+    inCatalogueText('nogi zwykłe'),
+  ],
+  legRearAxilo: [
+    inSymbol('axilo', 'h-100'),
+    inCatalogueText('axilo', 'h=100'),
+    inCatalogueText('axilo', 'h-100'),
+  ],
+  hdfMaterial: [inCatalogueText('hdf')],
+  hangerMaterial: [
+    inSymbol('camar 807'),
+    inCatalogueText('camar 807'),
+    inSymbol('camar 806'),
+    inCatalogueText('camar 806'),
+  ],
+  tipOnMaterial: [
+    (item) => normalizeText(item?.symbol).trim() === '956a1004',
+    inCatalogueText('956a1004'),
+    inCatalogueText('tip-on', 'długi', 'magnes'),
+    inCatalogueText('tip-on', 'długa', 'magnes'),
+  ],
 };
 
 export const findCabinetDefaultMaterial = (items, role) => {
-  const matcher = ROLE_DEFAULT_MATCHERS[role];
-  return matcher ? (items || []).find(matcher) || null : null;
+  const matchers = ROLE_DEFAULT_MATCHERS[role];
+  if (!matchers) return null;
+
+  for (const matcher of matchers) {
+    const match = (items || []).find(matcher);
+    if (match) return match;
+  }
+  return null;
 };
