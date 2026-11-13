@@ -12,6 +12,9 @@ CREATE TABLE "public"."materials" (
   CONSTRAINT "materials_pkey" PRIMARY KEY (id)
 );
 
+CREATE UNIQUE INDEX "materials_name_normalized_unique_idx"
+  ON "public"."materials" (lower(btrim(name)));
+
 ALTER TABLE "public"."materials"
   ENABLE ROW LEVEL SECURITY;
 

@@ -1,3 +1,5 @@
+import { findEquivalentMaterial } from './materialPickerGroups';
+
 export const normalizeCatalogName = (value) => String(value || '')
   .trim()
   .replace(/\s+/g, ' ')
@@ -40,7 +42,9 @@ export const createOrReuseCatalogItem = async ({ kind, draft, items = [], reposi
   const normalizedName = normalizeCatalogName(name);
   if (!normalizedName) throw new Error('Nazwa jest wymagana.');
 
-  const existing = items.find(item => normalizeCatalogName(item.name) === normalizedName);
+  const existing = kind === 'material'
+    ? findEquivalentMaterial(items, { ...draft, name })
+    : items.find(item => normalizeCatalogName(item.name) === normalizedName);
   if (existing) {
     return {
       item: {

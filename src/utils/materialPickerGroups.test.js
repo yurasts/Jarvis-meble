@@ -50,6 +50,22 @@ describe('materialPickerGroups', () => {
     expect(equivalent?.id).toBe('board-a');
   });
 
+  it('finds a non-board material by manufacturer symbol despite different invoice wording', () => {
+    const equivalent = findEquivalentMaterial([{
+      id: 'hinge',
+      name: 'Zawias 110° nakładany Blum CLIP top BLUMOTION',
+      symbol: '71B3550',
+      category: 'Akcesoria',
+    }], {
+      id: 'candidate',
+      name: 'Blum zawias nakładany z domykiem',
+      symbol: '71B3550',
+      category: 'Zawiasy',
+    });
+
+    expect(equivalent?.id).toBe('hinge');
+  });
+
   it('keeps compact H1367 boards and both ABS cross-sections unambiguous', () => {
     const compactMaterials = [
       { id: 'h1367-board', name: 'PL H1367 ST40 Dąb Casella naturalny jasny', symbol: 'PL H1367 ST40', category: 'Płyta' },

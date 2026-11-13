@@ -185,6 +185,24 @@ export const groupMaterialsForPicker = (materials = []) => {
 };
 
 export const findEquivalentMaterial = (materials = [], candidate) => {
+  const candidateName = normalizeKey(candidate?.name);
+  if (candidateName) {
+    const exactNameMatch = materials.find(material => normalizeKey(material?.name) === candidateName);
+    if (exactNameMatch) return exactNameMatch;
+  }
+
+  const candidateKind = getMaterialKind(candidate).key;
+  const candidateSymbol = normalizeProductCode(candidate?.symbol);
+  const specializedIdentityKinds = ['abs', 'laminate', 'board'];
+  if (candidateSymbol && !specializedIdentityKinds.includes(candidateKind)) {
+    const exactSymbolMatch = materials.find((material) => {
+      const materialKind = getMaterialKind(material).key;
+      return !specializedIdentityKinds.includes(materialKind)
+        && normalizeProductCode(material?.symbol) === candidateSymbol;
+    });
+    if (exactSymbolMatch) return exactSymbolMatch;
+  }
+
   const contextMaterials = [...materials, candidate];
   const context = buildIdentityContext(contextMaterials);
   const candidateKey = getMaterialIdentity(candidate, context).key;
