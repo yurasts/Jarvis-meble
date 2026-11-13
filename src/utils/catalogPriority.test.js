@@ -48,6 +48,60 @@ describe('catalogPriority', () => {
     expect(repository.createMaterial).not.toHaveBeenCalled();
   });
 
+  it('reuses a material with the same manufacturer symbol even when invoice wording differs', async () => {
+    const repository = { createMaterial: vi.fn() };
+    const existing = {
+      id: 11,
+      name: 'Zawias 110° nakładany Blum CLIP top BLUMOTION',
+      symbol: '71B3550',
+      category: 'Akcesoria',
+      unit: 'szt',
+    };
+
+    const result = await createOrReuseCatalogItem({
+      kind: 'material',
+      draft: {
+        name: 'Blum zawias nakładany z domykiem',
+        symbol: '71B3550',
+        category: 'Zawiasy',
+        price: 12,
+      },
+      items: [existing],
+      repository,
+    });
+
+    expect(result).toEqual({ item: existing, created: false });
+    expect(repository.createMaterial).not.toHaveBeenCalled();
+  });
+
+  it('does not merge ABS offers that share a decor symbol but have different cross-sections', async () => {
+    const saved = {
+      id: 13,
+      name: 'ABS U702 ST9 Kaszmir (43×2,0)',
+      symbol: 'ABS U702 ST9',
+      category: 'Obrzeże',
+      unit: 'mb',
+      price: 4,
+      is_favorite: false,
+    };
+    const repository = { createMaterial: vi.fn(async () => saved) };
+
+    const result = await createOrReuseCatalogItem({
+      kind: 'material',
+      draft: saved,
+      items: [{
+        id: 12,
+        name: 'ABS U702 ST9 Kaszmir (23×0,8)',
+        symbol: 'ABS U702 ST9',
+        category: 'Obrzeże',
+      }],
+      repository,
+    });
+
+    expect(result).toEqual({ item: saved, created: true });
+    expect(repository.createMaterial).toHaveBeenCalledOnce();
+  });
+
   it('creates a service with safe defaults when no duplicate exists', async () => {
     const saved = { id: 12, name: 'Montaż', price: 120, is_favorite: false };
     const repository = { createService: vi.fn(async () => saved) };
