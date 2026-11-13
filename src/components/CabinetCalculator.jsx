@@ -22,6 +22,7 @@ import {
   summarizeCabinetModules,
   syncModuleHeights,
 } from '../utils/cabinetCalculator';
+import { findCabinetDefaultMaterial } from '../utils/cabinetMaterialDefaults';
 import { sortCatalogByPriority } from '../utils/catalogPriority';
 import CabinetFrontDrawing from './CabinetFrontDrawing';
 import { CabinetModuleIcon } from './CabinetModuleIcons';
@@ -42,6 +43,13 @@ const DEFAULT_SETTINGS = {};
 const byCategory = (materials, category) => (materials || []).filter(item => item.category === category);
 const byNameHint = (items, hint) => {
   const matches = (items || []).filter(item => String(item.name || '').toLocaleLowerCase('pl').includes(hint));
+  return matches.length > 0 ? matches : items;
+};
+const byNameHints = (items, hints) => {
+  const matches = (items || []).filter(item => {
+    const name = String(item.name || '').toLocaleLowerCase('pl');
+    return hints.some(hint => name.includes(hint));
+  });
   return matches.length > 0 ? matches : items;
 };
 
@@ -93,17 +101,24 @@ const avoidByNameHints = (items, hints) => {
 // słowo "zawias" w nazwie), DOPIERO na tej oczyszczonej liście szuka hinta — fallback (brak
 // trafienia) nigdy więc nie wróci zawiasu, co najwyżej inną (nie-zawiasową) pozycję.
 const isHingeMaterial = (item) => item?.category === 'Zawiasy' || /zawias/i.test(String(item?.name || ''));
-const legPool = (materials, hint) => byNameHint((materials || []).filter(item => !isHingeMaterial(item)), hint);
+// Etap AE, krok 1 — `hint` może być pojedynczym słowem (jak dawniej) albo tablicą kilku słów
+// (main dodał bogatszą listę dla legFront po normalizacji nazw katalogu, Etap AC zostaje przy 1 dla
+// legRearAxilo) — `byNameHints` (dopasowanie KTÓREGOKOLWIEK z nich) obsługuje oba przypadki jednolicie.
+const legPool = (materials, hint) => byNameHints((materials || []).filter(item => !isHingeMaterial(item)), Array.isArray(hint) ? hint : [hint]);
 
 // Szuflady zewnętrzne (z widocznym frontem, np. MERIVOBOX E) i wewnętrzne (schowane za frontem,
 // np. MERIVOBOX M) wybiera się z tej samej puli katalogu — kategoria `Prowadnice` plus wszystko,
 // co po nazwie wygląda na system szuflad (nawet jeśli ktoś je skatalogował w innej kategorii).
 const DRAWER_HINT_WORDS = ['szuflada zewnętrzna', 'szuflada wewnętrzna', 'merivobox', 'tandembox', 'legrabox', 'tandem'];
 const drawerPool = (materials) => {
-  const byNameHints = (materials || []).filter(item => (
+  // Etap AE, krok 1 — przemianowane z (lokalnego) `byNameHints` na `drawerNameMatches`: ta nazwa
+  // zaczęła kolidować z nowym, GLOBALNYM helperem `byNameHints` scalonym z main (#49/#50) — to był
+  // zawsze zwykły, przefiltrowany ARRAY, nie wołanie tamtej funkcji, ale dwie różne rzeczy o tej
+  // samej nazwie w tym samym pliku to pewny błąd prędzej czy później.
+  const drawerNameMatches = (materials || []).filter(item => (
     DRAWER_HINT_WORDS.some(hint => String(item.name || '').toLocaleLowerCase('pl').includes(hint))
   ));
-  const merged = [...byCategory(materials, 'Prowadnice'), ...byNameHints]
+  const merged = [...byCategory(materials, 'Prowadnice'), ...drawerNameMatches]
     .filter((item, index, all) => all.findIndex(other => other.id === item.id) === index);
   return merged.length > 0 ? merged : (materials || []);
 };
@@ -145,7 +160,10 @@ const ROLE_OPTIONS = {
   drawerExternalLow: { label: 'Szuflada zewn. niska (M)', pool: drawerPool },
   drawerInternalHigh: { label: 'Szuflada wewn. wysoka (E)', pool: drawerPool },
   drawerInternalLow: { label: 'Szuflada wewn. niska (M)', pool: drawerPool },
-  legFront: { label: 'Nogi przednie (zwykłe)', pool: (materials) => legPool(materials, 'nogi zwykłe') },
+  // Etap AE, krok 1 — scalenie z main (#49/#50, "chore(materials): catalog literary/compact names"):
+  // ten sam fix na hinge-exclusion (legPool, Etap AC, krok 2) pozostaje, ale hint dla legFront
+  // dostaje DODATKOWE, bogatsze słowa kluczowe z main (nazwy po normalizacji katalogu).
+  legFront: { label: 'Nogi przednie (zwykłe)', pool: (materials) => legPool(materials, ['nóżka meblowa cokołowa', 'standardowa', 'nogi zwykłe']) },
   legRearAxilo: { label: 'Nogi tylne (Axilo)', pool: (materials) => legPool(materials, 'axilo') },
   hdfMaterial: { label: 'HDF', pool: (materials) => byNameHint(materials, 'hdf') },
   hangerMaterial: { label: 'Zawieszki', pool: (materials) => byNameHint(materials, 'zawieszka') },
@@ -1176,6 +1194,15 @@ export default function CabinetCalculator({
     // Rola opcjonalna, jawnie wyczyszczona przez użytkownika (value="") — zostaje pusta, to
     // świadomy wybór "brak tego materiału w projekcie", nie błąd stanu do naprawienia.
     if (OPTIONAL_ROLES.has(role) && stored === '') return '';
+
+    // Etap AE, krok 1 — scalenie z main (#49/#50): zanim spadniemy na "pierwsza pozycja wg
+    // sortCatalogByPriority" (suggestId), spróbuj NAJPIERW dopasować realny symbol/nazwę z katalogu
+    // (np. dokładny symbol zawiasu/nóżki) — `findCabinetDefaultMaterial` działa na JUŻ oczyszczonej
+    // puli (`pool` tu przefiltrowanej np. przez legPool wyżej), więc nie omija hinge-exclusion itp.
+    // `frontMaterial`/`bodyMaterial`/`edgeMaterialBody`/`drawerRunnerExternal`/`drawerRunnerInternal`
+    // z main NIE istnieją już w tym modelu (Etap I, krok 4 przeniósł je do boardsByKey) — pomijamy.
+    const catalogueDefault = findCabinetDefaultMaterial(pool, role);
+    if (catalogueDefault) return catalogueDefault.id;
 
     if (role === 'hingeSoftClose') {
       return suggestId(pool, undefined, c => preferByNameHints(c, SOFT_CLOSE_HINGE_HINTS));

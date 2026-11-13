@@ -7,10 +7,10 @@ import {
 
 describe('materialPickerGroups', () => {
   const materials = [
-    { id: 'board-a', name: 'PL W960 2800x2070x18 Bia\u0142y', symbol: 'W960', category: 'P\u0142yta', supplier: 'ABC' },
+    { id: 'board-a', name: 'PL W960 SM Bia\u0142y Klasyczny', symbol: 'PL W960 SM', category: 'P\u0142yta', supplier: 'ABC' },
     { id: 'board-b', name: 'W960 SM Bia\u0142y klasyczny', symbol: 'W960', category: 'P\u0142yta', supplier: 'XYZ' },
-    { id: 'abs-thin', name: 'ABS W960 23x0,8mm Bia\u0142y', symbol: 'W960', category: 'Obrze\u017ce', supplier: 'ABC' },
-    { id: 'abs-thick', name: 'ABS W960 43x2,0mm Bia\u0142y', symbol: 'W960', category: 'Obrze\u017ce', supplier: 'ABC' },
+    { id: 'abs-thin', name: 'ABS W960 SM Bia\u0142y (23\u00d70,8)', symbol: 'ABS W960 SM', category: 'Obrze\u017ce', supplier: 'ABC' },
+    { id: 'abs-thick', name: 'ABS W960 SM Bia\u0142y (43\u00d72,0)', symbol: 'ABS W960 SM', category: 'Obrze\u017ce', supplier: 'ABC' },
   ];
 
   it('groups equivalent boards while keeping ABS dimensions separate', () => {
@@ -48,5 +48,20 @@ describe('materialPickerGroups', () => {
     });
 
     expect(equivalent?.id).toBe('board-a');
+  });
+
+  it('keeps compact H1367 boards and both ABS cross-sections unambiguous', () => {
+    const compactMaterials = [
+      { id: 'h1367-board', name: 'PL H1367 ST40 Dąb Casella naturalny jasny', symbol: 'PL H1367 ST40', category: 'Płyta' },
+      { id: 'h1367-edge-thin', name: 'ABS H1367 ST40 Dąb Casella naturalny jasny (23×0,8)', symbol: 'ABS H1367 ST40', category: 'Obrzeże' },
+      { id: 'h1367-edge-thick', name: 'ABS H1367 ST40 Dąb Casella naturalny jasny (43×2,0)', symbol: 'ABS H1367 ST40', category: 'Obrzeże' },
+    ];
+
+    const groups = groupMaterialsForPicker(compactMaterials);
+    expect(groups.map(group => group.key)).toEqual(expect.arrayContaining([
+      'board|H1367',
+      'abs|H1367|23x0.8',
+      'abs|H1367|43x2.0',
+    ]));
   });
 });
