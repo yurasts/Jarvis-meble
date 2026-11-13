@@ -1,5 +1,16 @@
-/* Kalkulator szafek (Szybka wycena) — panel w sekcji Materiały, nad tabelą pozycji.
-   Ten sam wzorzec co SupplierOrderGroups.module.css: dashed separator u góry, własne tło. */
+/* Kalkulator szafek (Szybka wycena) — Etap T, krok 1: PEŁNOEKRANOWY panel roboczy (position: fixed,
+   przykrywa cały viewport łącznie z lewym sidebarem PROJEKTY), otwierany/zamykany przyciskiem
+   "📐 Kalkulator szafek" w sekcji Materiały (patrz ProjectModal.jsx) — `.panel` (poniżej) zostaje
+   TYM SAMYM, co dawniej "osadzonym" kontenerem (ta sama struktura/klasy), tylko teraz wewnątrz
+   `.fullscreenOverlay` zamiast wewnątrz spoilera "Materiały". */
+.fullscreenOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  overflow-y: auto;
+  background: var(--bg-app);
+  padding: 16px 24px;
+}
 
 .panel {
   display: flex;
@@ -17,6 +28,204 @@
   font-weight: 700;
 }
 
+/* --- Etap N, krok 1: dropdown "Typ zabudowy" (zastępuje 4 wkładki-przyciski) --- */
+.categorySelectLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Etap Q, krok 1 — "Typ zabudowy" + gear "⚙️ Wymiary ściany i wysokości" na jednym, wspólnym wierszu.
+   Etap T, krok 1 — ten sam wiersz niesie teraz TEŻ prawą stronę nagłówka pełnoekranowego kalkulatora
+   (bejdż wyceny + "Wróć do projektu") — `.fullscreenWycenaBadge` dostaje `margin-left: auto`, więc
+   oba spychają się na sam koniec wiersza, bez dodatkowego wrappera (h4 musi zostać bezpośrednim
+   dzieckiem .panel, patrz komentarz w JSX). */
+.topHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fullscreenWycenaBadge {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.closeCalculatorButton {
+  padding: 6px 14px;
+  border: 1px solid #2563eb;
+  border-radius: var(--radius-pill);
+  background: #2563eb;
+  color: #fff;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.closeCalculatorButton:hover { background: #1d4ed8; border-color: #1d4ed8; }
+
+/* Etap Q, krok 1 — gear-przycisk odkrywający panel materiałów grupy / panel wymiarów ściany i
+   wysokości, oba domyślnie zwinięte. Ten sam pill-button język co .applyHeightsButton, tylko
+   neutralny kolor (nie akcentowy) — to przycisk DO WGLĄDU w ustawienia, nie akcja. */
+.materialsGearButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-kanban-col);
+  color: var(--text-main);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.materialsGearButton:hover { border-color: var(--accent); color: var(--accent); }
+.materialsGearButton[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+.materialsGearHint {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.categorySelect {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-kanban-col);
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Etap Q, krok 4 — pod wkładką Kuchnia: rysunek po LEWEJ, tabela po PRAWEJ — 2-kolumnowy układ na
+   desktopie. `align-items: start` tak, żeby krótsza kolumna nie rozciągała się do wysokości
+   dłuższej. Poniżej ~960px (patrz media query niżej) wraca do 1 kolumny, jak przed tą zmianą.
+   Etap R, krok 1/4 — 38/62 (na korzyść tabeli): przy wąskim, OSADZONYM w sekcji "Materiały" panelu
+   tabela (8 kolumn) ledwo mieściła wartości bez obcinania.
+   Etap T, krok 2 — teraz 56/44 (na korzyść RYSUNKU): kalkulator jest już PEŁNOEKRANOWY (patrz
+   .fullscreenOverlay), więc nawet 44% to WIĘCEJ realnych pikseli niż dawne 62% ciasnego panelu —
+   rysunek dostaje więcej miejsca, żeby był czytelny w dużej skali. */
+.calculatorLayout {
+  display: grid;
+  /* Etap T, krok 2 — 56/44 zostawiało kolumnę "Moduł" za wąską (patrz TABLE_COLUMNS w .jsx): tekst
+     "Z szufladami"/"Pod piekarnik" w .moduleName realnie potrzebuje ~70-75px, a przy 44% miał tylko
+     ~46px (zmierzone realnym scrollWidth/clientWidth w przeglądarce) — ucinał się mimo szerszego,
+     pełnoekranowego panelu. 54/46 daje tabeli tyle więcej bezwzględnych px, ile potrzeba, bez
+     oddawania rysunkowi znaczącej przewagi, którą miał dostać wg zgłoszenia. */
+  grid-template-columns: minmax(500px, 54%) minmax(500px, 46%);
+  gap: 18px;
+  align-items: start;
+}
+.canvasColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.groupsColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Etap S, krok 1 — 5 grup kuchennych w JEDNYM kontenerze: pasek zakładek u góry + karuzela slajdów
+   pod spodem (zamiast długiej pionowej wstęgi, grupa po grupie). */
+.groupTabsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-kanban-col) 60%, transparent);
+}
+
+.groupTabsBar {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-kanban-col);
+}
+.groupTabButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.groupTabButton:hover { color: var(--text-main); }
+/* Etap S, krok 1 — zakładka aktywna: wyraźny akcentowy spód + tło + kolor tekstu (te same odcienie
+   niebieskiego #2563eb/#1d4ed8, co już ustalone gdzie indziej w tym pliku — np. .wallToggleX). */
+.groupTabActive {
+  background: var(--accent-soft);
+  border-bottom-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+.groupTabCount {
+  color: inherit;
+  opacity: 0.75;
+}
+.groupTabCountActive {
+  opacity: 1;
+  font-weight: 700;
+}
+
+/* Etap S, krok 1 — karuzela: `.groupSlidesViewport` przycina (overflow: hidden) nieaktywne slajdy
+   przesunięte poza widok; `.groupSlidesTrack` to WSPÓLNY "tor" wszystkich 5 slajdów jeden obok
+   drugiego (translateX na CAŁY tor naraz — kierunek wjazdu/wyjazdu wynika automatycznie z różnicy
+   indeksów aktywnej zakładki, bez ręcznego liczenia "lewo czy prawo"). Slajdy NIE są
+   `display:none`/`aria-hidden` (świadomie — patrz komentarz w JSX), tylko wizualnie przycięte. */
+.groupSlidesViewport {
+  overflow: hidden;
+}
+.groupSlidesTrack {
+  display: flex;
+  align-items: flex-start;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.groupSlide {
+  flex: 0 0 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px;
+  opacity: 0.5;
+  transition: opacity 200ms ease;
+}
+/* Etap S, krok 1 — slajd AKTYWNY dostaje wyraźną akcentową ramkę/cień dookoła swojej karty grupy
+   (.groupSection, renderowana wewnątrz), żeby było od razu widać, z którym jarusem user pracuje. */
+.groupSlideActive {
+  opacity: 1;
+}
+.groupSlideActive > .groupSection {
+  border: 1.5px solid #3b82f6;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+}
+
 .saveStatus {
   color: var(--text-muted);
   font-size: var(--font-size-2xs);
@@ -26,128 +235,127 @@
 .saveStatus[data-variant="saved"] { color: var(--tone-success); }
 .saveStatus[data-variant="error"] { color: var(--tone-danger); }
 
-/* --- Lestnicza ustawień globalnych (Etap B, progressive disclosure) --- */
-.ladderRow {
+/* --- Etap L, krok 1: panel "Wymiary wysokościowe kuchni" (sufit/blat/nogi/pas roboczy/antresola)
+   — kompaktowy poziomy pasek nad grupami/płytami, widoczny tylko pod wkładką Kuchnia. --- */
+.heightsPanel {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.ladderCheckbox {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-/* --- Blok 1: materiały/usługi z katalogu --- */
-.materialsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  flex-direction: column;
   gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-kanban-col) 60%, transparent);
 }
 
-.materialField {
+/* Etap N, krok 2 — 3 obszary (Obszar zabudowy / Parametry szafek i blatu / Blendy i cokół) zamiast
+   1 płaskiego rzędu 7 pól — każdy obszar to własny blok z tytułem. */
+.heightsAreaBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+.heightsAreaBlock + .heightsAreaBlock {
+  border-top: 1px dashed var(--border);
+}
+
+.heightsAreaTitle {
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+/* Pola Obszaru 1/2, jedno pod drugim (nie zawijany rząd) — TEN SAM format co wiersze materiału
+   grupy (Płyta korpusu/frontu, Obrzeże korpusu/frontu, patrz .boardRows niżej). */
+.heightsInputsRow {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
 }
 
-.materialField select {
-  height: 28px;
-  padding: 0 6px;
+.occupiedWidthBadge {
+  padding: 3px 8px;
   border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-kanban-col);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+  align-self: flex-start;
+}
+.occupiedWidthBadge strong {
+  color: var(--section-materials-ink);
+  font-size: var(--font-size-xs);
+}
+
+.trimsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.heightField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+.heightField input {
+  box-sizing: border-box;
+  width: 84px;
+  height: 24px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   border-radius: var(--radius-sm);
-  background: var(--input-bg);
+  background: color-mix(in srgb, var(--input-bg) 70%, transparent);
   color: var(--text-main);
   font-size: var(--font-size-xs);
 }
-.materialField select:focus {
+.heightField input:focus {
   outline: none;
   border-color: var(--accent);
+  background: var(--input-bg);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-/* --- Blok 2: dodawanie modułów w 1 klik --- */
-.addModuleRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.addModuleButton {
+.applyHeightsButton {
   padding: 4px 10px;
   border: 1px solid var(--accent);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--accent);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
 }
-.addModuleButton:hover { background: var(--accent-soft); }
+.applyHeightsButton:hover { background: var(--accent-soft); }
 
-/* --- Blok 3: lista modułów + podsumowanie --- */
-.empty {
-  margin: 0;
-  padding: 6px 2px;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-}
-
-.moduleList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.moduleRow {
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--modal-bg);
-}
-
-.moduleRowMain {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.moduleName {
-  flex: 1 1 140px;
-  min-width: 0;
-  align-self: center;
-  overflow: hidden;
+/* Etap Q, krok 1 — pola Obszaru 1/2 w tym samym kompaktowym formacie "✎ Etykieta: wartość" co
+   wiersz materiału grupy (SearchableMaterialSelect variant="compact") — jedna linia tekstu,
+   wartość to zawsze-widoczny <input>/<select>, nie pudełko w osobnym rzędzie. */
+.compactNumberField {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text-main);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  text-overflow: ellipsis;
+  font-size: 13px;
   white-space: nowrap;
 }
-
-.dimField,
-.countField {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.compactPencil {
   color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  white-space: nowrap;
+  font-size: 13px;
 }
-
-.dimField input,
-.countField input {
+.compactNumberField:hover .compactPencil { color: var(--accent); }
+.compactNumberLabel {
+  color: var(--text-main);
+  font-weight: 600;
+}
+.compactNumberInput {
   box-sizing: border-box;
   height: 24px;
   padding: 0 5px;
@@ -157,19 +365,570 @@
   color: var(--text-main);
   font-size: var(--font-size-xs);
 }
-.dimField input { width: 58px; }
-.countField input { width: 42px; }
-.dimField input:focus,
-.countField input:focus {
+.compactNumberInput[type="number"] { width: 72px; }
+.compactNumberInput:focus {
   outline: none;
   border-color: var(--accent);
   background: var(--input-bg);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
+/* --- Etap I, krok 2: sekcja grupy (np. "Szafki dolne") — nagłówek do zwijania/rozwijania,
+   nagłówek materiałów grupy (ustawienia 1x dla WSZYSTKICH szafek tej grupy) --- */
+.groupSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-kanban-col) 60%, transparent);
+}
+
+.groupHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.groupCount {
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+}
+
+.groupMaterials {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0 2px;
+  border-top: 1px dashed var(--border);
+}
+
+/* Etap J, krok 1 — 4 pozycje materiału grupy (Płyta korpusu/frontu, Obrzeże korpusu/frontu) jedna
+   pod drugą, zwarte linie tekstu (nie pudełka selecta w rzędzie) — dawniej szerokie selecty obok
+   siebie obcinały długie nazwy dekorów do kilku znaków ("W960 SM..."), w kolumnie każda linia ma
+   całą szerokość panelu na nazwę. SearchableMaterialSelect variant="compact" (✎ + tekst + 📋). */
+.boardRows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.groupCheckboxRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 2px;
+}
+
+/* --- Czyste wiersze checkboxów (globalnych niegdyś, dziś per szafka — patrz .moduleCheckboxes) ---
+   WIĘKSZA, wyraźna czcionka — 11px/8px było nieczytelne, teraz tyle co zwykły tekst UI
+   (--font-size-base, 14px). */
+.ladderCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ladderCheckbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+/* --- Etap H, krok 1: jedna tabela kalkulacji (Materiały × współczynnik / Usługi) zamiast 3 kart
+   Bloku 1 + osobnego modalu "Szczegóły wyceny" + tekstowego Podsumowania. overflow NIGDY
+   hidden/auto na .tableScroll — SearchableMaterialSelect otwiera popover z pozycjami poniżej
+   selecta, i ten popover MUSI móc wystawać poza dolną krawędź tabeli. table-layout: fixed z
+   procentowymi kolumnami (colgroup w JSX) gwarantuje, że Cena/Wartość/Po ×N nigdy nie wypadają
+   poza kontener, nawet przy bardzo długich nazwach MERIVOBOX. */
+.quoteTableTitle {
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.tableScroll { width: 100%; }
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+.table th {
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-main);
+  vertical-align: top;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+
+.colPozycja { width: 18%; }
+.colMaterial { width: 40%; }
+.colIlosc { width: 14%; }
+.colCena { width: 9%; }
+.colWartosc { width: 9%; }
+.colPoX { width: 10%; }
+
+.materialCell { white-space: normal; word-break: break-word; }
+
+/* Ilość/Cena/Wartość/Po ×N — zawsze w 1 linii, wyrównane do prawej (druga tabela Usługi ma te
+   same 3 ostatnie kolumny bez colgroup — ta sama reguła po pozycji w wierszu). */
+.table td:nth-child(n+3) {
+  overflow: hidden;
+  text-align: right;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.poX { font-weight: 600; }
+
+.muted { color: var(--text-muted); }
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+}
+
+.totalRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+.totalRow strong {
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.grandTotal {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+.grandTotal strong {
+  color: var(--section-materials-ink);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+}
+
+/* Wąski ekran: tabela ZAWSZE jako stos kompaktowych kart (nigdy scroll w bok) — każdy <tr> to
+   karta, każdy <td> to jedna linia "Etykieta: wartość" (etykieta z data-label w JSX); komórka
+   materiału (żywy SearchableMaterialSelect) dostaje pełną szerokość na własnej linii, bo nie
+   zmieści się obok etykiety w wąskim flex-rzędzie. Próg 960px (nie 640px) celowo: ta tabela jest
+   OSADZONA w panelu obok lewego paska nawigacji aplikacji, nie w pełnoekranowym modalu — przy tym
+   samym viewport dostaje dużo mniej realnej szerokości niż modal kiedyś dostawał (96vw), więc
+   6-kolumnowy układ przestaje się mieścić czytelnie znacznie wcześniej niż typowy telefon/tablet. */
+@media (max-width: 960px) {
+  /* Etap Q, krok 4 — pod tym progiem 2 kolumny (rysunek/tabele) nie mają już gdzie się zmieścić
+     obok siebie czytelnie (patrz .calculatorLayout wyżej) — wracają do 1, jedna pod drugą. */
+  .calculatorLayout { grid-template-columns: 1fr; }
+
+  .table, .table thead, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table thead { display: none; }
+
+  .table tr {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-kanban-col);
+  }
+  .table tbody tr:last-child { margin-bottom: 0; }
+  .table tr:has(td[colspan]) { background: transparent; border-style: dashed; }
+
+  .table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    border-bottom: none;
+    white-space: normal;
+    text-align: left;
+  }
+  .table td[data-label]::before {
+    content: attr(data-label) ':';
+    flex: 0 0 auto;
+    margin-right: 6px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .table td:first-child {
+    padding-top: 0;
+    color: var(--text-main);
+    font-weight: 700;
+  }
+  .table td:first-child::before { content: none; }
+  .materialCell { display: block; padding-top: 4px; text-align: left; }
+}
+
+/* Panel "🎨 Własne materiały szafki" — zwarta siatka (label nad selectem), nie pełny fieldRow,
+   bo żyje wewnątrz ciasnego wiersza pojedynczego modułu, nie w karcie na całą szerokość. */
+.materialField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+/* --- Blok 2: dodawanie modułów w 1 klik --- Etap J, krok 2: kompaktowe kafelki graficzne (ikona
+   SVG 36x36 + krótka podpis pod spodem) zamiast długich tekstowych pigułek "+ Szafka dolna z
+   drzwiami" — nazwy skrócone w danych presetu (patrz CATEGORY_GROUPS), bez powtarzania słowa,
+   które i tak mówi nazwa grupy ("Szafki dolne" -> "Z drzwiami", nie "Szafka dolna z drzwiami"). */
+.addModuleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.addModuleTile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 72px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--modal-bg);
+  color: var(--text-main);
+  cursor: pointer;
+}
+.addModuleTile:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Etap N, krok 3 — miniatura proporcjonalna (CabinetFrontDrawing, ta sama logika co na pełnej
+   skali w WallElevationCanvas) zamiast gołej ikony 36×36 — kafelek wspiera KLIK i przeciągnięcie
+   (draggable) na rysunek. */
+.addModuleTilePreview {
+  display: block;
+  width: 44px;
+  height: 36px;
+  color: inherit;
+}
+
+/* Etap R, krok 1 — podpis pod rysunkiem był zbyt mały (--font-size-2xs = 8-10px, zależnie od
+   motywu) — stały 13px, czytelny niezależnie od motywu. */
+.addModuleTileCaption {
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
+/* --- Blok 3: tabela dodanych szafek (Etap M) — zastępuje dawną siatkę kart 4-w-rzędzie (Etap J):
+   dane szafek są jednotypowe (te same pola na każdej), w tabeli czytają się dużo lepiej niż w
+   kartach, bo etykieta kolumny żyje RAZ w <thead>, nie powtarza się w każdej karcie. Etap P, krok 3
+   — `table-layout: fixed` + kolumny w % (patrz TABLE_COLUMNS w JSX, sumują się do 100) ZAMIAST
+   stałego min-width:1080px + poziomego scrolla: wszystkie kolumny ZAWSZE mieszczą się w szerokości
+   kontenera, nic nie obcina się na prawej krawędzi. overflow-x zostaje jako bezpiecznik na bardzo
+   wąskich ekranach (zawijane etykiety w komórkach), nie jako normalny tryb pracy. */
+.moduleTableScroll {
+  overflow-x: auto;
+}
+
+.moduleTable {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-size-2xs);
+}
+/* Etap R, krok 1 — nagłówki były drobne i wyblakłe (--text-muted); 13px/600/--text-main (silny,
+   motyw-świadomy "ink", ciemniejszy niż --text-muted w obu motywach) czyta się od razu, bez mrużenia
+   oczu — nagłówki są też teraz SKRÓCONE (patrz TABLE_COLUMNS w JSX), więc ellipsis to już tylko
+   zabezpieczenie, nie normalny tryb pracy. */
+.moduleTable th {
+  padding: 5px 5px;
+  overflow: hidden;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Etap S, krok 2 — 6px -> 5px boczny padding (zyskane ~2px/kolumnę) — tabela żyje teraz w WĘŻSZYM
+   slajdzie karuzeli (patrz .groupSlide), więc każdy piksel oddany treści ma znaczenie. */
+.moduleTable td {
+  padding: 4px 5px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+.moduleTable tbody tr:last-child td { border-bottom: none; }
+/* Etap Q, krok 4 — popover "⚙️" (Konstrukcja/Szuflady/HDF) żyje w OSTATNIEJ komórce ("Akcje") i
+   wystaje POZA jej granice (position: absolute) — `overflow: hidden` z reguły wyżej (potrzebne dla
+   reszty komórek, żeby długie wartości się nie "rozpychały") obcinałby go całkowicie, więc TA JEDNA
+   komórka dostaje visible z powrotem. */
+.moduleTable td:last-child { overflow: visible; }
+.moduleTable tbody tr { cursor: default; }
+/* Etap N, krok 3 — klik na szafce w WallElevationCanvas podświetla jej wiersz tutaj (i przewija
+   do niego) — patrz selectedModuleId w CabinetCalculator.jsx. Etap T, krok 3 — DWUSTRONNE: ten sam
+   mocny niebieski (#2563eb — ten sam odcień, co już ustalony gdzie indziej w tym pliku, np.
+   .groupTabActive) zarówno dla "wybranego" (klik, trwałe), jak i "najechanego" (hover, chwilowe)
+   wiersza — i TA SAMA para kolorów na odpowiadającej szafce na rysunku (patrz WallElevationCanvas
+   .module.css .cabinetSelected/.cabinetHovered). */
+.rowHighlighted,
+.rowHovered {
+  outline: 2px solid #2563eb;
+  outline-offset: -1px;
+}
+.rowHighlighted td,
+.rowHovered td {
+  background: var(--accent-soft);
+}
+/* Etap P, krok 3 — lekki ton wiersza, kiedy jego ściana (X/Y) jest TĄ, którą właśnie pokazuje
+   rysunek (Widok X / Widok Y) — łatwiej skojarzyć wiersz tabeli z aktywnym widokiem. */
+.wallRowActive td {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+/* Podnagłówek bloku ściany ("📐 Ściana X — Główna (5 szafek, zajęte 3400 mm)") — cienki,
+   wyróżniony wiersz rozdzielający blok X od bloku Y w tej samej tabeli grupy. */
+.wallSubheaderRow td {
+  padding: 4px 6px;
+  background: color-mix(in srgb, var(--bg-kanban-col) 80%, transparent);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  white-space: normal;
+}
+/* Etap U, krok 1 — tabela ZAWSZE pokazuje wszystkie podrozdziały naraz (Pas dolny i słupki/Szafki
+   górne/Antresole/Blat) — ten podnagłówek jaru (jeden per jarus, per ściana) dzieli je wewnątrz
+   bloku ściany; aktywny (ten, którego grupę pokazuje właśnie wybrana zakładka u góry) dostaje
+   mocniejszy akcent, żeby było widać, GDZIE w tabeli żyje aktywna zakładka. */
+.tierSubheaderRow td {
+  padding: 4px 6px;
+  background: color-mix(in srgb, var(--bg-kanban-col) 60%, transparent);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  white-space: normal;
+}
+.tierSubheaderActive td {
+  background: color-mix(in srgb, #2563eb 12%, transparent);
+  color: #2563eb;
+}
+/* Etap U, krok 1 — wiersz NALEŻY do aktualnie aktywnej zakładki u góry (activeGroupKey) — osobne,
+   stałe podświetlenie (nie znika po zjechaniu myszką jak .rowHovered, nie wymaga kliku jak
+   .rowHighlighted) — klik na wierszu INNEJ grupy przełącza zakładkę i przenosi ten akcent na niego. */
+.rowActiveGroup {
+  border-left: 4px solid #2563eb;
+}
+.rowActiveGroup td:first-child {
+  padding-left: 1px; /* 5px - 4px obramowania, żeby treść nie "skoczyła" względem innych wierszy */
+}
+.rowActiveGroup td {
+  background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
+}
+
+/* Etap R, krok 3 — ◀▶ (przestawianie w rzędzie) przeniesione tutaj, na sam początek wiersza.
+   Etap S, krok 2 — USUNIĘTY stały `min-width: 150px`: w wąskiej kolumnie "Moduł" (np. układ
+   narożny L, z dodatkową kolumną "Ściana") wymuszał szerokość WIĘKSZĄ niż realnie dostępna td
+   (`table-layout: fixed`), więc nazwa modułu po prostu ucinała się NA SUROWO na granicy komórki
+   (`overflow: hidden` na td) zamiast grzecznie skrócić się wielokropkiem — wyglądało to jak
+   "najeżdżanie" na sąsiedni przełącznik [X|Y]. `.moduleName` jest teraz PRAWDZIWYM elastycznym
+   elementem flex (flex: 1 1 auto + min-width: 0 — klasyczna pułapka flexboksa: bez min-width:0
+   element nie skurczy się poniżej swojej naturalnej szerokości, więc text-overflow:ellipsis nigdy
+   by się nie uruchomił), a ikona/strzałki ZOSTAJĄ sztywne (flex: 0 0 auto) i zawsze w pełni widoczne. */
+.moduleCellInner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cardHeaderIcon {
+  display: block;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+}
+
+.moduleName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Etap R, krok 2 — Szer./Wys./Gł.: zamiast zawsze-widocznego <input> ze spinnerami (rozpychał
+   tabelę, obcinał "10.88 mb" po prawej) — klik-do-edycji: domyślnie czysta, duża cyfra
+   (.inlineEditTrigger), zamieniająca się w mały input (.inlineEditInput) po kliknięciu.
+   Etap W, krok 1 — stały ✎ przed KAŻDĄ liczbą (3 kolumny × każdy wiersz) rozpychał rząd na tyle,
+   że 4-cyfrowe wartości ("1700"/"2075") obcinały się — usunięty na rzecz przerywanego podkreślenia
+   na hover/focus (ta sama afordancja "to jest klikalne", bez stałego kosztu szerokości). */
+.inlineEditTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+.inlineEditValue {
+  /* `--text-main` already resolves to a strong, high-contrast ink in every theme (#0F172A light,
+     etc.) — no hardcoded color needed here. */
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px dashed transparent;
+}
+.inlineEditTrigger:hover .inlineEditValue,
+.inlineEditTrigger:focus-visible .inlineEditValue {
+  border-bottom-color: #cbd5e1;
+}
+.inlineEditInput {
+  box-sizing: border-box;
+  width: 52px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  /* Etap R, krok 2 — bez natywnych strzałek góra/dół (appearance: textfield to Firefox; -webkit-*
+     poniżej to Chrome/Safari) — strzałki rozpychały komórkę i nie były proszone w tym zadaniu. */
+  appearance: textfield;
+}
+.inlineEditInput::-webkit-outer-spin-button,
+.inlineEditInput::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+.inlineEditInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Etap W, krok 1 — Korpus/Front/Obrzeże: "m²"/"mb" przeniesione do NAGŁÓWKA kolumny (patrz
+   .colUnit) — same liczby w komórce są teraz CZYSTE (bez jednostki) i NIEPOGRUBIONE (dawne
+   font-weight:700 + jednostka tekstowa rozpychały rząd, ucinając "Moduł" do 1-2 liter). */
+.numCell {
+  text-align: right;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Etap W, krok 1 — podtekst jednostki ("m²"/"mb") w nagłówku kolumny, pod/obok głównej etykiety —
+   nieprzerwany, nijaki wizualnie (nie konkuruje z pogrubioną nazwą kolumny nad nim). */
+.colUnit {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: #64748b;
+}
+
+/* Etap O, krok 1 — "Wys. (mm)" + przycisk resetu "↺" (widoczny tylko gdy customHeight:true). */
+.heightCellInner {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.resetHeightButton {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Etap O, krok 3 — przełącznik "Ściana: X|Y" per szafka (kuchnia narożna L). */
+/* Etap P, krok 3 — pigułka "Ściana: X|Y", druga kolumna tabeli (zaraz po "Moduł"): kolor podświetlenia
+   RÓŻNY dla X (niebieski) i Y (bursztynowy) — od pierwszego rzutu oka po samym kolorze widać, na
+   której ścianie stoi dana szafka, bez czytania liter. */
+.wallToggle {
+  display: flex;
+  gap: 2px;
+}
+.wallToggleButton {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.wallToggleX.wallToggleActive {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+.wallToggleY.wallToggleActive {
+  border-color: #d97706;
+  background: #d97706;
+  color: #fff;
+}
+
 .removeButton {
   flex-shrink: 0;
-  align-self: center;
   width: 20px;
   height: 20px;
   padding: 0;
@@ -182,39 +941,373 @@
   cursor: pointer;
 }
 
-.moduleLine {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-}
-
-/* --- Lestnicza chipów modułu (Korpus=Front, Obrzeże=Front, typ szuflady, TIP-ON...) --- */
-.chipsRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 5px;
-}
-
-.chip {
+/* Etap R, krok 3 — kolumna "Akcje" zostaje CZYSTA: tylko gear "⚙️" (Konstrukcja/Szuflady/HDF/⧉,
+   patrz niżej) i × (usuń) — ◀▶ przeniesione na początek wiersza (patrz .moduleCellInner). */
+.rowActions {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px;
+}
+
+/* Etap Q, krok 4 — "Konstrukcja / Szuflady" i "HDF" żyją za tym per-wierszowym przyciskiem (zamiast
+   2 osobnych, szerokich kolumn); klik otwiera CabinetSettingsModal (patrz niżej), nie popover.
+   Etap R, krok 3 — przycisk to teraz CZYSTA ikona (podpis żyje jako `title`, nie tekst w DOM-ie). */
+.settingsGearButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: var(--bg-kanban-col);
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  white-space: nowrap;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 13px;
   cursor: pointer;
 }
-.chip:has(input:checked) {
+.settingsGearButton:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Etap W, krok 2 — CabinetSettingsModal: zamiast wąskiego popoveru zaczepionego o wiersz (ucinał
+   szerokie selecty szuflad/lodówki), pełnoprawne modalne okno na środku ekranu (createPortal do
+   document.body) — szerokie, 4-kolumnowe gabaryty + sekcje konstrukcji zależne od typu modułu. */
+.settingsModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+.settingsModal {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 92vw);
+  max-height: 88vh;
+  border-radius: 12px;
+  background: var(--modal-bg);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.45), 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+.settingsModalHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.settingsModalTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settingsModalCloseButton {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.settingsModalCloseButton:hover {
+  background: var(--accent-soft);
+  color: var(--text-main);
+}
+.settingsModalBody {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.settingsModalSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Etap Y, krok 1 — zgłoszenie (Screenshot_9_3.jpg): nagłówek sekcji i etykiety pól pod inputami
+   ("Szerokość (mm)" itd.) były praktycznie nieczytelne — `var(--font-size-2xs)` rozwiązuje się do
+   8px (duplikat deklaracji w index.css, druga wygrywa), a nagłówek DODATKOWO miał stłumiony
+   `--text-muted`. Stały, jawny 13px + `--text-main` (NIE zależny od tego połamanego tokenu)
+   naprawia oba naraz, bez ruszania globalnego `--font-size-2xs` (zbyt szeroki, nieprzetestowany
+   wpływ na resztę aplikacji — poza zakresem tego zgłoszenia). */
+.settingsModalSectionTitle {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.settingsModalGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.settingsModalFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.settingsModalField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 130px;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.settingsModalFieldWide {
+  grid-column: span 2;
+  flex-basis: 100%;
+}
+.settingsModalCheckboxField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100%;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.settingsModalCheckboxField input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+.settingsModalInput {
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.settingsModalSelect {
+  height: 34px;
+  padding: 0 8px;
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+}
+.settingsModalSummary {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+.settingsModalActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+/* Etap Z, krok 2 — zgłoszenie (Screenshot_6_2.jpg): przyciski stopki ("Przesuń w lewo/prawo",
+   "Duplikuj", "Usuń") były nieczytelne — `var(--font-size-2xs)` rozwiązuje się do 8px (ten sam
+   połamany, zdublowany token co w GABARYTY I ROZMIESZCZENIE, patrz komentarz przy
+   .settingsModalSectionTitle wyżej). Stopka ŚWIADOMIE dostaje stałą, jasną paletę (nie tokeny
+   motywu) — to osobny, zawsze-jasny pasek akcji, niezależny od light/dark/forest (ten sam wzorzec,
+   co "zawsze biały" input w niektórych dialogach systemowych) — jeśli kiedyś potrzeba dark-mode
+   wariantu, to świadoma, osobna decyzja projektowa, nie przypadkowe dziedziczenie z motywu. */
+.settingsModalActionButton {
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.settingsModalActionButton:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.settingsModalActionButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.settingsModalDangerButton {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.settingsModalDangerButton:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+.settingsModalDoneButton {
+  margin-left: auto;
+  padding: 7px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settingsModalDoneButton:hover {
+  background: #1d4ed8;
+}
+
+/* Etap Y, krok 3/4 — "📋 Formatki i okleinowanie ABS": sekcja rozkroju produkcyjnego (zwinięta
+   domyślnie), diagram KAŻDEJ formatki z osobna (jak w realnej karcie rozkroju z nestingu) + tabela
+   z dokładnymi wymiarami i stronami oklejki ABS — hover wiersza/diagramu podświetla to samo
+   (hoveredPartIndex, wspólny stan w CabinetSettingsModal). */
+.partsSectionToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  text-align: left;
+}
+.partsSectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.partsLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.partsLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+}
+.partsLegendSwatch {
+  display: inline-block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+.partsDiagramGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card, var(--input-bg));
+}
+.partDiagramCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+}
+.partDiagramCellActive {
+  background: var(--accent-soft);
+}
+.partDiagramSvg {
+  flex-shrink: 0;
+  overflow: visible;
+}
+.partDiagramLabel {
+  max-width: 88px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.partsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.partsTable th {
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-main);
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+.partsTable td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-main);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.partsTableRowActive {
+  background: var(--accent-soft);
+}
+.edgeBadgeSymbol {
+  display: inline-block;
+  min-width: 18px;
+  margin-right: 6px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.edgeBadgeLetters {
+  display: inline-flex;
+  gap: 2px;
+}
+.edgeBadgeLetter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+.edgeBadgeLetterActive {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-  font-weight: 700;
 }
 
 .chipSelect {
@@ -226,6 +1319,8 @@
   white-space: nowrap;
 }
 .chipSelect select {
+  flex: 1 1 auto;
+  min-width: 0;
   height: 22px;
   padding: 0 4px;
   border: 1px solid var(--border);
@@ -234,123 +1329,9 @@
   color: var(--text-main);
   font-size: var(--font-size-2xs);
 }
-
-.segmented {
-  display: flex;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-}
-.segmented button {
-  padding: 2px 8px;
-  border: none;
-  background: var(--bg-kanban-col);
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-  cursor: pointer;
-}
-.segmented button[data-active="true"] {
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-weight: 700;
-}
-
-.innerDrawerStep {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-  margin: 4px 0 0 14px;
-  color: var(--text-muted);
-  font-size: var(--font-size-2xs);
-}
-.innerDrawerStep select {
-  height: 22px;
-  padding: 0 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-size: var(--font-size-2xs);
-}
-
-.innerDrawerCount {
-  box-sizing: border-box;
-  width: 42px;
-  height: 22px;
-  padding: 0 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-size: var(--font-size-2xs);
-}
-
-.summary {
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--modal-bg);
-}
-
-.summaryGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 4px 10px;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-}
-.summaryGrid strong { color: var(--text-main); }
-
-.wycenaRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.wycenaLabel {
-  color: var(--text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-}
-
-/* Sama suma też jest klikalna (otwiera Szczegóły wyceny) — stąd <button>, nie <strong>. */
-.wycenaValue {
-  border: none;
-  background: transparent;
-  padding: 0;
-  color: var(--section-materials-ink);
-  font: inherit;
-  font-size: var(--font-size-lg);
-  font-weight: 800;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.wycenaValue:hover { color: var(--accent); }
-
-.detailsButton {
-  width: 100%;
-  margin-top: 8px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  cursor: pointer;
-}
-.detailsButton:hover { border-color: var(--accent); color: var(--accent); }
-.detailsButton:disabled { opacity: 0.5; cursor: default; }
 
 .addToProjectButton {
   width: 100%;
-  margin-top: 6px;
   padding: 8px 12px;
   border: none;
   border-radius: var(--radius-md);

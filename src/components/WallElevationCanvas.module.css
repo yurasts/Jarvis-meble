@@ -1,0 +1,181 @@
+.canvasWrap {
+  width: 100%;
+  border: 1px solid var(--border-color, #d8dee4);
+  border-radius: 8px;
+  background: var(--canvas-bg, #fff);
+  padding: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.canvasSvg {
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  color: #334155;
+  touch-action: none;
+}
+
+.cabinetGroup {
+  cursor: grab;
+}
+
+.cabinetGroup:focus-visible rect {
+  outline: none;
+  stroke: #2563eb;
+}
+
+/* Etap T, krok 3 — podświetlenie dwustronne (tabela <-> rysunek): wybrana ("click") i najechana
+   ("hover") szafka dostają IDENTYCZNY wygląd (niebieski kontur + półprzezroczysta niebieska
+   wypełniona strzałka) — rozróżnienie select/hover żyje w stanie (CabinetCalculator.jsx), nie w
+   wizualnym stylu, bo task explicite woła o ten SAM `stroke: #2563eb; stroke-width: 3px` i
+   `fill: rgba(37, 99, 235, 0.14)` dla obu. `rect:first-of-type` celowo trafia w NIEWIDOCZNY
+   hit-area rect (patrz renderCabinet w .jsx) — CabinetFrontDrawing rysuje własną ramkę z
+   fill="none", nie da się jej podświetlić wypełnieniem bez przykrycia rysunku szafki w środku. */
+.cabinetSelected rect:first-of-type,
+.cabinetHovered rect:first-of-type {
+  stroke: #2563eb;
+  stroke-width: 3;
+  fill: rgba(37, 99, 235, 0.14);
+}
+
+.cabinetDragging {
+  opacity: 0.55;
+}
+
+/* Etap T, krok 3 — "Widok z góry": te same szafki co w elewacji, teraz też klikalne/hoverowalne
+   (dotychczas tylko odczytywały `selectedModuleId`, bez własnej interakcji). */
+.planCabinetGroup {
+  cursor: pointer;
+}
+
+/* Etap X, krok 1 — linia frontu (grubsza kreska niż cienki kontur korpusu) + uchwyt (krótki,
+   prostopadły "kolec") na krawędzi NAJDALEJ od ściany — ta sama krawędź, którą liczy frontLine w
+   renderPlanRect (WallElevationCanvas.jsx), tu tylko stylowana. */
+.planFrontLine,
+.planFrontHandle {
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
+.countertopStrip {
+  fill: #c7a06b;
+  fill-opacity: 0.45;
+  stroke: #8a6a3c;
+  stroke-width: 2;
+}
+
+.dropIndicator {
+  stroke: #2563eb;
+  stroke-width: 6;
+  stroke-dasharray: 14 10;
+}
+
+/* Etap O, krok 3 — nagłówek rysunku: 3 przyciski przełączania widoku (Widok X / Widok Y / Widok
+   z góry), tuż nad samym SVG. */
+.canvasHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.viewButton {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color, #d8dee4);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.viewButton[aria-pressed="true"] {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+}
+
+/* Etap O, krok 2 — architektoniczne linie wymiarowe (gabaryty wprost na rysunku). */
+.dimensionLine {
+  stroke: currentColor;
+  fill: currentColor;
+  opacity: 0.8;
+}
+
+/* Wolny odcinek ściany — podświetlony wprost w pustej strefie (bez tekstu w środku — plakietka
+   "Wolne: X mm" żyje w górnym pasie wymiarowym, patrz .freeBadge). */
+.freeZone {
+  fill: #22c55e;
+  fill-opacity: 0.12;
+  stroke: #22c55e;
+  stroke-width: 2;
+  stroke-dasharray: 12 8;
+}
+/* Etap P, krok 1 — nieprzezroczyste tło plakietki (Badge) — biały tekst na pełnym kolorze zawsze
+   czytelny, niezależnie od tego, co jest narysowane "pod spodem". */
+.freeBadge {
+  fill: #16a34a;
+}
+
+/* Etap O, krok 3 — "Widok z góry": boczny profil (srez po głębokości) narożnika ściany X, widoczny
+   na odcinku ściany Y, który fizycznie zajmuje (kreskowanie, bez wypełnienia). */
+.cornerSlice {
+  fill: #94a3b8;
+  fill-opacity: 0.18;
+  stroke: #64748b;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+/* Etap AC, krok 1 — Widok Y: boczna projekcja tego, co naprawdę stoi w rogu ściany X (np. Pod
+   lodówkę) — ten sam stłumiony szary co .cornerSlice (Widok z góry), plus lekka ukośna kreskowana
+   wewnątrz (odróżnia "obca szafka, nie Twoja" od realnych frontów narysowanych obok). */
+.cornerSliceElevation {
+  fill: #94a3b8;
+  fill-opacity: 0.12;
+  stroke: #64748b;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+.cornerSliceHatch line {
+  stroke: #64748b;
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+}
+
+/* Etap AD, krok 3 — "Szyb wentylacyjny / Słup": element konstrukcyjny ściany, nie szafka — ciemniejszy,
+   bardziej "betonowy/murowany" odcień niż .cornerSlice (ten jest tylko projekcją cudzej głębokości,
+   to tutaj to realna, nieprzesuwalna przeszkoda), z wyraźniejszą ukośną kreskowaną wewnątrz. */
+.pillarBlock {
+  fill: #78716c;
+  fill-opacity: 0.22;
+  stroke: #57534e;
+  stroke-width: 2;
+}
+.pillarHatch line {
+  stroke: #57534e;
+  stroke-opacity: 0.5;
+  stroke-width: 1.2;
+}
+
+/* Szafki wyszły poza ścianę — czerwona strefa przekroczenia (bez tekstu w środku, patrz .overflowBadge). */
+.overflowZone {
+  fill: #ef4444;
+  fill-opacity: 0.14;
+  stroke: #ef4444;
+  stroke-width: 2;
+  stroke-dasharray: 12 8;
+}
+.overflowBadge {
+  fill: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  .canvasWrap {
+    background: var(--canvas-bg-dark, #1b222c);
+    border-color: var(--border-color-dark, #30394a);
+  }
+  .canvasSvg {
+    color: #cbd5e1;
+  }
+}
