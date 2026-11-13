@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import CabinetFrontDrawing from './CabinetFrontDrawing';
 import { computeCornerDepthMm, layoutCountertopSegments, layoutFloorBand, layoutUpperRow } from '../utils/cabinetCalculator';
 import s from './WallElevationCanvas.module.css';
@@ -162,17 +162,48 @@ const Badge = ({ x, y, text, fontSize, className }) => {
 export default function WallElevationCanvas({
   modules, heights, selectedModuleId, hoveredModuleId, onSelectModule, onHoverModule, onReorder, onDropPreset,
   roomLayout = 'simple', view = 'x', onViewChange, pillars = [],
+  onAddPillar, onPatchPillar,
   zeroPoints = { X: 'left', Y: 'left', Y2: 'left' }, installationPoints = [],
+  onAddInstallationPoint,
+  pillarPanelRows, zeroPointSelectors, installationPanelRows,
 }) {
   const svgRef = useRef(null);
   const [dragState, setDragState] = useState(null); // { id, group, overIndex }
   const screenScale = useScreenScale(svgRef);
+  // Etap AF, krok 2 — zgłoszenie: user nie mógł znaleźć, jak dodać szyb/punkt instalacji (ukryte
+  // głęboko w "Wymiary ściany i wysokości") — 2 przyciski z bejdżem liczby TUŻ NAD rysunkiem, w
+  // jednym rzędzie z przełącznikiem widoku, otwierają kompaktowy panel zamiast (albo obok) starej
+  // sekcji. Tylko JEDEN panel na raz — otwarcie drugiego zamyka pierwszy (mniej bałaganu na ekranie).
+  const [openQuickPanel, setOpenQuickPanel] = useState(null); // null | 'pillar' | 'install'
+  // Etap AF, krok 2 — szyb kliknięty wprost na rysunku (Widok X/Y/Y2/z góry) otwiera panel
+  // WYSTARTOWANY na TYM konkretnym słupie (przewinięty/podświetlony — patrz pillarFocusId niżej).
+  const [pillarFocusId, setPillarFocusId] = useState(null);
+  // Etap AF, krok 2 — przeciąganie słupa myszką wzdłuż ściany (tylko Widok X/Y/Y2 — tam oś poprzeczna
+  // rysunku ZAWSZE jest długością ściany, niezależnie od tego, która to ściana).
+  const [pillarDragState, setPillarDragState] = useState(null); // { pillarId, pointerId, moved }
+  // Etap AF, krok 2 — kliknięcie słupa na rysunku otwiera panel i przewija do JEGO wiersza (lokalnie,
+  // WEWNĄTRZ małego panelu — nie dotyka scrolla strony, patrz Etap AF krok 1 wyżej w tym pliku).
+  const pillarPanelRef = useRef(null);
+  useEffect(() => {
+    if (!pillarFocusId || openQuickPanel !== 'pillar') return;
+    pillarPanelRef.current?.querySelector?.(`[data-pillar-row="${pillarFocusId}"]`)
+      ?.scrollIntoView?.({ block: 'nearest' });
+  }, [pillarFocusId, openQuickPanel]);
+  const handlePillarClick = (pillarId) => {
+    setOpenQuickPanel('pillar');
+    setPillarFocusId(pillarId);
+  };
 
   // Etap AD, krok 2 — 'corner_l' (Y z lewej), 'corner_l_right' (Y2 z prawej) i 'u_layout' (OBIE naraz)
   // — `hasWallY`/`hasWallY2` to JEDYNE miejsce, które wie, KTÓRA ściana istnieje w którym wariancie
   // (ta sama reguła co w CabinetCalculator.jsx).
   const hasWallY = roomLayout === 'corner_l' || roomLayout === 'u_layout';
   const hasWallY2 = roomLayout === 'corner_l_right' || roomLayout === 'u_layout';
+  // Etap AF, krok 2 — "aktywna ściana" dla szybkiego dodania z przycisku nad rysunkiem — ta sama
+  // formuła co `elevationWall` niżej (zdefiniowana później, bo zależy od gałęzi widoku), ale
+  // potrzebna już TU, we wspólnym nagłówku renderowanym we WSZYSTKICH 3 gałęziach (łącznie z
+  // Widokiem z góry, gdzie `elevationWall` w ogóle nie istnieje — stąd własna, niezależna kopia).
+  const activeWallForQuickAdd = view === 'y' ? 'Y' : view === 'y2' ? 'Y2' : 'X';
   // Etap AD, krok 3 — "Szyb wentylacyjny / Słup": szafki na TEJ SAMEJ ścianie omijają jego odcinek
   // (patrz advancePastPillars w jądrze, wołane z layoutFloorBand/layoutUpperRow niżej).
   const pillarsForWall = (wall) => (pillars || []).filter(p => (p.wall === 'Y' || p.wall === 'Y2' ? p.wall : 'X') === wall);
@@ -203,6 +234,65 @@ export default function WallElevationCanvas({
   // cienkie linie przy dużej skali są mniej krytyczne niż podpisy (zgłoszenie dotyczyło TEKSTU);
   // rzeczywisty rozmiar czcionek liczy `px(...)` niżej, osobno w każdym z 3 widoków (różne viewBoxy).
   const lineScaleMm = Math.max(28, ceilingHeight * 0.016);
+
+  // Etap AF, krok 2 — WSPÓLNY nagłówek (przełącznik widoku + 2 przyciski szybkiego dostępu +
+  // rozwijane panele) — IDENTYCZNY w all 3 gałęziach widoku (Widok z góry/przekrój boczny/elewacja),
+  // więc żyje raz tutaj zamiast być powielony 3×. Panel sam w sobie nie wie NIC o samej geometrii
+  // rysunku (tylko listy/CRUD) — bezpiecznie działa niezależnie od tego, która gałąź go wywołuje.
+  const renderCanvasHeader = () => {
+    if (!onViewChange) return null;
+    const togglePanel = (key) => setOpenQuickPanel(current => (current === key ? null : key));
+    return (
+      <>
+        <div className={s.canvasHeader}>
+          {viewOptionsFor(hasWallY, hasWallY2).map(option => (
+            <button key={option.value} type="button" className={s.viewButton} aria-pressed={view === option.value} onClick={() => onViewChange(option.value)}>
+              {option.label}
+            </button>
+          ))}
+          <div className={s.canvasHeaderActions}>
+            <button
+              type="button" className={s.quickAccessButton} aria-pressed={openQuickPanel === 'pillar'}
+              onClick={() => togglePanel('pillar')}
+            >
+              🧱 + Szyb / Słup
+              <span className={s.quickAccessBadge}>{pillars.length}</span>
+            </button>
+            <button
+              type="button" className={s.quickAccessButton} aria-pressed={openQuickPanel === 'install'}
+              onClick={() => togglePanel('install')}
+            >
+              🔌 Instalacje / Punkt 0
+              <span className={s.quickAccessBadge}>{installationPoints.length}</span>
+            </button>
+          </div>
+        </div>
+        {openQuickPanel === 'pillar' && (
+          <div className={s.quickPanel} data-testid="pillar-quick-panel" ref={pillarPanelRef}>
+            <button
+              type="button" className={s.quickPanelAddButton}
+              onClick={() => onAddPillar?.(activeWallForQuickAdd)}
+            >
+              ➕ Dodaj 600×600 na ścianę {activeWallForQuickAdd}
+            </button>
+            {pillarPanelRows}
+          </div>
+        )}
+        {openQuickPanel === 'install' && (
+          <div className={s.quickPanel} data-testid="installation-quick-panel">
+            {zeroPointSelectors}
+            <button
+              type="button" className={s.quickPanelAddButton}
+              onClick={() => onAddInstallationPoint?.(activeWallForQuickAdd)}
+            >
+              ➕ Dodaj punkt instalacji na ścianę {activeWallForQuickAdd}
+            </button>
+            {installationPanelRows}
+          </div>
+        )}
+      </>
+    );
+  };
 
   // ================================================================================================
   // WIDOK Z GÓRY (Rzut/Głębokości) — statyczny, bez drag&drop; ściana X pozioma, ściana Y pionowa
@@ -418,7 +508,13 @@ export default function WallElevationCanvas({
       const labelX = rectProps.x + rectProps.width / 2;
       const labelY = rectProps.y + rectProps.height / 2;
       return (
-        <g key={pillar.id}>
+        <g
+          key={pillar.id}
+          role="button" tabIndex={0} aria-label={`${pillar.name || 'Szyb'} ${Math.round(widthMm)}×${Math.round(depthMm)} mm`}
+          className={s.pillarGroup}
+          onClick={() => handlePillarClick(pillar.id)}
+          onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') handlePillarClick(pillar.id); }}
+        >
           <clipPath id={clipId}><rect {...rectProps} /></clipPath>
           <rect {...rectProps} className={s.pillarBlock} />
           <g clipPath={`url(#${clipId})`} className={s.pillarHatch}>
@@ -465,15 +561,7 @@ export default function WallElevationCanvas({
 
     return (
       <div className={s.canvasWrap}>
-        {onViewChange && (
-          <div className={s.canvasHeader}>
-            {viewOptionsFor(hasWallY, hasWallY2).map(option => (
-              <button key={option.value} type="button" className={s.viewButton} aria-pressed={view === option.value} onClick={() => onViewChange(option.value)}>
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {renderCanvasHeader()}
         <svg
           ref={svgRef}
           className={s.canvasSvg} role="img" aria-label="Widok z góry (rzut, głębokości szafek), w milimetrach"
@@ -654,15 +742,7 @@ export default function WallElevationCanvas({
 
     return (
       <div className={s.canvasWrap}>
-        {onViewChange && (
-          <div className={s.canvasHeader}>
-            {viewOptionsFor(hasWallY, hasWallY2).map(option => (
-              <button key={option.value} type="button" className={s.viewButton} aria-pressed={view === option.value} onClick={() => onViewChange(option.value)}>
-                {option.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {renderCanvasHeader()}
         <svg
           ref={svgRef}
           className={s.canvasSvg} role="img" aria-label="Przekrój boczny Y (głębokości szafek), w milimetrach"
@@ -886,7 +966,24 @@ export default function WallElevationCanvas({
     event.currentTarget.setPointerCapture?.(event.pointerId);
     setDragState({ groupKey, fromIndex: index, overIndex: index, pointerId: event.pointerId });
   };
+  // Etap AF, krok 2 — przeciąganie słupa wzdłuż ściany: ta sama `pointerToUserSpace` co dla szafek,
+  // tylko bez żadnego "przeskakiwania" na siebie innych elementów — słup po prostu podąża za
+  // kursorem (środek słupa pod kursorem), aktualizując `xMm` NA ŻYWO przy każdym ruchu.
+  const handlePillarPointerDown = (event, pillar) => {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setPillarDragState({ pillarId: pillar.id, pointerId: event.pointerId, widthMm: Math.max(1, Number(pillar.widthMm) || 1) });
+  };
   const handlePointerMove = (event) => {
+    if (pillarDragState && event.pointerId === pillarDragState.pointerId) {
+      const point = pointerToUserSpace(svgRef.current, event.clientX, event.clientY);
+      if (!point) return;
+      // `mirrorSpanX` jest SAMOODWROTNA przy tej samej szerokości — ten sam wzór, co użyty do
+      // narysowania słupa (Etap AD, krok 3), tylko w drugą stronę (ekran -> logiczne xMm).
+      const newXMm = mirrorSpanX(point.x - pillarDragState.widthMm / 2, pillarDragState.widthMm);
+      onPatchPillar?.(pillarDragState.pillarId, 'xMm', Math.round(newXMm));
+      return;
+    }
     if (!dragState || event.pointerId !== dragState.pointerId) return;
     const point = pointerToUserSpace(svgRef.current, event.clientX, event.clientY);
     if (!point) return;
@@ -900,6 +997,7 @@ export default function WallElevationCanvas({
     if (overIndex !== dragState.overIndex) setDragState(current => (current ? { ...current, overIndex } : current));
   };
   const endDrag = () => {
+    if (pillarDragState) { setPillarDragState(null); return; }
     if (dragState && dragState.overIndex !== dragState.fromIndex) {
       onReorder?.(dragState.groupKey, dragState.fromIndex, dragState.overIndex, elevationWall);
     }
@@ -998,8 +1096,16 @@ export default function WallElevationCanvas({
     const hatchOffsets = [];
     for (let offset = -heightMm; offset < widthMm + heightMm; offset += hatchSpacingMm) hatchOffsets.push(offset);
     const labelX = xMm + widthMm / 2;
+    const isDraggingThis = pillarDragState?.pillarId === pillar.id;
     return (
-      <g key={pillar.id}>
+      <g
+        key={pillar.id}
+        role="button" tabIndex={0} aria-label={`${pillar.name || 'Szyb'} ${Math.round(widthMm)}×${Math.round(heightMm)} mm`}
+        className={`${s.pillarGroup} ${isDraggingThis ? s.pillarDragging : ''}`}
+        onPointerDown={event => handlePillarPointerDown(event, pillar)}
+        onClick={() => handlePillarClick(pillar.id)}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') handlePillarClick(pillar.id); }}
+      >
         <clipPath id={clipId}><rect x={xMm} y={svgY} width={widthMm} height={heightMm} /></clipPath>
         <rect x={xMm} y={svgY} width={widthMm} height={heightMm} className={s.pillarBlock} />
         <g clipPath={`url(#${clipId})`} className={s.pillarHatch}>
@@ -1056,15 +1162,7 @@ export default function WallElevationCanvas({
 
   return (
     <div className={s.canvasWrap}>
-      {onViewChange && (
-        <div className={s.canvasHeader}>
-          {viewOptionsFor(hasWallY, hasWallY2).map(option => (
-            <button key={option.value} type="button" className={s.viewButton} aria-pressed={view === option.value} onClick={() => onViewChange(option.value)}>
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {renderCanvasHeader()}
       <svg
         ref={svgRef}
         className={s.canvasSvg}

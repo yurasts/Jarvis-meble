@@ -1137,12 +1137,11 @@ export default function CabinetCalculator({
   // Etap Q, krok 1 — panel "Wymiary ściany i wysokości" żyje teraz za GEAR-przyciskiem w nagłówku
   // (obok "Typ zabudowy"), zwinięty DOMYŚLNIE — czysto wizualny stan UI, nie wchodzi do calculator_state.
   const [heightsPanelExpanded, setHeightsPanelExpanded] = useState(false);
-  const panelRef = useRef(null);
-  useEffect(() => {
-    if (!selectedModuleId) return;
-    panelRef.current?.querySelector?.(`[data-module-row="${selectedModuleId}"]`)
-      ?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  }, [selectedModuleId]);
+  // Etap AF, krok 1 — zgłoszenie: klik na szafkę (na rysunku albo w tabeli) przesuwał całą stronę
+  // pionowo, próbując wycentrować jej wiersz w tabeli (`scrollIntoView({block:'center'})`) — user
+  // tracił orientację, gdzie jest ekran. Zaznaczenie zostaje WYŁĄCZNIE wizualne (podświetlenie
+  // wiersza + przełączenie `activeGroupKey`, patrz selectModuleFromCanvas/onClick wiersza) — strona
+  // i jej kontenery przewijania mają zostać CAŁKOWICIE nieruchome.
 
   // Autozapis do projektu (projects.calculator_state) — debounce i status "✓ Zapisano w
   // projekcie" robi rodzic (ProjectModal, useProjectItemsAutosave); tu tylko zgłaszamy KAŻDĄ
@@ -1467,8 +1466,11 @@ export default function CabinetCalculator({
   // Etap AD, krok 3 — "+ Dodaj szyb / słup konstrukcyjny": domyślnie 600×600mm w rogu (x=0) ściany X,
   // wysoki na cały bieżący sufit (user może go później obniżyć, np. dla niskiego krótkiego krótkiego
   // szybu — stąd zwykłe, niereaktywne pole, nie "żywa" rekomendacja jak heightForRole).
-  const addPillar = () => setPillars(current => [...current, {
-    id: nextModuleId(), name: 'Szyb wentylacyjny', wall: 'X', xMm: 0, widthMm: 600, depthMm: 600,
+  // Etap AF, krok 2 — szybkie dodanie z przycisku nad rysunkiem podaje KONKRETNĄ ścianę (tę, którą
+  // akurat pokazuje rysunek) zamiast zawsze 'X' — stąd opcjonalny argument, domyślnie 'X' dla
+  // wywołań bez kontekstu rysunku (np. panel w "Wymiary ściany i wysokości").
+  const addPillar = (wall = 'X') => setPillars(current => [...current, {
+    id: nextModuleId(), name: 'Szyb wentylacyjny', wall, xMm: 0, widthMm: 600, depthMm: 600,
     heightMm: Math.round(Number(kitchenHeights.ceilingHeight) || 2600),
   }]);
   const patchPillarField = (id, field, value) => setPillars(current => current.map(pillar => (
@@ -1485,8 +1487,8 @@ export default function CabinetCalculator({
     led: { label: '💡 Punkt LED / zasilacz', heightMm: 1520 },
     water: { label: '💧 Woda + odpływ (kan.)', heightMm: 550 },
   };
-  const addInstallationPoint = () => setInstallationPoints(current => [...current, {
-    id: nextModuleId(), type: 'socket', wall: 'X', distanceMm: 0,
+  const addInstallationPoint = (wall = 'X') => setInstallationPoints(current => [...current, {
+    id: nextModuleId(), type: 'socket', wall, distanceMm: 0,
     heightMm: INSTALLATION_POINT_DEFAULTS.socket.heightMm, description: '',
   }]);
   const patchInstallationPointField = (id, field, value) => setInstallationPoints(current => current.map((point) => {
@@ -1497,6 +1499,149 @@ export default function CabinetCalculator({
   }));
   const removeInstallationPoint = (id) => setInstallationPoints(current => current.filter(point => point.id !== id));
   const setZeroPointSide = (wall, side) => setZeroPoints(current => ({ ...current, [wall]: side }));
+
+  // Etap AF, krok 2 — zgłoszenie: user nie mógł znaleźć, jak dodać szyb/punkt instalacji — sekcje
+  // były ukryte głęboko w popupie "Wymiary ściany i wysokości". Te same wiersze (pola edycji) są
+  // teraz renderowane w 2 miejscach: TU (sekcja wysokości, jak dotychczas) i w szybkim panelu TUŻ
+  // NAD rysunkiem (przekazywanym do WallElevationCanvas jako gotowy JSX, patrz niżej) — jedna
+  // definicja pól, żeby nigdy nie rozjechały się dwie kopie tego samego formularza.
+  const renderPillarRows = () => pillars.map((pillar, index) => {
+    const n = index + 1;
+    return (
+      <div key={pillar.id} className={s.heightsInputsRow} data-pillar-row={pillar.id}>
+        <label className={s.settingsModalField}>
+          Nazwa
+          <input
+            type="text" className={s.settingsModalInput}
+            aria-label={`Nazwa — szyb/słup #${n}`}
+            value={pillar.name}
+            onChange={event => patchPillarField(pillar.id, 'name', event.target.value)}
+          />
+        </label>
+        <label className={s.settingsModalField}>
+          Ściana
+          <select
+            className={s.settingsModalSelect}
+            aria-label={`Ściana — szyb/słup #${n}`}
+            value={pillar.wall}
+            onChange={event => patchPillarField(pillar.id, 'wall', event.target.value)}
+          >
+            <option value="X">X</option>
+            {hasWallY && <option value="Y">Y</option>}
+            {hasWallY2 && <option value="Y2">Y2</option>}
+          </select>
+        </label>
+        <CompactNumberField
+          label={`Pozycja od lewej (X, mm) — szyb/słup #${n}`} value={pillar.xMm}
+          onChange={value => patchPillarField(pillar.id, 'xMm', value)}
+        />
+        <CompactNumberField
+          label={`Szerokość (mm) — szyb/słup #${n}`} value={pillar.widthMm}
+          onChange={value => patchPillarField(pillar.id, 'widthMm', value)}
+        />
+        <CompactNumberField
+          label={`Głębokość (mm) — szyb/słup #${n}`} value={pillar.depthMm}
+          onChange={value => patchPillarField(pillar.id, 'depthMm', value)}
+        />
+        <CompactNumberField
+          label={`Wysokość (mm) — szyb/słup #${n}`} value={pillar.heightMm}
+          onChange={value => patchPillarField(pillar.id, 'heightMm', value)}
+        />
+        <button
+          type="button" className={s.removeButton}
+          aria-label={`Usuń szyb/słup ${pillar.name || n}`}
+          onClick={() => removePillar(pillar.id)}
+        >×</button>
+      </div>
+    );
+  });
+
+  const renderZeroPointSelectors = () => (
+    <>
+      <CompactSelectField
+        label="Punkt zerowy (0) dla ściany X" value={zeroPoints.X}
+        onChange={value => setZeroPointSide('X', value)}
+      >
+        <option value="left">Lewy róg (0 →)</option>
+        <option value="right">Prawy róg (← 0)</option>
+      </CompactSelectField>
+      {hasWallY && (
+        <CompactSelectField
+          label="Punkt zerowy (0) dla ściany Y" value={zeroPoints.Y}
+          onChange={value => setZeroPointSide('Y', value)}
+        >
+          <option value="left">Lewy róg (0 →)</option>
+          <option value="right">Prawy róg (← 0)</option>
+        </CompactSelectField>
+      )}
+      {hasWallY2 && (
+        <CompactSelectField
+          label="Punkt zerowy (0) dla ściany Y2" value={zeroPoints.Y2}
+          onChange={value => setZeroPointSide('Y2', value)}
+        >
+          <option value="left">Lewy róg (0 →)</option>
+          <option value="right">Prawy róg (← 0)</option>
+        </CompactSelectField>
+      )}
+    </>
+  );
+
+  const renderInstallationPointRows = () => installationPoints.map((point, index) => {
+    const n = index + 1;
+    return (
+      <div key={point.id} className={s.heightsInputsRow}>
+        <label className={s.settingsModalField}>
+          Typ
+          <select
+            className={s.settingsModalSelect}
+            aria-label={`Typ — punkt instalacji #${n}`}
+            value={point.type}
+            onChange={event => patchInstallationPointField(point.id, 'type', event.target.value)}
+          >
+            <option value="socket">{INSTALLATION_POINT_DEFAULTS.socket.label}</option>
+            <option value="led">{INSTALLATION_POINT_DEFAULTS.led.label}</option>
+            <option value="water">{INSTALLATION_POINT_DEFAULTS.water.label}</option>
+          </select>
+        </label>
+        <label className={s.settingsModalField}>
+          Ściana
+          <select
+            className={s.settingsModalSelect}
+            aria-label={`Ściana — punkt instalacji #${n}`}
+            value={point.wall}
+            onChange={event => patchInstallationPointField(point.id, 'wall', event.target.value)}
+          >
+            <option value="X">X</option>
+            {hasWallY && <option value="Y">Y</option>}
+            {hasWallY2 && <option value="Y2">Y2</option>}
+          </select>
+        </label>
+        <CompactNumberField
+          label={`Odległość od punktu 0 (mm) — punkt instalacji #${n}`} value={point.distanceMm}
+          onChange={value => patchInstallationPointField(point.id, 'distanceMm', value)}
+        />
+        <CompactNumberField
+          label={`Wysokość od podłogi H (mm) — punkt instalacji #${n}`} value={point.heightMm}
+          onChange={value => patchInstallationPointField(point.id, 'heightMm', value)}
+        />
+        <label className={s.settingsModalField}>
+          Opis
+          <input
+            type="text" className={s.settingsModalInput}
+            aria-label={`Opis — punkt instalacji #${n}`}
+            value={point.description}
+            placeholder="np. Zmywarka, Okap"
+            onChange={event => patchInstallationPointField(point.id, 'description', event.target.value)}
+          />
+        </label>
+        <button
+          type="button" className={s.removeButton}
+          aria-label={`Usuń punkt instalacji #${n}`}
+          onClick={() => removeInstallationPoint(point.id)}
+        >×</button>
+      </div>
+    );
+  });
   // hdfInGroove osobno: stary moduł z calculator_state sprzed tej funkcji ma to pole `undefined`,
   // ale efektywnie liczy się jak domyślne dla typu (patrz effectiveHdfInGroove) — zwykłe `!module
   // [field]` negowałoby `undefined` zamiast tego, co user WIDZI na checkboxie, i checkbox wizualnie
@@ -2441,7 +2586,7 @@ export default function CabinetCalculator({
 
   return createPortal(
     <div className={s.fullscreenOverlay} onKeyDown={handleOverlayKeyDown}>
-      <div className={s.panel} aria-labelledby={fieldsetId} ref={panelRef}>
+      <div className={s.panel} aria-labelledby={fieldsetId}>
       {/* h4 zostaje bezpośrednim dziecku .panel (nie owijamy go w dodatkowy div) — e2e lokalizuje
           cały panel przez getByText(tytuł).locator('..'), dodatkowy wrapper by to złamał. Dropdown
           "Typ zabudowy" jest więc OSOBNYM, bezpośrednim dzieckiem .panel (nie w tym samym wierszu
@@ -2573,60 +2718,13 @@ export default function CabinetCalculator({
 
           {/* Etap AD, krok 3 — "Szyb wentylacyjny / Słup": nieprzesuwalny element konstrukcyjny
               ściany (NIE szafka — brak materiałów/wyceny). Szafki na TEJ SAMEJ ścianie automatycznie
-              omijają jego odcinek [xMm, xMm+widthMm], patrz pillarsForWall/advancePastPillars. */}
+              omijają jego odcinek [xMm, xMm+widthMm], patrz pillarsForWall/advancePastPillars.
+              Etap AF, krok 2 — te same wiersze (`renderPillarRows`) są teraz TAKŻE pokazywane w
+              szybkim panelu nad rysunkiem (patrz `pillarPanelRows` niżej) — jedna definicja pól. */}
           <div className={s.heightsAreaBlock}>
             <h5 className={s.heightsAreaTitle}>🧱 Konstrukcja i instalacje</h5>
-            {pillars.map((pillar, index) => {
-              const n = index + 1;
-              return (
-                <div key={pillar.id} className={s.heightsInputsRow}>
-                  <label className={s.settingsModalField}>
-                    Nazwa
-                    <input
-                      type="text" className={s.settingsModalInput}
-                      aria-label={`Nazwa — szyb/słup #${n}`}
-                      value={pillar.name}
-                      onChange={event => patchPillarField(pillar.id, 'name', event.target.value)}
-                    />
-                  </label>
-                  <label className={s.settingsModalField}>
-                    Ściana
-                    <select
-                      className={s.settingsModalSelect}
-                      aria-label={`Ściana — szyb/słup #${n}`}
-                      value={pillar.wall}
-                      onChange={event => patchPillarField(pillar.id, 'wall', event.target.value)}
-                    >
-                      <option value="X">X</option>
-                      {hasWallY && <option value="Y">Y</option>}
-                      {hasWallY2 && <option value="Y2">Y2</option>}
-                    </select>
-                  </label>
-                  <CompactNumberField
-                    label={`Pozycja od lewej (X, mm) — szyb/słup #${n}`} value={pillar.xMm}
-                    onChange={value => patchPillarField(pillar.id, 'xMm', value)}
-                  />
-                  <CompactNumberField
-                    label={`Szerokość (mm) — szyb/słup #${n}`} value={pillar.widthMm}
-                    onChange={value => patchPillarField(pillar.id, 'widthMm', value)}
-                  />
-                  <CompactNumberField
-                    label={`Głębokość (mm) — szyb/słup #${n}`} value={pillar.depthMm}
-                    onChange={value => patchPillarField(pillar.id, 'depthMm', value)}
-                  />
-                  <CompactNumberField
-                    label={`Wysokość (mm) — szyb/słup #${n}`} value={pillar.heightMm}
-                    onChange={value => patchPillarField(pillar.id, 'heightMm', value)}
-                  />
-                  <button
-                    type="button" className={s.removeButton}
-                    aria-label={`Usuń szyb/słup ${pillar.name || n}`}
-                    onClick={() => removePillar(pillar.id)}
-                  >×</button>
-                </div>
-              );
-            })}
-            <button type="button" className={s.applyHeightsButton} onClick={addPillar}>
+            {renderPillarRows()}
+            <button type="button" className={s.applyHeightsButton} onClick={() => addPillar()}>
               + Dodaj szyb / słup konstrukcyjny
             </button>
           </div>
@@ -2637,89 +2735,10 @@ export default function CabinetCalculator({
           <div className={s.heightsAreaBlock}>
             <h5 className={s.heightsAreaTitle}>🔌 Instalacje i punkt zerowy (0)</h5>
             <div className={s.heightsInputsRow}>
-              <CompactSelectField
-                label="Punkt zerowy (0) dla ściany X" value={zeroPoints.X}
-                onChange={value => setZeroPointSide('X', value)}
-              >
-                <option value="left">Lewy róg (0 →)</option>
-                <option value="right">Prawy róg (← 0)</option>
-              </CompactSelectField>
-              {hasWallY && (
-                <CompactSelectField
-                  label="Punkt zerowy (0) dla ściany Y" value={zeroPoints.Y}
-                  onChange={value => setZeroPointSide('Y', value)}
-                >
-                  <option value="left">Lewy róg (0 →)</option>
-                  <option value="right">Prawy róg (← 0)</option>
-                </CompactSelectField>
-              )}
-              {hasWallY2 && (
-                <CompactSelectField
-                  label="Punkt zerowy (0) dla ściany Y2" value={zeroPoints.Y2}
-                  onChange={value => setZeroPointSide('Y2', value)}
-                >
-                  <option value="left">Lewy róg (0 →)</option>
-                  <option value="right">Prawy róg (← 0)</option>
-                </CompactSelectField>
-              )}
+              {renderZeroPointSelectors()}
             </div>
-            {installationPoints.map((point, index) => {
-              const n = index + 1;
-              return (
-                <div key={point.id} className={s.heightsInputsRow}>
-                  <label className={s.settingsModalField}>
-                    Typ
-                    <select
-                      className={s.settingsModalSelect}
-                      aria-label={`Typ — punkt instalacji #${n}`}
-                      value={point.type}
-                      onChange={event => patchInstallationPointField(point.id, 'type', event.target.value)}
-                    >
-                      <option value="socket">{INSTALLATION_POINT_DEFAULTS.socket.label}</option>
-                      <option value="led">{INSTALLATION_POINT_DEFAULTS.led.label}</option>
-                      <option value="water">{INSTALLATION_POINT_DEFAULTS.water.label}</option>
-                    </select>
-                  </label>
-                  <label className={s.settingsModalField}>
-                    Ściana
-                    <select
-                      className={s.settingsModalSelect}
-                      aria-label={`Ściana — punkt instalacji #${n}`}
-                      value={point.wall}
-                      onChange={event => patchInstallationPointField(point.id, 'wall', event.target.value)}
-                    >
-                      <option value="X">X</option>
-                      {hasWallY && <option value="Y">Y</option>}
-                      {hasWallY2 && <option value="Y2">Y2</option>}
-                    </select>
-                  </label>
-                  <CompactNumberField
-                    label={`Odległość od punktu 0 (mm) — punkt instalacji #${n}`} value={point.distanceMm}
-                    onChange={value => patchInstallationPointField(point.id, 'distanceMm', value)}
-                  />
-                  <CompactNumberField
-                    label={`Wysokość od podłogi H (mm) — punkt instalacji #${n}`} value={point.heightMm}
-                    onChange={value => patchInstallationPointField(point.id, 'heightMm', value)}
-                  />
-                  <label className={s.settingsModalField}>
-                    Opis
-                    <input
-                      type="text" className={s.settingsModalInput}
-                      aria-label={`Opis — punkt instalacji #${n}`}
-                      value={point.description}
-                      placeholder="np. Zmywarka, Okap"
-                      onChange={event => patchInstallationPointField(point.id, 'description', event.target.value)}
-                    />
-                  </label>
-                  <button
-                    type="button" className={s.removeButton}
-                    aria-label={`Usuń punkt instalacji #${n}`}
-                    onClick={() => removeInstallationPoint(point.id)}
-                  >×</button>
-                </div>
-              );
-            })}
-            <button type="button" className={s.applyHeightsButton} onClick={addInstallationPoint}>
+            {renderInstallationPointRows()}
+            <button type="button" className={s.applyHeightsButton} onClick={() => addInstallationPoint()}>
               + Dodaj punkt instalacji
             </button>
           </div>
@@ -2799,8 +2818,14 @@ export default function CabinetCalculator({
                 view={canvasView}
                 onViewChange={setCanvasView}
                 pillars={pillars}
+                onAddPillar={addPillar}
+                onPatchPillar={patchPillarField}
                 zeroPoints={zeroPoints}
                 installationPoints={installationPoints}
+                onAddInstallationPoint={addInstallationPoint}
+                pillarPanelRows={renderPillarRows()}
+                zeroPointSelectors={renderZeroPointSelectors()}
+                installationPanelRows={renderInstallationPointRows()}
               />
             </div>
             <div className={s.groupsColumn}>
