@@ -95,6 +95,84 @@
   color: #2563eb;
 }
 
+/* Etap AF, krok 2 — 2 przyciski szybkiego dostępu (Szyb/Słup, Instalacje) w TYM SAMYM rzędzie co
+   przełącznik widoku, dociśnięte do prawej (`margin-left: auto` na kontenerze — `.canvasHeader`
+   ma już `flex-wrap: wrap`, więc na wąskim ekranie zjeżdżają pod spód, nie łamią układu). */
+.canvasHeaderActions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.quickAccessButton {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color, #d8dee4);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.quickAccessButton[aria-pressed="true"] {
+  border-color: #78716c;
+  background: rgba(120, 113, 108, 0.14);
+}
+.quickAccessBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #78716c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Etap AF, krok 2 — "Szyb / Słup" na rysunku jest teraz klikalny (otwiera panel edycji) — kursor
+   wskazuje, że to coś interaktywnego, nie tylko statyczna kreskowana strefa jak dawniej. */
+.pillarGroup {
+  cursor: grab;
+}
+.pillarDragging {
+  opacity: 0.6;
+  cursor: grabbing;
+}
+
+/* Etap AF, krok 2 — kompaktowy panel (lista + dodanie) rozwijany POD rzędem nagłówka, PRZED samym
+   rysunkiem SVG — każdy wiersz pola wewnątrz (`pillarPanelRows`/`installationPanelRows`/
+   `zeroPointSelectors`) jest gotowym JSX z CabinetCalculator.jsx (własne klasy/stylowanie), ten
+   kontener daje mu tylko ramkę/tło/odstęp, żeby wyglądał jak rozwijany popover, nie luźne pola. */
+.quickPanel {
+  border: 1px solid var(--border-color, #d8dee4);
+  border-radius: 8px;
+  background: var(--canvas-bg, #fff);
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.quickPanelAddButton {
+  padding: 6px 12px;
+  border: 1px solid #78716c;
+  border-radius: 6px;
+  background: rgba(120, 113, 108, 0.12);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .quickPanel {
+    background: var(--canvas-bg-dark, #1b222c);
+  }
+}
+
 /* Etap O, krok 2 — architektoniczne linie wymiarowe (gabaryty wprost na rysunku). */
 .dimensionLine {
   stroke: currentColor;

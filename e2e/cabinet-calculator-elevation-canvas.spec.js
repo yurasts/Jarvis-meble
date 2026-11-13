@@ -65,7 +65,11 @@ test('WallElevationCanvas is visible under Kuchnia, hidden under other categorie
   await expect(canvas).not.toBeVisible();
 });
 
-test('clicking a cabinet on the canvas highlights and scrolls to its row in the table', async ({ page }) => {
+// Etap AF, krok 1 — zgłoszenie: klik na szafkę na rysunku przesuwał całą stronę
+// (`scrollIntoView({block:'center'})` wycentrowujący jej wiersz) — user tracił orientację, gdzie
+// jest ekran. Zaznaczenie ma zostać WYŁĄCZNIE wizualne — strona i jej kontenery przewijania
+// NIERUCHOME (ani `window`, ani żaden przewijany kontener-rodzic).
+test('clicking a cabinet on the canvas highlights its row, WITHOUT scrolling the page at all', async ({ page }) => {
   await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
     services: [cuttingService, edgingService],
@@ -75,6 +79,12 @@ test('clicking a cabinet on the canvas highlights and scrolls to its row in the 
 
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Pod zlew', exact: true }).click();
+
+  // Przewijamy stronę o konkretną, dowolną wartość PRZED klikiem — żeby test faktycznie dowodził
+  // "nic się nie rusza", a nie tylko "strona akurat już była na górze" (scrollY=0 byłoby fałszywym
+  // potwierdzeniem nawet ze starym, usuniętym scrollIntoView).
+  await page.evaluate(() => window.scrollTo(0, 120));
+  const scrollYBefore = await page.evaluate(() => window.scrollY);
 
   const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
   const cabinets = canvas.locator('[data-module-id]');
@@ -88,7 +98,8 @@ test('clicking a cabinet on the canvas highlights and scrolls to its row in the 
 
   const highlightedRow = calculator.locator(`[data-module-row="${secondCabinetId}"]`);
   await expect(highlightedRow).toHaveClass(/rowHighlighted/);
-  await expect(highlightedRow).toBeInViewport();
+  const scrollYAfter = await page.evaluate(() => window.scrollY);
+  expect(scrollYAfter).toBe(scrollYBefore);
 });
 
 // Etap AA, krok 3 — zgłoszenie: klik na JUŻ wybranej (podświetlonej) szafce na rysunku otwiera
@@ -681,6 +692,94 @@ test('"Szyb wentylacyjny / Słup": szafka omija jego odcinek na Widoku X i na Wi
   const topSecondBox = await topCabinets.nth(1).locator('rect').boundingBox();
   expect(Math.abs((topFirstBox.x + topFirstBox.width) - topPillarBox.x)).toBeLessThan(5);
   expect(Math.abs(topSecondBox.x - (topPillarBox.x + topPillarBox.width))).toBeLessThan(5);
+});
+
+// Etap AF, krok 2 — zgłoszenie: user nie mógł znaleźć, jak dodać szyb/punkt instalacji (ukryte
+// głęboko w "Wymiary ściany i wysokości") — 2 przyciski z bejdżem liczby TUŻ NAD rysunkiem.
+test('Przyciski "🧱 + Szyb / Słup"/"🔌 Instalacje / Punkt 0" nad rysunkiem: widoczne z bejdżem, dodają słup 600×600 na aktywną ścianę w 1 kliku', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+  const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
+  await expect(canvas).toBeVisible();
+
+  const pillarButton = calculator.getByRole('button', { name: /🧱 \+ Szyb \/ Słup/ });
+  const installButton = calculator.getByRole('button', { name: /🔌 Instalacje \/ Punkt 0/ });
+  await expect(pillarButton).toBeVisible();
+  await expect(installButton).toBeVisible();
+  await expect(pillarButton.locator('[class*="quickAccessBadge"]')).toHaveText('0');
+  await expect(installButton.locator('[class*="quickAccessBadge"]')).toHaveText('0');
+
+  await pillarButton.click();
+  const panel = calculator.getByTestId('pillar-quick-panel');
+  await expect(panel).toBeVisible();
+  // Widok X jest aktywny domyślnie -> przycisk szybkiego dodania celuje w ścianę X.
+  await panel.getByRole('button', { name: /Dodaj 600×600 na ścianę X/ }).click();
+
+  await expect(pillarButton.locator('[class*="quickAccessBadge"]')).toHaveText('1');
+  await expect(panel.getByLabel('Ściana — szyb/słup #1')).toHaveValue('X');
+  await expect(panel.getByLabel('Szerokość (mm) — szyb/słup #1')).toHaveValue('600');
+  await expect(panel.getByLabel('Głębokość (mm) — szyb/słup #1')).toHaveValue('600');
+  await expect(canvas.locator('[class*="pillarBlock"]')).toBeVisible();
+});
+
+// Etap AF, krok 2 — kliknięcie zaszrafowanego słupa WPROST na rysunku ma od razu otworzyć panel
+// jego edycji (pozycja/szerokość/głębokość/wysokość/usuń), nie tylko przycisk w nagłówku.
+test('Kliknięcie w słup na rysunku (Widok X) otwiera panel edycji z JEGO polami', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+
+  await expandHeightsPanel(calculator);
+  await calculator.getByRole('button', { name: '+ Dodaj szyb / słup konstrukcyjny' }).click();
+  await calculator.getByRole('button', { name: /⚙️ Wymiary ściany i wysokości/ }).click(); // zwiń panel
+
+  const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
+  const pillarBlock = canvas.locator('[class*="pillarBlock"]');
+  await expect(pillarBlock).toBeVisible();
+  // `.click()` z pełnym sprawdzeniem "actionability" zawiesza się na elementach SVG (ten sam
+  // sprawdzony wzorzec co przy klikaniu szafek — patrz testy wyżej) — klik wprost przez page.mouse.
+  const pillarBox = await pillarBlock.boundingBox();
+  await page.mouse.click(pillarBox.x + pillarBox.width / 2, pillarBox.y + pillarBox.height / 2);
+
+  const panel = calculator.getByTestId('pillar-quick-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel.getByLabel('Nazwa — szyb/słup #1')).toHaveValue('Szyb wentylacyjny');
+  await expect(panel.getByLabel('Usuń szyb/słup Szyb wentylacyjny')).toBeVisible();
+});
+
+// Etap AF, krok 2 — zgłoszenie: słup da się przeciągać myszką wzdłuż ściany na Widoku X/Y/Y2 (tam
+// oś pozioma rysunku ZAWSZE jest długością ściany, niezależnie od tego, która to ściana).
+test('Przeciąganie słupa myszką na Widoku X przesuwa go wzdłuż ściany (zmienia jego pozycję X)', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+
+  await expandHeightsPanel(calculator);
+  await calculator.getByRole('button', { name: '+ Dodaj szyb / słup konstrukcyjny' }).click();
+  await calculator.getByLabel('Pozycja od lewej (X, mm) — szyb/słup #1').fill('200');
+  await calculator.getByRole('button', { name: /⚙️ Wymiary ściany i wysokości/ }).click(); // zwiń panel
+
+  const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
+  const pillarBlock = canvas.locator('[class*="pillarBlock"]');
+  const boxBefore = await pillarBlock.boundingBox();
+
+  await page.mouse.move(boxBefore.x + boxBefore.width / 2, boxBefore.y + boxBefore.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(boxBefore.x + boxBefore.width / 2 + 150, boxBefore.y + boxBefore.height / 2, { steps: 5 });
+  await page.mouse.up();
+
+  const boxAfter = await pillarBlock.boundingBox();
+  expect(boxAfter.x).toBeGreaterThan(boxBefore.x + 50);
 });
 
 // Etap AD, krok 4 — zgłoszenie: punkt instalacji (gniazdko/LED/woda) rysuje się na elewacji w
