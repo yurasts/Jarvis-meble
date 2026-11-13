@@ -746,10 +746,11 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
         summary={`${totalMaterials.toFixed(2)} zł`}
         open={workspaceSections.isOpen('materials')}
         onToggle={() => toggleWorkspaceSection('materials')}
-        // «📐 Kalkulator szafek» i «📦 Zamówienia» — tylko desktop workspace (mobile ma własny,
-        // osobny widok pozycji bez tych funkcji). Kalkulator dostępny zawsze (służy do DODANIA
-        // pierwszych materiałów w pustym projekcie), Zamówienia tylko gdy jest co grupować.
-        actions={!isMobileVariant && (
+        // «📐 Kalkulator szafek» jest dostępny na KAŻDYM wariancie (mobile/tablet też — Etap E,
+        // wcześniejsze ograniczenie "desktop-only" zniesione, panel sam jest teraz responsywny:
+        // 1 kolumna, pełna szerokość). «📦 Zamówienia» zostaje desktop-only (mobile ma własny,
+        // osobny widok pozycji bez tej funkcji) i tylko gdy jest co grupować.
+        actions={(
           <>
             <button
               type="button"
@@ -759,7 +760,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
             >
               📐 Kalkulator szafek
             </button>
-            {calcMaterials.length > 0 && (
+            {!isMobileVariant && calcMaterials.length > 0 && (
               <button
                 type="button"
                 className={workspaceSectionButtons.secondary}
@@ -775,6 +776,19 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
       >
         {isMobileVariant ? (
           <div className={ms.itemList}>
+            {cabinetCalculatorOpen && (
+              <CabinetCalculator
+                key={client.id}
+                materials={materials}
+                servicesList={servicesList}
+                projectMultiplier={client.budget_coefficient}
+                onAddToProject={addCalculatedItems}
+                initialState={client.calculator_state}
+                onStateChange={handleCalculatorStateChange}
+                saveStatus={calculatorSaveStatus}
+                onClose={() => setCabinetCalculatorOpen(false)}
+              />
+            )}
             {calcMaterials.length === 0 && (
               <div className={ms.itemListEmpty}>Brak dodanych materiałów</div>
             )}
@@ -793,6 +807,7 @@ const ProjectModal = ({ client, originalClient, setClient, materials, servicesLi
                 initialState={client.calculator_state}
                 onStateChange={handleCalculatorStateChange}
                 saveStatus={calculatorSaveStatus}
+                onClose={() => setCabinetCalculatorOpen(false)}
               />
             )}
             {materialOrdersOpen && (

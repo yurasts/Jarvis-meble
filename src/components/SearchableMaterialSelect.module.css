@@ -1,0 +1,246 @@
+/* SearchableMaterialSelect — zamiennik gołego <select> z żywą szukajką i ceną przy każdej
+   pozycji, używany w Kalkulatorze szafek (Blok 1 i "Własne materiały szafki"). */
+
+.root {
+  position: relative;
+  min-width: 0;
+}
+
+/* Etap H — overflow: hidden tu jest istotne, nie kosmetyczne: .copyButton/.triggerPrice/
+   .triggerCaret są flex: 0 0 auto (nie potrafią się skurczyć); w bardzo wąskiej kolumnie (np.
+   tabela kalkulacji osadzona obok panelu bocznego aplikacji, nie w pełnoekranowym modalu) ich
+   suma może przekroczyć 100% szerokości triggera — bez tego overflow wizualnie "wypychały"
+   trigger (a z nim całą tabelę/stronę) szerzej, zamiast się po prostu przyciąć. */
+.trigger {
+  display: flex;
+  overflow: hidden;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.trigger:focus,
+.trigger[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.trigger[data-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.triggerName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  user-select: text;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.triggerName[data-empty="true"] { color: var(--text-muted); }
+
+/* Kopiuje nazwę materiału do schowka — osobny <button>, zatrzymuje propagację (nie otwiera listy). */
+.copyButton {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  cursor: pointer;
+}
+.copyButton:hover { background: var(--accent-soft); color: var(--accent); }
+
+.triggerPrice {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  color: var(--text-main);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.triggerCaret {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+/* Etap J, krok 1 — wariant "compact": gołą linia tekstu z ołówkiem ✎ zamiast pudełka z ramką,
+   dla nagłówka grupy (4 pozycje materiału jedna pod drugą, patrz CabinetCalculator.module.css
+   .boardRows). position: relative (jak .root) — .popover nadal się anchoruje pod linią. */
+.compactRoot {
+  position: relative;
+  min-width: 0;
+}
+
+/* Etap P, krok 2 — 4 wiersze materiału grupy (Płyta korpusu/frontu, Obrzeże korpusu/frontu) muszą
+   zaczynać nazwę materiału DOKŁADNIE w tym samym miejscu, niezależnie od długości etykiety slotu
+   ("Płyta korpusu:" vs "Obrzeże frontu:") — zwykły flex nie gwarantuje tego między NIEZALEŻNYMI
+   wierszami (każdy to osobna instancja SearchableMaterialSelect), więc każdy wiersz dostaje TĘ SAMĄ,
+   stałą siatkę kolumn (ołówek / etykieta / wartość / kopiuj), a nie płynący flex. */
+.compactTrigger {
+  display: grid;
+  grid-template-columns: 22px 140px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  width: 100%;
+  padding: 2px 0;
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+.compactTrigger:focus,
+.compactTrigger[aria-expanded="true"] {
+  outline: none;
+}
+.compactTrigger:focus .compactText,
+.compactTrigger[aria-expanded="true"] .compactText {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+.compactTrigger[data-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.compactPencil {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: center;
+}
+.compactTrigger:hover .compactPencil { color: var(--accent); }
+
+.compactLabel {
+  overflow: hidden;
+  color: var(--text-main);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compactText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compactText[data-empty="true"] { color: var(--text-muted); }
+
+.compactPrice {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Siatka .compactTrigger ma już `gap: 6px` między kolumnami — domyślny margines .copyButton
+   (potrzebny w wariancie .trigger, zwykły flex bez gap) dublowałby ten odstęp tutaj. */
+.compactTrigger .copyButton {
+  margin-left: 0;
+}
+
+/* Szerokość TRZYMA SIĘ triggera (nigdy go nie przerasta) — wymuszenie szerszego minimum (np. 260px)
+   w wąskiej kolumnie karty (label 135px + select) potrafiło przerosnąć dostępną przestrzeń i
+   wywoływało natywny scrollIntoView przeglądarki przy fokusie na input szukajki, przesuwając cały
+   panel w bok. Nazwa/cena w liście skracają się tak samo jak na triggerze — spójnie.
+   z-index:1000 i max-height:380px (10-12 wierszy naraz) — karty Bloku 1 (CabinetCalculator.module
+   .css .card) musiały stracić swoje overflow:hidden, inaczej POPOVER sam w sobie mógł być
+   wystarczająco wysoki, ale kontener karty i tak obcinał go do ~1.5 wiersza u dołu karty. */
+.popover {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 380px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-popover);
+}
+
+.searchInput {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+}
+.searchInput:focus { outline: none; }
+
+.list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.option:hover,
+.option[data-highlighted="true"] { background: var(--accent-soft); }
+.option[aria-selected="true"] { font-weight: 700; }
+
+.optionName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionPrice {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.option[aria-selected="true"] .optionPrice { color: var(--text-main); }
+
+.optionCheck {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 10px 8px;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
