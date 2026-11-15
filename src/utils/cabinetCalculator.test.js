@@ -5,7 +5,9 @@ import {
   DEFAULT_KITCHEN_HEIGHTS,
   EDGE_WASTE_FACTOR,
   USABLE_SHEET_AREA_M2,
+  aggregateCutlistParts,
   buildCabinetCostBreakdown,
+  computeCabinetParts,
   computeCornerDepthMm,
   computeDrawersCount,
   computeKitchenHeights,
@@ -13,10 +15,12 @@ import {
   computeModule,
   computeWallFreeSpace,
   createCabinetModule,
+  cutlistEdgeLabel,
   detectDrawerSystem,
   drawerTypeToSystem,
   FRIDGE_STANDARD_OPTIONS,
   getHingesPerDoor,
+  groupCutlistByMaterial,
   layoutCountertopSegments,
   layoutFloorBand,
   layoutUpperRow,
@@ -1970,5 +1974,142 @@ describe('layoutCountertopSegments', () => {
     const modules = [createCabinetModule('tall_cabinet', { group: 'kitchen_tall', W: 600 })];
     const segments = layoutCountertopSegments(layoutFloorBand(modules, 'X').entries);
     expect(segments).toEqual([]);
+  });
+});
+
+// Etap AG — "Wykaz formatek": computeCabinetParts musi zwracać SENSOWNĄ geometrię (albo nic) dla
+// typów, które NIE są skrzynkami korpusu — inaczej zbiorcza tabela rozkroju pokazałaby fikcyjne
+// "Dno"/"Trawers" dla Blatu/Blendy/Cokołu.
+describe('computeCabinetParts — typy niebędące skrzynką korpusu (Etap AG, krok 3)', () => {
+  it('"Blat" (countertop) nie generuje żadnej formatki — build() też zwraca panels: []', () => {
+    const module = createCabinetModule('countertop', { W: 2400, D: 600 });
+    expect(computeCabinetParts(module)).toEqual([]);
+  });
+
+  it('"Blenda boczna" (side_filler) to 1 formatka z Płyty frontu, kromkowana po obu pionowych torcach (D1 D2)', () => {
+    const module = createCabinetModule('side_filler', { W: 50, H: 2600 });
+    const parts = computeCabinetParts(module);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      element: 'Blenda boczna', group: 'front', lengthMm: 2600, widthMm: 50,
+      edges: { d1: true, d2: true, s1: false, s2: false },
+    });
+  });
+
+  it('"Blenda górna" (top_filler) to 1 formatka z Płyty frontu, kromkowana po obu poziomych torcach (D1 D2)', () => {
+    const module = createCabinetModule('top_filler', { W: 3000, H: 50 });
+    const parts = computeCabinetParts(module);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      element: 'Blenda górna', group: 'front', lengthMm: 3000, widthMm: 50,
+      edges: { d1: true, d2: true, s1: false, s2: false },
+    });
+  });
+
+  it('"Cokół" (plinth_strip) to 1 formatka, kromkowana tylko po 1 (górnej) krawędzi (D1)', () => {
+    const bodyModule = createCabinetModule('plinth_strip', { W: 3000, H: 105 });
+    expect(computeCabinetParts(bodyModule)).toEqual([
+      expect.objectContaining({ element: 'Cokół', group: 'body', lengthMm: 3000, widthMm: 105, edges: { d1: true, d2: false, s1: false, s2: false } }),
+    ]);
+
+    const frontModule = createCabinetModule('plinth_strip', { W: 3000, H: 105, source: 'front' });
+    expect(computeCabinetParts(frontModule)[0]).toMatchObject({ group: 'front' });
+  });
+});
+
+describe('cutlistEdgeLabel', () => {
+  it('formatuje flagi D1/D2/S1/S2 na czytelny tekst, "Brak" gdy żadna krawędź nie jest oklejona', () => {
+    expect(cutlistEdgeLabel({ d1: true, d2: true, s1: true, s2: true })).toBe('D1 D2 S1 S2');
+    expect(cutlistEdgeLabel({ d1: true, s1: true, s2: true })).toBe('D1 S1 S2');
+    expect(cutlistEdgeLabel({ d1: true })).toBe('D1');
+    expect(cutlistEdgeLabel({})).toBe('Brak');
+  });
+});
+
+// Etap AG — "Wykaz formatek": agregacja scala IDENTYCZNE formatki (ten sam materiał + Długość +
+// Szerokość + schemat oklejki) ze WSZYSTKICH modułów naraz, niezależnie od tego, z ilu różnych
+// szafek/ile razy (qty) pochodzą.
+describe('aggregateCutlistParts / groupCutlistByMaterial (Etap AG)', () => {
+  const resolveMaterialName = (module, group) => (
+    group === 'body' ? 'Korpus A' : group === 'front' ? 'Front A' : 'HDF A'
+  );
+
+  it('sumuje identyczne "Bok"/"Trawers"/"Front" z 2 różnych, ale jednakowo wymiarowanych szafek', () => {
+    const modules = [
+      createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 600, H: 800, D: 520 }),
+      createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 600, H: 800, D: 520 }),
+    ];
+    const rows = aggregateCutlistParts(modules, resolveMaterialName);
+
+    const sideRow = rows.find(row => row.elements.some(entry => entry.element === 'Bok'));
+    expect(sideRow).toMatchObject({ group: 'body', material: 'Korpus A', lengthMm: 800, widthMm: 520, qty: 4 });
+    expect(sideRow.elements).toEqual([{ element: 'Bok', count: 4 }]);
+
+    const trawersRow = rows.find(row => row.elements.some(entry => entry.element === 'Trawers'));
+    expect(trawersRow.qty).toBe(4); // 2 szt./szafka x 2 szafki
+
+    const frontRow = rows.find(row => row.elements.some(entry => entry.element === 'Front (drzwi)'));
+    expect(frontRow).toMatchObject({ group: 'front', material: 'Front A', qty: 2 }); // 1 drzwi/szafka x 2
+  });
+
+  it('respektuje module.qty jako mnożnik (1 moduł z qty=3 liczy się jak 3 identyczne szafki)', () => {
+    const modules = [createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 600, H: 800, D: 520, qty: 3 })];
+    const rows = aggregateCutlistParts(modules, resolveMaterialName);
+    const sideRow = rows.find(row => row.elements.some(entry => entry.element === 'Bok'));
+    expect(sideRow.qty).toBe(6); // 2 szt./szafka x qty 3
+  });
+
+  it('różne elementy o TYM SAMYM rozmiarze+kromce+materiale scalają się w JEDEN wiersz z listą "Elementy"', () => {
+    // "Dno" (innerW x D-1, D1) i hipotetyczny inny element o identycznych wymiarach/kromce trafiłyby
+    // do tego samego wiersza — tu wystarczy, że sam "Dno" z 2 szafek zlicza się RAZEM (1 element,
+    // suma liczności), zgodnie z kluczem (materiał+Długość+Szerokość+oklejka).
+    const modules = [
+      createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 600, H: 800, D: 520 }),
+      createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 600, H: 800, D: 520 }),
+    ];
+    const rows = aggregateCutlistParts(modules, resolveMaterialName);
+    const dnoRow = rows.find(row => row.elements.some(entry => entry.element === 'Dno'));
+    expect(dnoRow.elements).toEqual([{ element: 'Dno', count: 2 }]);
+  });
+
+  it('dzieli wiersze na sekcje Płyta korpusu -> Płyta frontu -> HDF, posortowane malejąco po Długości (potem Szerokości)', () => {
+    const modules = [
+      createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 600, H: 800, D: 520 }),
+      createCabinetModule('base_doors', { group: 'kitchen_bottom', W: 400, H: 800, D: 520 }),
+    ];
+    const sections = groupCutlistByMaterial(aggregateCutlistParts(modules, resolveMaterialName));
+
+    expect(sections.map(section => ({ group: section.group, groupLabel: section.groupLabel, material: section.material }))).toEqual([
+      { group: 'body', groupLabel: 'Płyta korpusu', material: 'Korpus A' },
+      { group: 'front', groupLabel: 'Płyta frontu', material: 'Front A' },
+      { group: 'hdf', groupLabel: 'HDF', material: 'HDF A' },
+    ]);
+
+    const bodySection = sections[0];
+    // "Bok" (800x520) jest NAJDŁUŻSZY element sekcji korpusu -> pierwszy wiersz.
+    expect(bodySection.rows[0].elements.some(entry => entry.element === 'Bok')).toBe(true);
+    expect(bodySection.rows[0].lengthMm).toBe(800);
+
+    // Plecy HDF obu szafek mają TĘ SAMĄ Długość (H-4=796, H identyczne) ale RÓŻNĄ Szerokość
+    // (W-4: 596 vs 396) — sortowanie musi rozstrzygnąć remis Długości malejącą Szerokością.
+    const hdfSection = sections[2];
+    expect(hdfSection.rows).toHaveLength(2);
+    expect(hdfSection.rows[0].lengthMm).toBe(hdfSection.rows[1].lengthMm);
+    expect(hdfSection.rows[0].widthMm).toBeGreaterThan(hdfSection.rows[1].widthMm);
+  });
+
+  it('moduł z qty=0 nie trafia do zestawienia wcale', () => {
+    const modules = [createCabinetModule('base_doors', { group: 'kitchen_bottom', qty: 0 })];
+    expect(aggregateCutlistParts(modules, resolveMaterialName)).toEqual([]);
+  });
+
+  it('brak sekcji HDF, gdy żaden moduł nie ma koncepcji pleców (np. same Blendy/Cokół/Blat)', () => {
+    const modules = [
+      createCabinetModule('side_filler', { W: 50, H: 2600 }),
+      createCabinetModule('countertop', { W: 2400, D: 600 }),
+    ];
+    const sections = groupCutlistByMaterial(aggregateCutlistParts(modules, resolveMaterialName));
+    expect(sections.some(section => section.group === 'hdf')).toBe(false);
+    expect(sections.map(section => section.group)).toEqual(['front']); // tylko Blenda boczna — Blat nie generuje nic
   });
 });

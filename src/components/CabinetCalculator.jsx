@@ -8,6 +8,7 @@ import {
   FLOOR_BAND_GROUPS,
   FRIDGE_STANDARD_OPTIONS,
   INTERNAL_DRAWER_TYPES,
+  aggregateCutlistParts,
   buildCabinetCostBreakdown,
   computeCabinetParts,
   computeKitchenHeights,
@@ -16,6 +17,7 @@ import {
   createCabinetModule,
   detectDrawerSystem,
   drawerTypeToSystem,
+  groupCutlistByMaterial,
   layoutFloorBand,
   normalizeModuleWall,
   reorderItems,
@@ -1097,6 +1099,11 @@ export default function CabinetCalculator({
   // tabeli (patrz useEffect niżej, przy renderModuleTable) — czysto wizualny stan UI, nie wchodzi
   // do calculator_state.
   const [selectedModuleId, setSelectedModuleId] = useState(null);
+  // Etap AH, krok 2 — rysunek dostał PEŁNĄ szerokość (usunięta stała 2-kolumnowa siatka rysunek+
+  // tabela, patrz .canvasFullWidth w CSS); tabela szafek zostaje, ale jako zwijana sekcja POD
+  // rysunkiem — domyślnie ROZWINIĘTA (zachowuje dotychczasowe zachowanie/testy bez zmian), z opcją
+  // zwinięcia dla kogoś, komu wystarcza sam rysunek.
+  const [showDetailedTable, setShowDetailedTable] = useState(true);
   // Etap S, krok 1 — 5 grup kuchennych żyją teraz w JEDNYM kontenerze z zakładkami u góry (karuzela
   // slajdów) zamiast długiej pionowej wstęgi — który slajd jest aktywny to czysto wizualny stan UI,
   // nie wchodzi do calculator_state (jak selectedModuleId/canvasView).
@@ -1487,9 +1494,9 @@ export default function CabinetCalculator({
     led: { label: '💡 Punkt LED / zasilacz', heightMm: 1520 },
     water: { label: '💧 Woda + odpływ (kan.)', heightMm: 550 },
   };
-  const addInstallationPoint = (wall = 'X') => setInstallationPoints(current => [...current, {
-    id: nextModuleId(), type: 'socket', wall, distanceMm: 0,
-    heightMm: INSTALLATION_POINT_DEFAULTS.socket.heightMm, description: '',
+  const addInstallationPoint = (wall = 'X', type = 'socket') => setInstallationPoints(current => [...current, {
+    id: nextModuleId(), type, wall, distanceMm: 0,
+    heightMm: INSTALLATION_POINT_DEFAULTS[type]?.heightMm ?? INSTALLATION_POINT_DEFAULTS.socket.heightMm, description: '',
   }]);
   const patchInstallationPointField = (id, field, value) => setInstallationPoints(current => current.map((point) => {
     if (point.id !== id) return point;
@@ -1586,9 +1593,15 @@ export default function CabinetCalculator({
     </>
   );
 
-  const renderInstallationPointRows = () => installationPoints.map((point, index) => {
-    const n = index + 1;
-    return (
+  // Etap AH, krok 1 — `filterFn` (opcjonalny) pozwala pokazać TYLKO podzbiór punktów (⚡ elektryczne
+  // vs 💧 wodne, patrz panele szybkiego dostępu w WallElevationCanvas) — numer "#n" w aria-labelach
+  // zostaje GLOBALNY (pozycja w PEŁNEJ liście, nie w przefiltrowanej), żeby ten sam punkt miał TEN
+  // SAM numer niezależnie od tego, z którego miejsca (panel ⚡/💧 czy sekcja "Wymiary ściany i
+  // wysokości", bez filtra) go akurat edytujemy.
+  const renderInstallationPointRows = (filterFn) => installationPoints
+    .map((point, index) => ({ point, n: index + 1 }))
+    .filter(({ point }) => (filterFn ? filterFn(point) : true))
+    .map(({ point, n }) => (
       <div key={point.id} className={s.heightsInputsRow}>
         <label className={s.settingsModalField}>
           Typ
@@ -1640,8 +1653,7 @@ export default function CabinetCalculator({
           onClick={() => removeInstallationPoint(point.id)}
         >×</button>
       </div>
-    );
-  });
+    ));
   // hdfInGroove osobno: stary moduł z calculator_state sprzed tej funkcji ma to pole `undefined`,
   // ale efektywnie liczy się jak domyślne dla typu (patrz effectiveHdfInGroove) — zwykłe `!module
   // [field]` negowałoby `undefined` zamiast tego, co user WIDZI na checkboxie, i checkbox wizualnie
@@ -2393,6 +2405,63 @@ export default function CabinetCalculator({
     );
   };
 
+  // Etap AG — "Wykaz formatek" (zbiorcza specyfikacja rozkroju): dla danego modułu i roli formatki
+  // ('body'/'front'/'hdf') znajduje NAZWĘ realnie wybranej płyty z katalogu — Korpus/Front per
+  // GRUPA kuchenna (ta sama ścieżka co `groupDecorHint`, z dziedziczeniem "Jak w..."), HDF to
+  // JEDNA, globalna rola projektu (ta sama co `selections.hdfMaterial` w smecie niżej).
+  const resolveCutlistMaterialName = (module, group) => {
+    if (group === 'hdf') return selectedItem('hdfMaterial', materialPools, materials)?.name || null;
+    const field = group === 'front' ? 'frontMaterialId' : 'bodyMaterialId';
+    return materialsById.get(String(effectiveBoardId(module.group, field)))?.name || null;
+  };
+
+  // Tylko moduły kuchenne — rysunek/sekcja żyją wyłącznie pod wkładką Kuchnia, a Szafa/Łazienka/RTV
+  // mają zupełnie inny, prostszy system wyboru materiału (bez `boardsByKey`/dziedziczenia per grupa).
+  const kitchenModulesForCutlist = modules.filter(module => KITCHEN_GROUP_KEYS.includes(module.group));
+
+  const renderCutlistSummary = () => {
+    const sections = groupCutlistByMaterial(aggregateCutlistParts(kitchenModulesForCutlist, resolveCutlistMaterialName));
+    if (sections.length === 0) return null;
+    return (
+      <div className={s.cutlistSummary} data-testid="cutlist-summary">
+        <h5 className={s.quoteTableTitle}>📋 Wykaz formatek (Zbiorcza specyfikacja rozkroju)</h5>
+        {sections.map(section => (
+          <div key={`${section.group}-${section.material}`} className={s.cutlistSection}>
+            <h6 className={s.cutlistSectionTitle}>{section.groupLabel} — {section.material}</h6>
+            <div className={s.tableScroll}>
+              <table className={s.table} data-testid={`cutlist-table-${section.group}`}>
+                <thead>
+                  <tr>
+                    <th>Lp.</th>
+                    <th>Elementy / Przeznaczenie</th>
+                    <th>Długość (mm)</th>
+                    <th>Szerokość (mm)</th>
+                    <th>Ilość (szt.)</th>
+                    <th>Okleina ABS</th>
+                    <th>Powierzchnia (m²)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.rows.map((row, index) => (
+                    <tr key={`${row.lengthMm}x${row.widthMm}-${row.edgeLabel}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td>{row.elements.map(entry => `${entry.element} (${entry.count})`).join(', ')}</td>
+                      <td className={s.numCell}>{row.lengthMm}</td>
+                      <td className={s.numCell}>{row.widthMm}</td>
+                      <td className={s.numCell}>{row.qty}</td>
+                      <td>{row.edgeLabel}{row.edgeMb > 0 ? ` · ${row.edgeMb.toFixed(2)} mb` : ''}</td>
+                      <td className={s.numCell}>{row.areaM2.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Etap U, krok 1 — tabela po prawej TERAZ ZAWSZE pokazuje WSZYSTKIE dodane szafki kuchenne razem
   // (zgrupowane: Ściana X/Y -> jarus -> wiersze), zamiast filtrować do jednej grupy naraz (dawna
   // karuzela slajdów tabeli, Etap S/T) — zakładki u góry (nad paletą) tylko PODŚWIETLAJĄ swoją
@@ -2745,10 +2814,9 @@ export default function CabinetCalculator({
         </div>
       )}
 
-      {/* Etap T, krok 2 — pod wkładką Kuchnia: WSPÓLNY pasek zakładek+palety NA CAŁĄ SZEROKOŚĆ, NAD
-          obiema kolumnami (dawniej: tylko nad prawą tabelą, przez co tabela "zjeżdżała" niżej niż
-          rysunek) — dopiero POD nim rysunek (lewo) i tabela (prawo), patrz .calculatorLayout w CSS.
-          Pozostałe kategorie (bez rysunku/zakładek) zostają 1-kolumnowe, jak dawniej. */}
+      {/* Etap T, krok 2 — pod wkładką Kuchnia: WSPÓLNY pasek zakładek+palety NA CAŁĄ SZEROKOŚĆ — dopiero
+          POD nim pełnoszerokościowy rysunek (patrz .canvasFullWidth w CSS, Etap AH, krok 2), a POD nim
+          zwijana szczegółowa tabela. Pozostałe kategorie (bez rysunku/zakładek) zostają 1-kolumnowe. */}
       {activeCategory === 'kitchen' ? (
         <>
           {/* Etap S, krok 1 / Etap T, krok 2 — 5 grup kuchennych dzielą JEDEN pasek zakładek u góry
@@ -2801,36 +2869,50 @@ export default function CabinetCalculator({
             </div>
           </div>
 
-          <div className={s.calculatorLayout}>
-            <div className={s.canvasColumn}>
-              {/* Etap N, krok 3 — rysunek 2D elewacji ściany kuchennej, 1:1 w milimetrach, z
-                  przestawianiem myszką (patrz WallElevationCanvas.jsx). */}
-              <WallElevationCanvas
-                modules={modules}
-                heights={kitchenHeights}
-                selectedModuleId={selectedModuleId}
-                hoveredModuleId={hoveredModuleId}
-                onSelectModule={selectModuleFromCanvas}
-                onHoverModule={setHoveredModuleId}
-                onReorder={reorderFromCanvas}
-                onDropPreset={(preset, { group, index, wall }) => addModule({ ...preset, group, insertAt: index, wall })}
-                roomLayout={roomLayout}
-                view={canvasView}
-                onViewChange={setCanvasView}
-                pillars={pillars}
-                onAddPillar={addPillar}
-                onPatchPillar={patchPillarField}
-                zeroPoints={zeroPoints}
-                installationPoints={installationPoints}
-                onAddInstallationPoint={addInstallationPoint}
-                pillarPanelRows={renderPillarRows()}
-                zeroPointSelectors={renderZeroPointSelectors()}
-                installationPanelRows={renderInstallationPointRows()}
-              />
-            </div>
-            <div className={s.groupsColumn}>
-              {renderUnifiedKitchenTable()}
-            </div>
+          <div className={s.canvasFullWidth}>
+            {/* Etap N, krok 3 — rysunek 2D elewacji ściany kuchennej, 1:1 w milimetrach, z
+                przestawianiem myszką (patrz WallElevationCanvas.jsx). Etap AH, krok 2 — zajmuje TERAZ
+                całą szerokość panelu (dawna 2-kolumnowa siatka rysunek+tabela usunięta). */}
+            <WallElevationCanvas
+              modules={modules}
+              heights={kitchenHeights}
+              selectedModuleId={selectedModuleId}
+              hoveredModuleId={hoveredModuleId}
+              onSelectModule={selectModuleFromCanvas}
+              onHoverModule={setHoveredModuleId}
+              onReorder={reorderFromCanvas}
+              onDropPreset={(preset, { group, index, wall }) => addModule({ ...preset, group, insertAt: index, wall })}
+              roomLayout={roomLayout}
+              view={canvasView}
+              onViewChange={setCanvasView}
+              pillars={pillars}
+              onAddPillar={addPillar}
+              onPatchPillar={patchPillarField}
+              zeroPoints={zeroPoints}
+              installationPoints={installationPoints}
+              onAddInstallationPoint={addInstallationPoint}
+              pillarPanelRows={renderPillarRows()}
+              zeroPointSelectors={renderZeroPointSelectors()}
+              installationPanelRowsElectric={renderInstallationPointRows(point => point.type === 'socket' || point.type === 'led')}
+              installationPanelRowsWater={renderInstallationPointRows(point => point.type === 'water')}
+            />
+          </div>
+
+          {/* Etap AG — "Wykaz formatek": zbiorcza tabela rozkroju CAŁEGO projektu (scalone identyczne
+              formatki), pod rysunkiem, nad szczegółową tabelą szafek/smetą. */}
+          {renderCutlistSummary()}
+
+          {/* Etap AH, krok 2 — dawna tabela szafek (prawa kolumna) żyje dalej, ale jako zwijana
+              sekcja POD rysunkiem zamiast sztywnej 2-kolumnowej siatki — domyślnie ROZWINIĘTA (zero
+              zmian w istniejących testach, które jej dotąd szukały bez żadnego dodatkowego kliku). */}
+          <div className={s.detailedTableSection}>
+            <button
+              type="button" className={s.groupToggle} aria-expanded={showDetailedTable}
+              onClick={() => setShowDetailedTable(current => !current)}
+            >
+              {showDetailedTable ? '▾' : '▸'} 📋 Szczegółowa tabela szafek (zaawansowane)
+            </button>
+            {showDetailedTable && renderUnifiedKitchenTable()}
           </div>
         </>
       ) : (

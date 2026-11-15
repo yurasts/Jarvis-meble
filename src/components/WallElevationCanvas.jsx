@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import CabinetFrontDrawing from './CabinetFrontDrawing';
-import { computeCornerDepthMm, layoutCountertopSegments, layoutFloorBand, layoutUpperRow } from '../utils/cabinetCalculator';
+import { computeCornerDepthMm, layoutCountertopSegments, layoutFloorBand, layoutUpperRow, normalizeModuleWall } from '../utils/cabinetCalculator';
 import s from './WallElevationCanvas.module.css';
 
 // Etap P, krok 1 — podpisy na rysunku muszą być czytelne na EKRANIE (px), niezależnie od tego, ile
@@ -75,6 +75,14 @@ const viewOptionsFor = (hasWallY, hasWallY2) => {
   options.push({ value: 'top', label: '🗺️ Widok z góry (Rzut / Głębokości)' });
   return options;
 };
+
+// Etap AH, krok 1 — zgłoszenie (Screenshot_7_2.jpg): pełne etykiety ("Widok X (Przód)" itd.) nie
+// mieściły się w jednym, kompaktowym rzędzie razem z przyciskami 🧱/⚡/💧 — przycisk pokazuje TERAZ
+// tylko krótki symbol, a pełny tekst wyżej (`viewOptionsFor`) żyje dalej jako `title`/`aria-label`
+// (natywny tooltip + nazwa dostępna dla testów/czytników ekranu, BEZ ZMIAN — stąd istniejące testy
+// Playwright/Vitest szukające `getByRole('button', { name: /Widok X/ })` działają bez modyfikacji).
+const SHORT_VIEW_LABEL = { x: '📐X', y: '📐Y<-', y2: '📐->Y', top: '🗺️' };
+const shortViewLabel = (value) => SHORT_VIEW_LABEL[value] || value;
 
 const moduleWidthMm = (module) => Math.max(0, Number(module?.W) || 0);
 const moduleHeightMm = (module) => Math.max(0, Number(module?.H) || 0);
@@ -165,7 +173,7 @@ export default function WallElevationCanvas({
   onAddPillar, onPatchPillar,
   zeroPoints = { X: 'left', Y: 'left', Y2: 'left' }, installationPoints = [],
   onAddInstallationPoint,
-  pillarPanelRows, zeroPointSelectors, installationPanelRows,
+  pillarPanelRows, zeroPointSelectors, installationPanelRowsElectric, installationPanelRowsWater,
 }) {
   const svgRef = useRef(null);
   const [dragState, setDragState] = useState(null); // { id, group, overIndex }
@@ -174,7 +182,7 @@ export default function WallElevationCanvas({
   // głęboko w "Wymiary ściany i wysokości") — 2 przyciski z bejdżem liczby TUŻ NAD rysunkiem, w
   // jednym rzędzie z przełącznikiem widoku, otwierają kompaktowy panel zamiast (albo obok) starej
   // sekcji. Tylko JEDEN panel na raz — otwarcie drugiego zamyka pierwszy (mniej bałaganu na ekranie).
-  const [openQuickPanel, setOpenQuickPanel] = useState(null); // null | 'pillar' | 'install'
+  const [openQuickPanel, setOpenQuickPanel] = useState(null); // null | 'pillar' | 'install-electric' | 'install-water'
   // Etap AF, krok 2 — szyb kliknięty wprost na rysunku (Widok X/Y/Y2/z góry) otwiera panel
   // WYSTARTOWANY na TYM konkretnym słupie (przewinięty/podświetlony — patrz pillarFocusId niżej).
   const [pillarFocusId, setPillarFocusId] = useState(null);
@@ -239,6 +247,13 @@ export default function WallElevationCanvas({
   // rozwijane panele) — IDENTYCZNY w all 3 gałęziach widoku (Widok z góry/przekrój boczny/elewacja),
   // więc żyje raz tutaj zamiast być powielony 3×. Panel sam w sobie nie wie NIC o samej geometrii
   // rysunku (tylko listy/CRUD) — bezpiecznie działa niezależnie od tego, która gałąź go wywołuje.
+  // Etap AH, krok 1 — "🔌 Instalacje / Punkt 0" rozdzielone na 2 osobne, kompaktowe przyciski (⚡ —
+  // gniazdka+LED, 💧 — woda), żeby dodanie/edycja każdego szła w 1 kliku, bez wyboru typu na starcie
+  // (ten wybór dalej istnieje PER WIERSZ, patrz `installationPanelRowsElectric/Water` niżej — to
+  // tylko DOMYŚLNY typ przy dodawaniu z danego przycisku).
+  const electricPointsCount = (installationPoints || []).filter(p => p.type === 'socket' || p.type === 'led').length;
+  const waterPointsCount = (installationPoints || []).filter(p => p.type === 'water').length;
+
   const renderCanvasHeader = () => {
     if (!onViewChange) return null;
     const togglePanel = (key) => setOpenQuickPanel(current => (current === key ? null : key));
@@ -246,24 +261,37 @@ export default function WallElevationCanvas({
       <>
         <div className={s.canvasHeader}>
           {viewOptionsFor(hasWallY, hasWallY2).map(option => (
-            <button key={option.value} type="button" className={s.viewButton} aria-pressed={view === option.value} onClick={() => onViewChange(option.value)}>
-              {option.label}
+            <button
+              key={option.value} type="button" className={s.viewButton} aria-pressed={view === option.value}
+              title={option.label} aria-label={option.label} onClick={() => onViewChange(option.value)}
+            >
+              {shortViewLabel(option.value)}
             </button>
           ))}
           <div className={s.canvasHeaderActions}>
             <button
               type="button" className={s.quickAccessButton} aria-pressed={openQuickPanel === 'pillar'}
-              onClick={() => togglePanel('pillar')}
+              title="Szyb wentylacyjny / Słup — zarządzanie, dodanie 600×600 na aktywną ścianę"
+              aria-label="🧱 + Szyb / Słup" onClick={() => togglePanel('pillar')}
             >
-              🧱 + Szyb / Słup
-              <span className={s.quickAccessBadge}>{pillars.length}</span>
+              🧱
+              {pillars.length > 0 && <span className={s.quickAccessBadge}>{pillars.length}</span>}
             </button>
             <button
-              type="button" className={s.quickAccessButton} aria-pressed={openQuickPanel === 'install'}
-              onClick={() => togglePanel('install')}
+              type="button" className={s.quickAccessButton} aria-pressed={openQuickPanel === 'install-electric'}
+              title="Instalacje elektryczne (gniazdka 230V / LED) i punkt zerowy (0)"
+              aria-label="⚡ Instalacje elektryczne / Punkt 0" onClick={() => togglePanel('install-electric')}
             >
-              🔌 Instalacje / Punkt 0
-              <span className={s.quickAccessBadge}>{installationPoints.length}</span>
+              ⚡
+              {electricPointsCount > 0 && <span className={s.quickAccessBadge}>{electricPointsCount}</span>}
+            </button>
+            <button
+              type="button" className={s.quickAccessButton} aria-pressed={openQuickPanel === 'install-water'}
+              title="Instalacje wodno-kanalizacyjne i punkt zerowy (0)"
+              aria-label="💧 Instalacje wodne / Punkt 0" onClick={() => togglePanel('install-water')}
+            >
+              💧
+              {waterPointsCount > 0 && <span className={s.quickAccessBadge}>{waterPointsCount}</span>}
             </button>
           </div>
         </div>
@@ -278,16 +306,28 @@ export default function WallElevationCanvas({
             {pillarPanelRows}
           </div>
         )}
-        {openQuickPanel === 'install' && (
-          <div className={s.quickPanel} data-testid="installation-quick-panel">
+        {openQuickPanel === 'install-electric' && (
+          <div className={s.quickPanel} data-testid="installation-quick-panel-electric">
             {zeroPointSelectors}
             <button
               type="button" className={s.quickPanelAddButton}
-              onClick={() => onAddInstallationPoint?.(activeWallForQuickAdd)}
+              onClick={() => onAddInstallationPoint?.(activeWallForQuickAdd, 'socket')}
             >
-              ➕ Dodaj punkt instalacji na ścianę {activeWallForQuickAdd}
+              ➕ Dodaj ⚡ (Gniazdko 230V) na ścianę {activeWallForQuickAdd}
             </button>
-            {installationPanelRows}
+            {installationPanelRowsElectric}
+          </div>
+        )}
+        {openQuickPanel === 'install-water' && (
+          <div className={s.quickPanel} data-testid="installation-quick-panel-water">
+            {zeroPointSelectors}
+            <button
+              type="button" className={s.quickPanelAddButton}
+              onClick={() => onAddInstallationPoint?.(activeWallForQuickAdd, 'water')}
+            >
+              ➕ Dodaj 💧 (Woda) na ścianę {activeWallForQuickAdd}
+            </button>
+            {installationPanelRowsWater}
           </div>
         )}
       </>
@@ -850,6 +890,15 @@ export default function WallElevationCanvas({
     const lastEnd = segments.length > 0 ? segments[segments.length - 1].end : 0;
     return [...segments, { start: lastEnd, end: lastEnd + (explicitCountertopWidthMm - segmentsWidthMm) }];
   })() : [];
+  // Etap AH, krok 2 — "Blat" nie ma indywidualnej pozycji X (jego segmenty wyżej to WYŁĄCZNIE
+  // pochodna ciągłości Dolnych, nie pozycja żadnego konkretnego modułu) — bez tabeli po prawej
+  // (usuniętej, patrz CabinetCalculator.jsx) trzeba dać mu JAKIŚ klikalny cel na rysunku, żeby dało
+  // się otworzyć jego ustawienia/usunąć go. Pierwszy moduł "Blat" tej ściany reprezentuje WSZYSTKIE
+  // narysowane segmenty (typowy przypadek — 1 Blat na ścianę; przy kilku Blatach tej samej ściany
+  // to uproszczenie — klika się zawsze w ten sam, pierwszy).
+  const countertopModuleForWall = elevationWall === 'X'
+    ? modules.find(m => m.group === 'kitchen_countertop' && normalizeModuleWall(m) === 'X')
+    : null;
   const countertopWidthMm = elevationWall === 'X' ? Math.max(rowWidthMm.kitchen_floor || 0, explicitCountertopWidthMm) : 0;
   const occupiedWidthMm = Math.max(0, ...ROW_GROUPS.map(g => rowWidthMm[g] || 0), countertopWidthMm);
   const overflowMm = occupiedWidthMm - nominalWallWidthMm;
@@ -1072,7 +1121,7 @@ export default function WallElevationCanvas({
           externalDrawersHigh={module.externalDrawersHigh} externalDrawersLow={module.externalDrawersLow}
           frontWidth={module.frontWidth}
           bottomHeightMm={module.bottomHeightMm} fridgeNicheHeightMm={module.fridgeNicheHeightMm}
-          labelFontSize={px(14)}
+          labelFontSize={px(14 * 0.85)}
         />
         {Number(module.qty) > 1 && (
           <text x={xMm + widthMm - 4} y={svgY + Math.max(10, heightMm * 0.12)} textAnchor="end" fontSize={px(14)} fontWeight={600} fill="currentColor">
@@ -1213,16 +1262,37 @@ export default function WallElevationCanvas({
         ))}
 
         {/* Etap U, krok 3 — Blat rysuje się jako OSOBNE segmenty, tylko nad ciągłymi odcinkami Szafek
-            dolnych — Słupek PRZERYWA segment (sięga prawie pod sufit, bez blatu nad sobą). */}
-        {countertopSegments.map(segment => (
-          <rect
-            key={segment.start}
-            data-testid="countertop-strip"
-            x={segment.start} y={svgYFor(countertopTopMm)} width={Math.max(1, segment.end - segment.start)}
-            height={Math.max(1, countertopTopMm - countertopBottomMm)}
-            className={s.countertopStrip}
-          />
-        ))}
+            dolnych — Słupek PRZERYWA segment (sięga prawie pod sufit, bez blatu nad sobą). Etap AH,
+            krok 2 — klikalny, gdy istnieje odpowiadający mu moduł (patrz countertopModuleForWall
+            wyżej) — jedyny sposób otworzyć ustawienia "Blatu" odkąd nie ma już tabeli po prawej. */}
+        {countertopSegments.map((segment) => {
+          const isSelected = countertopModuleForWall && selectedModuleId === countertopModuleForWall.id;
+          const isHovered = countertopModuleForWall && hoveredModuleId === countertopModuleForWall.id;
+          return (
+            <rect
+              key={segment.start}
+              data-testid="countertop-strip"
+              x={segment.start} y={svgYFor(countertopTopMm)} width={Math.max(1, segment.end - segment.start)}
+              height={Math.max(1, countertopTopMm - countertopBottomMm)}
+              className={[
+                s.countertopStrip,
+                countertopModuleForWall && s.countertopClickable,
+                isSelected && s.cabinetSelected,
+                isHovered && s.cabinetHovered,
+              ].filter(Boolean).join(' ')}
+              role={countertopModuleForWall ? 'button' : undefined}
+              tabIndex={countertopModuleForWall ? 0 : undefined}
+              // Etap AH, krok 2 — CELOWO NIE goły "Blat" — koliduje z aria-label="Blat" na istniejącym
+              // SearchableMaterialSelect materiału blatu (ten sam tekst, inny element — getByLabelText
+              // w testach łapałby OBA naraz, patrz zgłoszenie regresji po dodaniu tego kliknięcia).
+              aria-label={countertopModuleForWall ? `${countertopModuleForWall.label || 'Blat'} — ustawienia` : undefined}
+              onClick={countertopModuleForWall ? () => onSelectModule?.(countertopModuleForWall.id) : undefined}
+              onKeyDown={countertopModuleForWall ? (event) => { if (event.key === 'Enter' || event.key === ' ') onSelectModule?.(countertopModuleForWall.id); } : undefined}
+              onMouseEnter={countertopModuleForWall ? () => onHoverModule?.(countertopModuleForWall.id) : undefined}
+              onMouseLeave={countertopModuleForWall ? () => onHoverModule?.(current => (current === countertopModuleForWall.id ? null : current)) : undefined}
+            />
+          );
+        })}
 
         {/* Etap AC, krok 1 — zgłoszenie (Screenshot_2_3.jpg): po prawej (róg ze ścianą X) musi stać
             BOCZNA PROJEKCJA tego, co naprawdę zajmuje ten róg na ścianie X (np. Pod lodówkę, Gł.

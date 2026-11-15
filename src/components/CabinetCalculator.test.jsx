@@ -1215,7 +1215,10 @@ describe('CabinetCalculator', () => {
       fireEvent.change(screen.getByLabelText('Układ ścian'), { target: { value: 'corner_l' } });
       addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami');
 
-      const headers = screen.getAllByRole('columnheader');
+      // Etap AH, krok 2 — zapytanie SCOPED do tabeli szafek — od kiedy pod rysunkiem żyje też
+      // "Wykaz formatek" (własna tabela, własne nagłówki), globalne `getAllByRole('columnheader')`
+      // złapałoby OBIE tabele naraz.
+      const headers = within(kitchenModuleTable()).getAllByRole('columnheader');
       expect(headers[0]).toHaveTextContent('Moduł');
       expect(headers[1]).toHaveTextContent('Ściana');
     });
@@ -1615,12 +1618,16 @@ describe('CabinetCalculator', () => {
       expect(onClose).not.toHaveBeenCalled();
     });
 
-    it('the tabs/palette bar is a sibling OUTSIDE the 2-column canvas/table layout, not nested inside it', () => {
+    // Etap AH, krok 2 — dawna 2-kolumnowa siatka (rysunek+tabela) ustąpiła miejsca pełnoszerokościowemu
+    // kontenerowi rysunku (`.canvasFullWidth`) — paleta/zakładki grup muszą zostać jego SIBLINGIEM
+    // (nad nim), nie zagnieżdżone w środku, inaczej zajmowałyby tylko wąski pasek zamiast pełnej
+    // szerokości panelu.
+    it('the tabs/palette bar is a sibling OUTSIDE the full-width canvas container, not nested inside it', () => {
       renderCalculator();
       const palette = groupSectionFor(KITCHEN_BOTTOM);
-      const layout = document.querySelector('[class*="calculatorLayout"]');
-      expect(layout).toBeTruthy();
-      expect(layout.contains(palette)).toBe(false);
+      const canvasContainer = document.querySelector('[class*="canvasFullWidth"]');
+      expect(canvasContainer).toBeTruthy();
+      expect(canvasContainer.contains(palette)).toBe(false);
     });
 
     it('module names that used to truncate render in full inside the (now wider) table column', () => {

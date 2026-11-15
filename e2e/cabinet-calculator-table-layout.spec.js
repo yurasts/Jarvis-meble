@@ -203,8 +203,10 @@ test('materials and wall-dimensions panels stay collapsed behind their gear butt
   await expect(calculator.getByLabel('Szerokość ściany / zabudowy (mm)')).toBeVisible();
 });
 
-// Etap Q, krok 4 — rysunek po LEWEJ, grupy+tabele po PRAWEJ (2-kolumnowy układ desktopowy).
-test('on a wide desktop viewport, the drawing sits to the left of the groups/tables column', async ({ page }) => {
+// Etap AH, krok 2 — zgłoszenie (Screenshot_7_2.jpg): dawny 2-kolumnowy układ (rysunek/tabela obok
+// siebie) ustąpił miejsca rysunkowi na PEŁNĄ szerokość panelu — szczegółowa tabela szafek (teraz
+// zwijana sekcja, domyślnie rozwinięta) żyje POD nim, nie OBOK.
+test('on a wide desktop viewport, the drawing spans the full panel width, with the detailed table BELOW it (not beside)', async ({ page }) => {
   await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
     services: [cuttingService, edgingService],
@@ -212,15 +214,15 @@ test('on a wide desktop viewport, the drawing sits to the left of the groups/tab
   });
   const calculator = await openCalculator(page);
 
-  const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
-  // Etap U, krok 1 — tabela (teraz jedna, wspólna dla wszystkich grup) żyje w `.groupsColumn`, obok
-  // rysunku — porównujemy całą tę kolumnę (działa też, gdy jest jeszcze pusta — "Brak dodanych
-  // szafek" zamiast <table>), nie samą tabelę (nie renderuje się, dopóki nie ma żadnego modułu).
-  const tableColumn = calculator.locator('[class*="groupsColumn"]');
-  const canvasBox = await canvas.boundingBox();
-  const tableBox = await tableColumn.boundingBox();
+  const canvasContainer = calculator.locator('[class*="canvasFullWidth"]');
+  const detailedTableSection = calculator.locator('[class*="detailedTableSection"]');
+  const canvasBox = await canvasContainer.boundingBox();
+  const tableBox = await detailedTableSection.boundingBox();
+  const panelBox = await calculator.boundingBox();
 
-  expect(canvasBox.x + canvasBox.width).toBeLessThanOrEqual(tableBox.x + 1);
+  // Rysunek zajmuje (prawie) całą szerokość panelu, a tabela zaczyna się PONIŻEJ niego, nie obok.
+  expect(canvasBox.width).toBeGreaterThanOrEqual(panelBox.width - 40);
+  expect(tableBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 1);
 });
 
 // Etap T, krok 1 — kalkulator otwiera się jako PEŁNOEKRANOWY panel (position: fixed; inset: 0),
@@ -264,9 +266,9 @@ test('Escape closes the fullscreen calculator', async ({ page }) => {
   await expect(page.getByText('📐 Kalkulator', { exact: true })).not.toBeVisible();
 });
 
-// Etap T, krok 2 — zakładki grup + paleta "+ Dodaj moduł" żyją teraz w JEDNYM, pełnoszerokim pasku
-// NAD OBIEMA kolumnami (rysunek i tabela), nie tylko nad tabelą jak wcześniej.
-test('the tabs/palette bar sits above BOTH the drawing and the table, spanning their combined width', async ({ page }) => {
+// Etap T, krok 2 / Etap AH, krok 2 — zakładki grup + paleta "+ Dodaj moduł" żyją w JEDNYM,
+// pełnoszerokim pasku NAD rysunkiem (który sam jest teraz pełnoszerokościowy, patrz test wyżej).
+test('the tabs/palette bar sits above the full-width drawing, matching its width', async ({ page }) => {
   await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
     services: [cuttingService, edgingService],
@@ -274,20 +276,17 @@ test('the tabs/palette bar sits above BOTH the drawing and the table, spanning t
   });
   const calculator = await openCalculator(page);
 
-  const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
-  const tableColumn = calculator.locator('[class*="groupsColumn"]');
+  const canvasContainer = calculator.locator('[class*="canvasFullWidth"]');
   const tabsBar = calculator.getByRole('tablist', { name: 'Grupy szafek kuchennych' });
 
-  const canvasBox = await canvas.boundingBox();
-  const tableBox = await tableColumn.boundingBox();
+  const canvasBox = await canvasContainer.boundingBox();
   const tabsBox = await tabsBar.boundingBox();
 
-  // Pasek zakładek kończy się (dół) zanim zaczyna się rysunek I tabela (obie kolumny są POD nim).
+  // Pasek zakładek kończy się (dół) zanim zaczyna się rysunek (który jest POD nim).
   expect(tabsBox.y + tabsBox.height).toBeLessThanOrEqual(canvasBox.y + 1);
-  expect(tabsBox.y + tabsBox.height).toBeLessThanOrEqual(tableBox.y + 1);
-  // I rozciąga się na szerokość obejmującą OBIE kolumny razem, nie tylko jedną z nich.
+  // I rozciąga się na (mniej więcej) tę samą szerokość co rysunek pod nim.
   expect(tabsBox.x).toBeLessThanOrEqual(canvasBox.x + 1);
-  expect(tabsBox.x + tabsBox.width).toBeGreaterThanOrEqual(tableBox.x + tableBox.width - 1);
+  expect(tabsBox.x + tabsBox.width).toBeGreaterThanOrEqual(canvasBox.x + canvasBox.width - 1);
 });
 
 // Etap Q, krok 4 — "Ilość"/"Konstrukcja / Szuflady"/"HDF" nie są już osobne kolumny; te 2 ostatnie

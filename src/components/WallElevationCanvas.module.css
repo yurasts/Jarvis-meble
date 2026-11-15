@@ -11,7 +11,12 @@
 .canvasSvg {
   width: 100%;
   height: auto;
-  max-height: 520px;
+  /* Etap AH, krok 2 — rysunek dostał pełną szerokość panelu (usunięta prawa tabela, patrz
+     CabinetCalculator.jsx .calculatorLayout) — stary limit 520px przycinał skalę znacznie poniżej
+     tego, na co pozwala teraz szerszy kontener (preserveAspectRatio="meet" skaluje do MNIEJSZEGO z
+     2 wymiarów, więc za niski limit wysokości zostawiał puste marginesy po bokach zamiast realnie
+     powiększyć rysunek). */
+  max-height: 760px;
   color: #334155;
   touch-action: none;
 }
@@ -142,6 +147,12 @@
 .pillarDragging {
   opacity: 0.6;
   cursor: grabbing;
+}
+
+/* Etap AH, krok 2 — "Blat" klikalny na rysunku (zastępuje usuniętą prawą tabelę jako jedyny sposób
+   otwarcia jego ustawień/usunięcia go). */
+.countertopClickable {
+  cursor: pointer;
 }
 
 /* Etap AF, krok 2 — kompaktowy panel (lista + dodanie) rozwijany POD rzędem nagłówka, PRZED samym
