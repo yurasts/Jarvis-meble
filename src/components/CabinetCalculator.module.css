@@ -112,36 +112,43 @@
   cursor: pointer;
 }
 
-/* Etap Q, krok 4 — pod wkładką Kuchnia: rysunek po LEWEJ, tabela po PRAWEJ — 2-kolumnowy układ na
-   desktopie. `align-items: start` tak, żeby krótsza kolumna nie rozciągała się do wysokości
-   dłuższej. Poniżej ~960px (patrz media query niżej) wraca do 1 kolumny, jak przed tą zmianą.
-   Etap R, krok 1/4 — 38/62 (na korzyść tabeli): przy wąskim, OSADZONYM w sekcji "Materiały" panelu
-   tabela (8 kolumn) ledwo mieściła wartości bez obcinania.
-   Etap T, krok 2 — teraz 56/44 (na korzyść RYSUNKU): kalkulator jest już PEŁNOEKRANOWY (patrz
-   .fullscreenOverlay), więc nawet 44% to WIĘCEJ realnych pikseli niż dawne 62% ciasnego panelu —
-   rysunek dostaje więcej miejsca, żeby był czytelny w dużej skali. */
-.calculatorLayout {
-  display: grid;
-  /* Etap T, krok 2 — 56/44 zostawiało kolumnę "Moduł" za wąską (patrz TABLE_COLUMNS w .jsx): tekst
-     "Z szufladami"/"Pod piekarnik" w .moduleName realnie potrzebuje ~70-75px, a przy 44% miał tylko
-     ~46px (zmierzone realnym scrollWidth/clientWidth w przeglądarce) — ucinał się mimo szerszego,
-     pełnoekranowego panelu. 54/46 daje tabeli tyle więcej bezwzględnych px, ile potrzeba, bez
-     oddawania rysunkowi znaczącej przewagi, którą miał dostać wg zgłoszenia. */
-  grid-template-columns: minmax(500px, 54%) minmax(500px, 46%);
-  gap: 18px;
-  align-items: start;
-}
-.canvasColumn {
+/* Etap AH, krok 2 — zgłoszenie (Screenshot_7_2.jpg): dawna 2-kolumnowa siatka rysunek+tabela
+   (Etap Q/R/T) ustąpiła miejsca rysunkowi na PEŁNĄ szerokość panelu — szczegółowa tabela szafek
+   (patrz .detailedTableSection niżej) zjechała POD rysunek, jako zwijana sekcja. */
+.canvasFullWidth {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-width: 0;
+  width: 100%;
 }
-.groupsColumn {
+
+/* Dawna prawa kolumna (tabela szafek) — teraz pełnoszerokościowa, zwijana sekcja pod rysunkiem i
+   zbiorczym "Wykazem formatek" (.cutlistSummary niżej), domyślnie rozwinięta. */
+.detailedTableSection {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-width: 0;
+  margin-top: 12px;
+}
+
+/* Etap AG — "Wykaz formatek": zbiorcza tabela rozkroju projektu, pod rysunkiem. Jedna sekcja per
+   (grupa materiału + materiał) — nagłówek h6 + własna tabela (.table, reużyta ze smety niżej). */
+.cutlistSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+.cutlistSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cutlistSectionTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 /* Etap S, krok 1 — 5 grup kuchennych w JEDNYM kontenerze: pasek zakładek u góry + karuzela slajdów
@@ -559,10 +566,6 @@
    samym viewport dostaje dużo mniej realnej szerokości niż modal kiedyś dostawał (96vw), więc
    6-kolumnowy układ przestaje się mieścić czytelnie znacznie wcześniej niż typowy telefon/tablet. */
 @media (max-width: 960px) {
-  /* Etap Q, krok 4 — pod tym progiem 2 kolumny (rysunek/tabele) nie mają już gdzie się zmieścić
-     obok siebie czytelnie (patrz .calculatorLayout wyżej) — wracają do 1, jedna pod drugą. */
-  .calculatorLayout { grid-template-columns: 1fr; }
-
   .table, .table thead, .table tbody, .table tr, .table td { display: block; width: 100%; }
   .table thead { display: none; }
 

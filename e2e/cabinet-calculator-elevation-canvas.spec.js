@@ -696,7 +696,10 @@ test('"Szyb wentylacyjny / Słup": szafka omija jego odcinek na Widoku X i na Wi
 
 // Etap AF, krok 2 — zgłoszenie: user nie mógł znaleźć, jak dodać szyb/punkt instalacji (ukryte
 // głęboko w "Wymiary ściany i wysokości") — 2 przyciski z bejdżem liczby TUŻ NAD rysunkiem.
-test('Przyciski "🧱 + Szyb / Słup"/"🔌 Instalacje / Punkt 0" nad rysunkiem: widoczne z bejdżem, dodają słup 600×600 na aktywną ścianę w 1 kliku', async ({ page }) => {
+// Etap AH, krok 1 — zgłoszenie (Screenshot_7_2.jpg): "🔌 Instalacje / Punkt 0" rozdzielone na 2
+// kompaktowe przyciski (⚡ elektryka/LED, 💧 woda), a "🧱 + Szyb / Słup" stracił tekstowy ogon —
+// wszystkie 3 (+ przełącznik widoku) mieszczą się teraz w jednym, kompaktowym rzędzie bez zawijania.
+test('Kompaktowe przyciski 🧱/⚡/💧 nad rysunkiem: widoczne z bejdżem TYLKO gdy >0, dodają słup/punkt na aktywną ścianę w 1 kliku', async ({ page }) => {
   await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
     services: [cuttingService, edgingService],
@@ -706,12 +709,16 @@ test('Przyciski "🧱 + Szyb / Słup"/"🔌 Instalacje / Punkt 0" nad rysunkiem:
   const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
   await expect(canvas).toBeVisible();
 
-  const pillarButton = calculator.getByRole('button', { name: /🧱 \+ Szyb \/ Słup/ });
-  const installButton = calculator.getByRole('button', { name: /🔌 Instalacje \/ Punkt 0/ });
+  const pillarButton = calculator.getByRole('button', { name: '🧱 + Szyb / Słup' });
+  const electricButton = calculator.getByRole('button', { name: '⚡ Instalacje elektryczne / Punkt 0' });
+  const waterButton = calculator.getByRole('button', { name: '💧 Instalacje wodne / Punkt 0' });
   await expect(pillarButton).toBeVisible();
-  await expect(installButton).toBeVisible();
-  await expect(pillarButton.locator('[class*="quickAccessBadge"]')).toHaveText('0');
-  await expect(installButton.locator('[class*="quickAccessBadge"]')).toHaveText('0');
+  await expect(electricButton).toBeVisible();
+  await expect(waterButton).toBeVisible();
+  // Bejdż liczby NIE istnieje wcale przy zerze (nie tylko jest pusty) — kompaktowość.
+  await expect(pillarButton.locator('[class*="quickAccessBadge"]')).toHaveCount(0);
+  await expect(electricButton.locator('[class*="quickAccessBadge"]')).toHaveCount(0);
+  await expect(waterButton.locator('[class*="quickAccessBadge"]')).toHaveCount(0);
 
   await pillarButton.click();
   const panel = calculator.getByTestId('pillar-quick-panel');
@@ -724,6 +731,59 @@ test('Przyciski "🧱 + Szyb / Słup"/"🔌 Instalacje / Punkt 0" nad rysunkiem:
   await expect(panel.getByLabel('Szerokość (mm) — szyb/słup #1')).toHaveValue('600');
   await expect(panel.getByLabel('Głębokość (mm) — szyb/słup #1')).toHaveValue('600');
   await expect(canvas.locator('[class*="pillarBlock"]')).toBeVisible();
+  await pillarButton.click(); // zwiń panel słupów
+
+  // ⚡ dodaje domyślnie gniazdko (socket) na aktywną ścianę, w 1 kliku — bejdż ⚡ rośnie, 💧 zostaje 0.
+  await electricButton.click();
+  const electricPanel = calculator.getByTestId('installation-quick-panel-electric');
+  await expect(electricPanel).toBeVisible();
+  await electricPanel.getByRole('button', { name: /Dodaj ⚡ \(Gniazdko 230V\) na ścianę X/ }).click();
+  await expect(electricButton.locator('[class*="quickAccessBadge"]')).toHaveText('1');
+  await expect(waterButton.locator('[class*="quickAccessBadge"]')).toHaveCount(0);
+  await expect(electricPanel.getByLabel('Typ — punkt instalacji #1')).toHaveValue('socket');
+  await electricButton.click(); // zwiń panel ⚡
+
+  // 💧 dodaje domyślnie wodę na aktywną ścianę — jego WŁASNY bejdż rośnie, ⚡ zostaje przy swoim.
+  await waterButton.click();
+  const waterPanel = calculator.getByTestId('installation-quick-panel-water');
+  await expect(waterPanel).toBeVisible();
+  await waterPanel.getByRole('button', { name: /Dodaj 💧 \(Woda\) na ścianę X/ }).click();
+  await expect(waterButton.locator('[class*="quickAccessBadge"]')).toHaveText('1');
+  await expect(electricButton.locator('[class*="quickAccessBadge"]')).toHaveText('1');
+  await expect(waterPanel.getByLabel('Typ — punkt instalacji #2')).toHaveValue('water');
+});
+
+// Etap AH, krok 1 — zgłoszenie: WSZYSTKIE przyciski nagłówka (przełącznik widoku + 🧱/⚡/💧) muszą
+// zmieścić się w JEDNEJ linii bez zawijania — sprawdzane w NAJGĘSTSZYM wariancie (Układ U: 4 przyciski
+// widoku: X/Y(L)/Y(P)/Rzut + 3 szybkiego dostępu = 7 naraz).
+test('rząd nagłówka rysunku (4 przyciski widoku w Układzie U + 🧱/⚡/💧) mieści się w jednej linii, bez zawijania', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+  await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  await expandHeightsPanel(calculator);
+  await calculator.getByLabel('Układ ścian').selectOption('u_layout');
+  await calculator.getByRole('button', { name: /⚙️ Wymiary ściany i wysokości/ }).click(); // zwiń panel
+
+  const headerButtons = [
+    calculator.getByRole('button', { name: /Widok X \(Przód\)/ }),
+    calculator.getByRole('button', { name: /Widok Y1/ }),
+    calculator.getByRole('button', { name: /Widok Y2/ }),
+    calculator.getByRole('button', { name: /Widok z góry/ }),
+    calculator.getByRole('button', { name: '🧱 + Szyb / Słup' }),
+    calculator.getByRole('button', { name: '⚡ Instalacje elektryczne / Punkt 0' }),
+    calculator.getByRole('button', { name: '💧 Instalacje wodne / Punkt 0' }),
+  ];
+  const boxes = [];
+  for (const button of headerButtons) {
+    await expect(button).toBeVisible();
+    boxes.push(await button.boundingBox());
+  }
+  const topY = boxes[0].y;
+  boxes.forEach((box) => { expect(Math.abs(box.y - topY)).toBeLessThanOrEqual(2); });
 });
 
 // Etap AF, krok 2 — kliknięcie zaszrafowanego słupa WPROST na rysunku ma od razu otworzyć panel
@@ -1028,4 +1088,65 @@ test('"Pod lodówkę": dodanie, zmiana standardu lodówki na XXL zmienia szeroko
 
   await expect(row.getByLabel('Szer. (mm)')).toHaveText(/750/);
   await expect(fridgeCabinet.locator('rect').first()).toHaveAttribute('width', '750');
+});
+
+// Etap AH, krok 2 — zgłoszenie (Screenshot_7_2.jpg): bez prawej tabeli "Blat" (jedyny typ modułu BEZ
+// własnej pozycji na rysunku — jego segmenty to pochodna ciągłości Dolnych, nie 1:1 z modułem) musi
+// mieć JAKIŚ klikalny cel na rysunku, inaczej nie da się otworzyć jego ustawień/usunąć go wcale.
+test('"Blat" na rysunku (Widok X) jest klikalny — drugi klik otwiera jego CabinetSettingsModal', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+
+  await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  await groupSection(calculator, '🪵 Blat').getByRole('button', { name: 'Blat', exact: true }).click();
+
+  const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
+  const countertopStrip = canvas.locator('[data-testid="countertop-strip"]').first();
+  await expect(countertopStrip).toBeVisible();
+  const box = await countertopStrip.boundingBox();
+
+  // Ten sam wzorzec co zwykła szafka: 1. klik tylko zaznacza, 2. klik (na JUŻ zaznaczony) otwiera modal.
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(countertopStrip).toHaveClass(/cabinetSelected/);
+  await expect(page.getByTestId('cabinet-settings-modal')).not.toBeVisible();
+
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const modal = page.getByTestId('cabinet-settings-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText('Blat');
+});
+
+// Etap AG — "Wykaz formatek": zbiorcza tabela rozkroju CAŁEGO projektu pod rysunkiem, scalająca
+// identyczne formatki (ten sam materiał + Długość + Szerokość + oklejka) z różnych szafek w JEDEN
+// wiersz, podzielona na sekcje Płyta korpusu -> Płyta frontu -> HDF.
+test('"Wykaz formatek": scala identyczne "Bok" z 2 szafek w 1 wiersz, dzieli na sekcje Płyta korpusu/frontu/HDF', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+
+  const bottomGroup = groupSection(calculator, '⬇️ Szafki dolne');
+  await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click(); // 2. identyczna szafka
+
+  const summary = calculator.getByTestId('cutlist-summary');
+  await expect(summary).toBeVisible();
+  await expect(summary.getByText(/Płyta korpusu — PL W960 SM Biały/)).toBeVisible();
+  await expect(summary.getByText(/Płyta frontu — U702 ST9 Kaszmir/)).toBeVisible();
+
+  const bodyTable = summary.getByTestId('cutlist-table-body');
+  const sideRow = bodyTable.locator('tr').filter({ hasText: 'Bok' });
+  // 2 szafki x 2 "Bok" każda = 4 — scalone w JEDEN wiersz (ten sam rozmiar+oklejka+materiał).
+  await expect(sideRow).toHaveCount(1);
+  await expect(sideRow).toContainText('Bok (4)');
+  await expect(sideRow.getByText('4', { exact: true })).toBeVisible(); // kolumna Ilość (szt.)
+
+  const hdfTable = summary.getByTestId('cutlist-table-hdf');
+  await expect(hdfTable.locator('tr').filter({ hasText: 'Plecy HDF' })).toHaveCount(1);
 });

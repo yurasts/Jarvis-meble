@@ -1078,6 +1078,33 @@ export const computeCabinetParts = (cabinet, { boardThickness = 18, hdfThickness
     return parts;
   }
 
+  // Etap AG, krok 3 — "Blat" (countertop) nie ma żadnej formatki w tym modelu (patrz build():
+  // panels: [] — śledzi tylko `countertopMeters`, osobno od Korpusu/Frontu/HDF). Bez tego guarda
+  // generyczna geometria Bok/Dno/Trawers niżej (licząca z surowego W/D) wygenerowałaby fikcyjne
+  // formatki — "Blat" w ogóle nie ma sensownego `H` (brak w defaults), więc "Bok" wychodziłby 0×D,
+  // a "Dno"/"Trawers" realnym, ale nieistniejącym fizycznie wymiarem.
+  if (cabinet?.type === 'countertop') return parts;
+
+  // Blendy/Cokół (FILLER_MODULE_TYPES) to POJEDYNCZE, cienkie listwy z Płyty frontu/korpusu — NIE
+  // skrzynki — mają WŁASNĄ, dokładnie 1-panelową geometrię w build() (patrz side_filler/top_filler/
+  // plinth_strip wyżej), inną niż generyczne Bok/Dno/Trawers/Front niżej (zaprojektowane dla
+  // prawdziwych skrzynek korpusu). Bez tego guarda powstawałyby fikcyjne formatki (np. "Trawers"
+  // szersze niż sama listwa jest głęboka).
+  if (FILLER_MODULE_TYPES.includes(cabinet?.type)) {
+    if (cabinet.type === 'side_filler') {
+      // build(): panel('front', W, H, 2*H) — 2 pionowe torce (przód+tył listwy) kromkowane.
+      parts.push(cabinetPart('Blenda boczna', 'front', { count: 1, lengthMm: H, widthMm: W, edges: { d1: true, d2: true } }));
+    } else if (cabinet.type === 'top_filler') {
+      // build(): panel('front', W, H, 2*W) — 2 poziome torce (góra+dół listwy) kromkowane.
+      parts.push(cabinetPart('Blenda górna', 'front', { count: 1, lengthMm: W, widthMm: H, edges: { d1: true, d2: true } }));
+    } else {
+      // plinth_strip: build(): panel(source, W, H, W) — tylko 1 widoczna (górna) krawędź.
+      const source = cabinet.source === 'front' ? 'front' : 'body';
+      parts.push(cabinetPart('Cokół', source, { count: 1, lengthMm: W, widthMm: H, edges: { d1: true } }));
+    }
+    return parts;
+  }
+
   const isFridgeTall = cabinet?.type === 'fridge_tall_cabinet';
 
   // 1. Boki — PRODUKCYJNY standard: oklejane z 3 stron (przedni pionowy torec D1 + górny/dolny
@@ -1160,6 +1187,78 @@ export const computeCabinetParts = (cabinet, { boardThickness = 18, hdfThickness
   void hdfThickness;
 
   return parts;
+};
+
+// --- Etap AG — "Wykaz formatek" (zbiorcza specyfikacja rozkroju całego projektu) — agreguje
+// computeCabinetParts() WSZYSTKICH modułów w JEDNĄ listę wierszy, scalając identyczne formatki
+// (ten sam materiał + Długość + Szerokość + schemat oklejki ABS) niezależnie od tego, z ilu różnych
+// szafek pochodzą. Czysta funkcja — WOŁAJĄCY (CabinetCalculator.jsx) dostarcza `resolveMaterialName`
+// (jak dla danego modułu/roli 'body'|'front'|'hdf' znaleźć nazwę realnie wybranej płyty z katalogu,
+// z dziedziczeniem "Jak w..." między grupami) — ta funkcja nie ma dostępu do stanu UI.
+const CUTLIST_EDGE_SIDE_LABELS = [['d1', 'D1'], ['d2', 'D2'], ['s1', 'S1'], ['s2', 'S2']];
+
+export const cutlistEdgeLabel = (edges) => {
+  const labels = CUTLIST_EDGE_SIDE_LABELS.filter(([key]) => edges?.[key]).map(([, label]) => label);
+  return labels.length > 0 ? labels.join(' ') : 'Brak';
+};
+
+// D1/D2 biegną wzdłuż `lengthMm`, S1/S2 wzdłuż `widthMm` (ta sama konwencja co `cabinetPart` wyżej
+// — zgadza się z `sideEdgeMm(H,D) = H + 2*D` używanym w panel()/build() dla identycznej geometrii).
+const cutlistPartEdgeMm = ({ lengthMm, widthMm, edges }) => (
+  (edges.d1 ? lengthMm : 0) + (edges.d2 ? lengthMm : 0) + (edges.s1 ? widthMm : 0) + (edges.s2 ? widthMm : 0)
+);
+
+export const aggregateCutlistParts = (modules, resolveMaterialName) => {
+  const rows = new Map();
+  (modules || []).forEach((module) => {
+    const qty = Math.max(0, Number(module?.qty) || 0);
+    if (qty <= 0) return;
+    computeCabinetParts(module).forEach((part) => {
+      const count = part.count * qty;
+      if (count <= 0) return;
+      const material = resolveMaterialName?.(module, part.group) || 'Brak materiału';
+      const edgeLabel = cutlistEdgeLabel(part.edges);
+      const key = `${part.group}|${material}|${part.lengthMm}|${part.widthMm}|${edgeLabel}`;
+      let row = rows.get(key);
+      if (!row) {
+        row = {
+          group: part.group, material, lengthMm: part.lengthMm, widthMm: part.widthMm,
+          edgeLabel, qty: 0, areaM2: 0, edgeMb: 0, elements: [],
+        };
+        rows.set(key, row);
+      }
+      row.qty += count;
+      row.areaM2 += mm2ToM2(part.lengthMm, part.widthMm) * count;
+      row.edgeMb += (cutlistPartEdgeMm(part) / 1000) * count;
+      const existingElement = row.elements.find(entry => entry.element === part.element);
+      if (existingElement) existingElement.count += count;
+      else row.elements.push({ element: part.element, count });
+    });
+  });
+  return [...rows.values()];
+};
+
+const CUTLIST_GROUP_ORDER = ['body', 'front', 'hdf'];
+export const CUTLIST_GROUP_LABEL = { body: 'Płyta korpusu', front: 'Płyta frontu', hdf: 'HDF' };
+
+// Sekcje w KOLEJNOŚCI: Płyta korpusu -> Płyta frontu -> HDF (ta ostatnia tylko, gdy ma jakieś
+// wiersze); w obrębie grupy — po jednej sekcji PER materiał (zwykle 1, ale projekt MOŻE mieć różne
+// płyty w różnych grupach kuchennych — klucz agregacji wyżej już je rozdzielił). Wiersze sekcji:
+// malejąco po Długości, potem po Szerokości.
+export const groupCutlistByMaterial = (rows) => {
+  const sections = [];
+  CUTLIST_GROUP_ORDER.forEach((group) => {
+    const groupRows = (rows || []).filter(row => row.group === group);
+    if (groupRows.length === 0) return;
+    const materials = [...new Set(groupRows.map(row => row.material))];
+    materials.forEach((material) => {
+      const materialRows = groupRows
+        .filter(row => row.material === material)
+        .sort((a, b) => (b.lengthMm - a.lengthMm) || (b.widthMm - a.widthMm));
+      sections.push({ group, groupLabel: CUTLIST_GROUP_LABEL[group], material, rows: materialRows });
+    });
+  });
+  return sections;
 };
 
 // --- 1.3. Расчёт одного модуля (панели -> площади/кромка/распил/фурнитура) --------------------
