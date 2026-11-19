@@ -20,10 +20,22 @@ const groupSection = (calculator, label) => calculator
 // kontenera PER GRUPĘ (dawne `data-group-table`, Etap T). `kitchenModuleTable` znajduje TEN jeden
 // `<table>` (do bounding-box/column-header checków); `groupRowsFor` wybiera tylko wiersze JEDNEJ
 // grupy po jej `data-row-group` (ustawianym na KAŻDYM wierszu modułu).
-const kitchenModuleTable = (calculator) => calculator.locator('table[class*="moduleTable"]');
-const groupRowsFor = async (calculator, label) => {
+const kitchenModuleTable = (scope) => scope.locator('table[class*="moduleTable"]');
+// `scope` domyślnie = `calculator`, ale wiersze żyją teraz w modalu "📋 Szafki" (patrz
+// openCabinetsModal niżej) — callerzy odpytujący modal przekazują go jako 3. argument; sam
+// `data-group-palette` (na przycisku palety) zostaje zawsze w `calculator` (poza modalem).
+const groupRowsFor = async (calculator, label, scope = calculator) => {
   const groupKey = await groupSection(calculator, label).getAttribute('data-group-palette');
-  return calculator.locator(`[data-row-group="${groupKey}"]`);
+  return scope.locator(`[data-row-group="${groupKey}"]`);
+};
+
+// Etap AJ, krok 1 — "Szczegółowa tabela szafek" żyje teraz w modalu (portal do document.body,
+// domyślnie ZAMKNIĘTY) otwieranym przyciskiem "📋 Szafki" na pasku rysunku — każdy test, który
+// odpytuje jej wiersze/nagłówki/komórki, musi go najpierw otworzyć i odpytywać przez `page`
+// (modal jest SIBLINGIEM `calculator`, nie jego potomkiem), nie przez `calculator` wprost.
+const openCabinetsModal = async (calculator, page) => {
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  return page.getByTestId('cabinets-table-modal');
 };
 
 const openCalculator = async (page) => {
@@ -55,12 +67,13 @@ test('the module table never clips its right edge — Front (m²)/Obrzeże (mb)/
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await bottomGroup.getByRole('button', { name: 'Z szufladami', exact: true }).click();
   await bottomGroup.getByRole('button', { name: 'Pod zlew', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const panelBox = await calculator.boundingBox();
-  const frontCell = calculator.locator('[data-label="Front (m²)"]').first();
-  const edgeCell = calculator.locator('[data-label="Obrzeże (mb)"]').first();
+  const panelBox = await modal.boundingBox();
+  const frontCell = modal.locator('[data-label="Front (m²)"]').first();
+  const edgeCell = modal.locator('[data-label="Obrzeże (mb)"]').first();
   // Etap Q, krok 4 — "Kolejność" scalona w "Akcje" (gear "⚙️" + ◀▶ + ⧉ + ×).
-  const actionsCell = calculator.locator('[data-label="Akcje"]').first();
+  const actionsCell = modal.locator('[data-label="Akcje"]').first();
 
   for (const cell of [frontCell, edgeCell, actionsCell]) {
     await expect(cell).toBeVisible();
@@ -83,8 +96,9 @@ test('the "Ściana" pill is visible as the 2nd column and clicking "Y" colors it
   await expandHeightsPanel(calculator);
   await calculator.getByLabel('Układ ścian').selectOption('corner_l');
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   const xButton = row.getByRole('button', { name: 'X', exact: true });
   const yButton = row.getByRole('button', { name: 'Y', exact: true });
   await expect(xButton).toHaveAttribute('aria-pressed', 'true');
@@ -107,8 +121,9 @@ test('Widok Y active: clicking an add-module tile creates the cabinet directly o
   await calculator.getByLabel('Układ ścian').selectOption('corner_l');
   await calculator.getByRole('button', { name: /Widok Y/ }).click();
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await expect(row.getByRole('button', { name: 'Y', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
@@ -204,25 +219,31 @@ test('materials and wall-dimensions panels stay collapsed behind their gear butt
 });
 
 // Etap AH, krok 2 — zgłoszenie (Screenshot_7_2.jpg): dawny 2-kolumnowy układ (rysunek/tabela obok
-// siebie) ustąpił miejsca rysunkowi na PEŁNĄ szerokość panelu — szczegółowa tabela szafek (teraz
-// zwijana sekcja, domyślnie rozwinięta) żyje POD nim, nie OBOK.
-test('on a wide desktop viewport, the drawing spans the full panel width, with the detailed table BELOW it (not beside)', async ({ page }) => {
+// siebie) ustąpił miejsca rysunkowi na PEŁNĄ szerokość panelu.
+// Etap AJ, krok 1 — zgłoszenie (Screenshot_10.jpg/Screenshot_11.jpg): szczegółowa tabela szafek nie
+// żyje już POD rysunkiem wcale (ani obok, ani pod) — jest w kompaktowym modalu, otwieranym
+// przyciskiem "📋 Szafki" na pasku rysunku; strona pod rysunkiem zostaje pusta, dopóki user nie
+// poprosi o szczegóły.
+test('on a wide desktop viewport, the drawing spans the full panel width, and the page under it stays clean (table lives in a modal)', async ({ page }) => {
   await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
     services: [cuttingService, edgingService],
     projectFiles: [],
   });
   const calculator = await openCalculator(page);
+  await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
 
   const canvasContainer = calculator.locator('[class*="canvasFullWidth"]');
-  const detailedTableSection = calculator.locator('[class*="detailedTableSection"]');
   const canvasBox = await canvasContainer.boundingBox();
-  const tableBox = await detailedTableSection.boundingBox();
   const panelBox = await calculator.boundingBox();
-
-  // Rysunek zajmuje (prawie) całą szerokość panelu, a tabela zaczyna się PONIŻEJ niego, nie obok.
   expect(canvasBox.width).toBeGreaterThanOrEqual(panelBox.width - 40);
-  expect(tableBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 1);
+
+  // Tabela NIE jest widoczna na stronie, dopóki modal nie zostanie otwarty.
+  await expect(page.getByTestId('cabinets-table-modal')).not.toBeVisible();
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const modal = page.getByTestId('cabinets-table-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal.getByText('Z drzwiami')).toBeVisible();
 });
 
 // Etap T, krok 1 — kalkulator otwiera się jako PEŁNOEKRANOWY panel (position: fixed; inset: 0),
@@ -300,13 +321,14 @@ test('the "Ilość" column is gone; "⚙️" opens Konstrukcja/Szuflady/HDF in a
   const calculator = await openCalculator(page);
   const bottomGroup = groupSection(calculator, '⬇️ Szafki dolne');
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const moduleTable = kitchenModuleTable(calculator);
+  const moduleTable = kitchenModuleTable(modal);
   await expect(moduleTable.getByRole('columnheader', { name: 'Ilość' })).toHaveCount(0);
   await expect(moduleTable.getByRole('columnheader', { name: 'Konstrukcja / Szuflady' })).toHaveCount(0);
   await expect(moduleTable.getByRole('columnheader', { name: 'HDF', exact: true })).toHaveCount(0);
 
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
   // Etap W, krok 2 — "⚙️" otwiera teraz CabinetSettingsModal (createPortal do document.body), POZA
   // poddrzewem `calculator` (sibling, nie potomek) — modal odpytujemy więc przez `page`, nie `calculator`.
@@ -325,10 +347,11 @@ test('"⧉ Duplikuj szafkę" inside the "⚙️" popover duplicates a row right 
   const calculator = await openCalculator(page);
   const bottomGroup = groupSection(calculator, '⬇️ Szafki dolne');
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const bottomRows = await groupRowsFor(calculator, '⬇️ Szafki dolne');
+  const modal = await openCabinetsModal(calculator, page);
+  const bottomRows = await groupRowsFor(calculator, '⬇️ Szafki dolne', modal);
   await expect(bottomRows).toHaveCount(1);
 
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
   await page.getByTestId('cabinet-settings-modal').getByRole('button', { name: /^Duplikuj moduł/ }).click();
 
@@ -345,8 +368,9 @@ test('table column headers render at a real, readable font size (>= 12.5px on sc
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const header = calculator.getByRole('columnheader', { name: 'Moduł' });
+  const header = modal.getByRole('columnheader', { name: 'Moduł' });
   const fontSizePx = await header.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
   expect(fontSizePx).toBeGreaterThanOrEqual(12.5);
 });
@@ -383,23 +407,24 @@ test('clicking a "✎ <number>" cell opens a spinner-free, pre-selected input; E
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const widthField = calculator.getByLabel('Szer. (mm)');
+  const modal = await openCabinetsModal(calculator, page);
+  const widthField = modal.getByLabel('Szer. (mm)');
   await expect(widthField).toHaveText(/600/);
 
   await widthField.click();
-  const input = calculator.getByLabel('Szer. (mm)');
+  const input = modal.getByLabel('Szer. (mm)');
   await expect(input).toBeFocused();
   const appearance = await input.evaluate(el => getComputedStyle(el).appearance || getComputedStyle(el).getPropertyValue('-webkit-appearance'));
   expect(appearance).toBe('textfield');
 
   await input.fill('650');
   await input.press('Enter');
-  await expect(calculator.getByLabel('Szer. (mm)')).toHaveText(/650/);
+  await expect(modal.getByLabel('Szer. (mm)')).toHaveText(/650/);
 
-  await calculator.getByLabel('Szer. (mm)').click();
-  await calculator.getByLabel('Szer. (mm)').fill('999');
-  await calculator.getByLabel('Szer. (mm)').press('Escape');
-  await expect(calculator.getByLabel('Szer. (mm)')).toHaveText(/650/); // nie 999 — szkic porzucony
+  await modal.getByLabel('Szer. (mm)').click();
+  await modal.getByLabel('Szer. (mm)').fill('999');
+  await modal.getByLabel('Szer. (mm)').press('Escape');
+  await expect(modal.getByLabel('Szer. (mm)')).toHaveText(/650/); // nie 999 — szkic porzucony
 });
 
 // Etap AA, krok 2 — zgłoszenie: kolumna ▲/▼ usunięta z tabeli (myliła, zabierała miejsce nazwie) —
@@ -414,11 +439,12 @@ test('no ▲/▼ reorder buttons anywhere in the table — "Moduł" cell has onl
   const calculator = await openCalculator(page);
   const bottomGroup = groupSection(calculator, '⬇️ Szafki dolne');
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
 
   await expect(row.getByRole('button', { name: /Przesuń.*wcześniej/ })).toHaveCount(0);
   await expect(row.getByRole('button', { name: /Przesuń.*później/ })).toHaveCount(0);
-  await expect(calculator.locator('[class*="reorderButton"]')).toHaveCount(0);
+  await expect(modal.locator('[class*="reorderButton"]')).toHaveCount(0);
 
   const gearBox = await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).boundingBox();
   const removeBox = await row.getByRole('button', { name: /^Usuń moduł/ }).boundingBox();
@@ -443,8 +469,9 @@ test('"Obrzeże (mb)" never clips its value (e.g. "10.88" stays whole, not "10.8
   const bottomGroup = groupSection(calculator, '⬇️ Szafki dolne');
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await bottomGroup.getByRole('button', { name: 'Z szufladami', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const edgeCells = calculator.locator('[data-label="Obrzeże (mb)"]');
+  const edgeCells = modal.locator('[data-label="Obrzeże (mb)"]');
   const count = await edgeCells.count();
   for (let i = 0; i < count; i += 1) {
     const cell = edgeCells.nth(i);
@@ -454,7 +481,7 @@ test('"Obrzeże (mb)" never clips its value (e.g. "10.88" stays whole, not "10.8
   }
 
   // "mb" żyje teraz w nagłówku kolumny (podtekst, .colUnit), nie dubluje się w każdej komórce.
-  await expect(calculator.getByRole('columnheader', { name: /^Obrzeże/ })).toHaveText('Obrzeżemb');
+  await expect(modal.getByRole('columnheader', { name: /^Obrzeże/ })).toHaveText('Obrzeżemb');
 });
 
 // Etap T, krok 2 — zgłoszenie: "Moduł" (ikona + ◀▶ + nazwa) zjadało tyle miejsca na ◀▶/ikonę, że
@@ -472,8 +499,9 @@ test('module names never truncate to an ellipsis inside the table ("Z szufladami
   for (const caption of ['Z szufladami', 'Z drzwiami', 'Pod piekarnik', 'Blenda boczna']) {
     await bottomGroup.getByRole('button', { name: caption, exact: true }).click();
   }
+  const modal = await openCabinetsModal(calculator, page);
 
-  const nameCells = calculator.locator('[class*="moduleName"]');
+  const nameCells = modal.locator('[class*="moduleName"]');
   const count = await nameCells.count();
   expect(count).toBe(4);
   for (let i = 0; i < count; i += 1) {
@@ -495,12 +523,13 @@ test('CabinetSettingsModal: "Gabaryty i rozmieszczenie" i etykiety pól mają re
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
 
-  const modal = page.getByTestId('cabinet-settings-modal');
-  const sectionTitle = modal.getByText('Gabaryty i rozmieszczenie');
-  const widthLabel = modal.getByText('Szerokość (mm)', { exact: true });
+  const settingsModal = page.getByTestId('cabinet-settings-modal');
+  const sectionTitle = settingsModal.getByText('Gabaryty i rozmieszczenie');
+  const widthLabel = settingsModal.getByText('Szerokość (mm)', { exact: true });
 
   const mutedColor = await page.evaluate(() => {
     const probe = document.createElement('span');
@@ -520,7 +549,7 @@ test('CabinetSettingsModal: "Gabaryty i rozmieszczenie" i etykiety pól mają re
   expect(labelStyle.color).not.toBe(mutedColor);
 
   // Inputy: 14px, pogrubione, z widoczną (nie 0px/transparent) ramką.
-  const widthInput = modal.getByLabel('Szerokość (mm)');
+  const widthInput = settingsModal.getByLabel('Szerokość (mm)');
   const inputStyle = await widthInput.evaluate(el => {
     const computed = getComputedStyle(el);
     return { fontSize: parseFloat(computed.fontSize), fontWeight: computed.fontWeight, borderWidth: parseFloat(computed.borderWidth) };
@@ -540,14 +569,15 @@ test('CabinetSettingsModal: "📋 Formatki i okleinowanie ABS" rozwija tabelę r
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
 
-  const modal = page.getByTestId('cabinet-settings-modal');
-  const partsTable = modal.getByTestId('cabinet-parts-table');
+  const settingsModal = page.getByTestId('cabinet-settings-modal');
+  const partsTable = settingsModal.getByTestId('cabinet-parts-table');
   await expect(partsTable).not.toBeVisible();
 
-  await modal.getByRole('button', { name: /Formatki i okleinowanie ABS/ }).click();
+  await settingsModal.getByRole('button', { name: /Formatki i okleinowanie ABS/ }).click();
   await expect(partsTable).toBeVisible();
 
   const sideRow = partsTable.locator('tr').filter({ hasText: 'Bok' });
@@ -556,7 +586,7 @@ test('CabinetSettingsModal: "📋 Formatki i okleinowanie ABS" rozwija tabelę r
   await expect(frontRow.getByText('═', { exact: true })).toBeVisible(); // front: 4 strony ABS
 
   // Hover wiersza podświetla jego mini-diagram formatki (ten sam `hoveredPartIndex`).
-  const diagramCells = modal.locator('[class*="partDiagramCell"]');
+  const diagramCells = settingsModal.locator('[class*="partDiagramCell"]');
   await expect(diagramCells.first()).toBeVisible();
   await sideRow.hover();
   await expect(sideRow).toHaveClass(/partsTableRowActive/);
@@ -573,12 +603,13 @@ test('CabinetSettingsModal: formatka "Bok" ma oklejkę D1+S1+S2 (3 strony, symbo
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
 
-  const modal = page.getByTestId('cabinet-settings-modal');
-  await modal.getByRole('button', { name: /Formatki i okleinowanie ABS/ }).click();
-  const sideRow = modal.getByTestId('cabinet-parts-table').locator('tr').filter({ hasText: 'Bok' });
+  const settingsModal = page.getByTestId('cabinet-settings-modal');
+  await settingsModal.getByRole('button', { name: /Formatki i okleinowanie ABS/ }).click();
+  const sideRow = settingsModal.getByTestId('cabinet-parts-table').locator('tr').filter({ hasText: 'Bok' });
 
   await expect(sideRow.getByText('⊔', { exact: true })).toBeVisible();
   const activeLetters = await sideRow.locator('[class*="edgeBadgeLetterActive"]').allTextContents();
@@ -597,9 +628,10 @@ test('CabinetSettingsModal: przyciski stopki (Duplikuj/Usuń/Gotowe) mają czyte
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
-  const modal = page.getByTestId('cabinet-settings-modal');
+  const settingsModal = page.getByTestId('cabinet-settings-modal');
 
   const checkReadable = async (button, expectMinWeight = 600) => {
     await expect(button).toBeVisible();
@@ -613,10 +645,10 @@ test('CabinetSettingsModal: przyciski stopki (Duplikuj/Usuń/Gotowe) mają czyte
     return style;
   };
 
-  await checkReadable(modal.getByRole('button', { name: /^Duplikuj moduł/ }));
-  const removeStyle = await checkReadable(modal.getByRole('button', { name: /^Usuń moduł/ }));
+  await checkReadable(settingsModal.getByRole('button', { name: /^Duplikuj moduł/ }));
+  const removeStyle = await checkReadable(settingsModal.getByRole('button', { name: /^Usuń moduł/ }));
   expect(removeStyle.color).toBe('rgb(220, 38, 38)'); // #dc2626 — akcentowy bordowo-czerwony
-  const doneStyle = await checkReadable(modal.getByRole('button', { name: 'Gotowe' }), 700);
+  const doneStyle = await checkReadable(settingsModal.getByRole('button', { name: 'Gotowe' }), 700);
   expect(doneStyle.color).toBe('rgb(255, 255, 255)');
   expect(doneStyle.backgroundColor).toBe('rgb(37, 99, 235)'); // #2563eb
 });
@@ -632,13 +664,14 @@ test('CabinetSettingsModal: footer NIE ma już "Przesuń w lewo"/"Przesuń w pra
   });
   const calculator = await openCalculator(page);
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
-  const modal = page.getByTestId('cabinet-settings-modal');
+  const settingsModal = page.getByTestId('cabinet-settings-modal');
 
-  await expect(modal.getByRole('button', { name: /Przesuń w lewo/ })).toHaveCount(0);
-  await expect(modal.getByRole('button', { name: /Przesuń w prawo/ })).toHaveCount(0);
-  await expect(modal.getByRole('button', { name: /^Duplikuj moduł/ })).toBeVisible();
-  await expect(modal.getByRole('button', { name: /^Usuń moduł/ })).toBeVisible();
-  await expect(modal.getByRole('button', { name: 'Gotowe' })).toBeVisible();
+  await expect(settingsModal.getByRole('button', { name: /Przesuń w lewo/ })).toHaveCount(0);
+  await expect(settingsModal.getByRole('button', { name: /Przesuń w prawo/ })).toHaveCount(0);
+  await expect(settingsModal.getByRole('button', { name: /^Duplikuj moduł/ })).toBeVisible();
+  await expect(settingsModal.getByRole('button', { name: /^Usuń moduł/ })).toBeVisible();
+  await expect(settingsModal.getByRole('button', { name: 'Gotowe' })).toBeVisible();
 });

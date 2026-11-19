@@ -25,10 +25,18 @@ const ROLE_DEFAULT_MATCHERS = {
     inCatalogueText('w960', '23x0,8'),
     inCatalogueText('w960', '23x0.8'),
   ],
-  hinge: [
+  // Etap AI, krok 2 — zgłoszenie: te 2 dokładne symbole Bluma (110° nakładany, standardowy kąt
+  // otwarcia — NIE 95°/107°/155°/kątowy itd., które też zawierają "blumotion"/"71b" w nazwie) były
+  // tu wcześniej pod jednym, nigdy niewołanym kluczem `hinge` — `selectedId` pyta per rolę
+  // `hingeSoftClose`/`hingeSpring` z osobna, więc realnie spadały na rozmyte dopasowanie po nazwie
+  // (SOFT_CLOSE_HINGE_HINTS/SPRING_HINGE_HINTS w CabinetCalculator.jsx), ryzykując trafienie w
+  // INNY wariant zawiasu z tej samej, licznej kategorii "Zawiasy".
+  hingeSoftClose: [
     (item) => normalizeText(item?.symbol).trim() === '71b3550',
-    (item) => normalizeText(item?.symbol).trim() === '71t3550',
     inCatalogueText('71b3550'),
+  ],
+  hingeSpring: [
+    (item) => normalizeText(item?.symbol).trim() === '71t3550',
     inCatalogueText('71t3550'),
   ],
   legFront: [

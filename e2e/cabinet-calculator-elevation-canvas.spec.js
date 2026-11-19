@@ -21,9 +21,17 @@ const groupSection = (calculator, label) => calculator
 // kontenera PER GRUPĘ (dawne `data-group-table`, Etap T). `groupRowsFor` wybiera tylko wiersze
 // JEDNEJ grupy po jej `data-row-group` (ustawianym na KAŻDYM wierszu modułu, niezależnie od tego,
 // w którym jarusie/ścianie akurat się znalazł).
-const groupRowsFor = async (calculator, label) => {
+const groupRowsFor = async (calculator, label, scope = calculator) => {
   const groupKey = await groupSection(calculator, label).getAttribute('data-group-palette');
-  return calculator.locator(`[data-row-group="${groupKey}"]`);
+  return scope.locator(`[data-row-group="${groupKey}"]`);
+};
+// Etap AJ, krok 1 — "Szczegółowa tabela szafek" żyje teraz w modalu (portal do document.body,
+// domyślnie ZAMKNIĘTY) otwieranym przyciskiem "📋 Szafki" na pasku rysunku — testy, które odpytują
+// jej wiersze/komórki, muszą go najpierw otworzyć i odpytywać zwrócony modal (page-scoped, NIE
+// `calculator` wprost — modal jest SIBLINGIEM, nie potomkiem).
+const openCabinetsModal = async (calculator, page) => {
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  return page.getByTestId('cabinets-table-modal');
 };
 
 const openCalculator = async (page) => {
@@ -79,6 +87,9 @@ test('clicking a cabinet on the canvas highlights its row, WITHOUT scrolling the
 
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Pod zlew', exact: true }).click();
+  // Etap AJ, krok 1 — wiersz żyje teraz w modalu "📋 Szafki" (portal do document.body, domyślnie
+  // zamknięty) — trzeba go otworzyć przed sprawdzeniem podświetlenia.
+  const modal = await openCabinetsModal(calculator, page);
 
   // Przewijamy stronę o konkretną, dowolną wartość PRZED klikiem — żeby test faktycznie dowodził
   // "nic się nie rusza", a nie tylko "strona akurat już była na górze" (scrollY=0 byłoby fałszywym
@@ -93,13 +104,18 @@ test('clicking a cabinet on the canvas highlights its row, WITHOUT scrolling the
   const secondCabinetId = await cabinets.nth(1).getAttribute('data-module-id');
   // `.click()` z pełnym sprawdzeniem "actionability" zawiesza się na <g> SVG — klikamy bezpośrednio
   // w środek jego bounding boksu przez page.mouse (ten sam, sprawdzony wzorzec co w teście drag niżej).
+  // Modal jest pełnoekranowym overlayem — ZAMYKAMY go przed klikiem w rysunek (inaczej blokuje
+  // kliknięcie), klikamy, i OD RAZU (przed ponownym otwarciem modala — to osobny klik, nie część
+  // sprawdzanego zachowania) mierzymy scrollY, żeby test dowodził WYŁĄCZNIE skutku kliku w canvas.
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
   const secondBox = await cabinets.nth(1).boundingBox();
   await page.mouse.click(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height / 2);
-
-  const highlightedRow = calculator.locator(`[data-module-row="${secondCabinetId}"]`);
-  await expect(highlightedRow).toHaveClass(/rowHighlighted/);
   const scrollYAfter = await page.evaluate(() => window.scrollY);
   expect(scrollYAfter).toBe(scrollYBefore);
+
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const highlightedRow = modal.locator(`[data-module-row="${secondCabinetId}"]`);
+  await expect(highlightedRow).toHaveClass(/rowHighlighted/);
 });
 
 // Etap AA, krok 3 — zgłoszenie: klik na JUŻ wybranej (podświetlonej) szafce na rysunku otwiera
@@ -143,18 +159,20 @@ test('hovering or clicking a table row highlights the matching cabinet on the dr
 
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Pod zlew', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
   const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
   const cabinets = canvas.locator('[data-module-id]');
   await expect(cabinets).toHaveCount(2);
   const secondCabinetId = await cabinets.nth(1).getAttribute('data-module-id');
   const cabinet = canvas.locator(`[data-module-id="${secondCabinetId}"]`);
-  const row = calculator.locator(`[data-module-row="${secondCabinetId}"]`);
+  const row = modal.locator(`[data-module-row="${secondCabinetId}"]`);
 
-  // Hover (bez kliku) -> podświetlenie chwilowe, znika po zjechaniu myszką.
+  // Hover (bez kliku) -> podświetlenie chwilowe, znika po zjechaniu myszką. Zjeżdżamy na nagłówek
+  // SAMEGO modala (nie głównej strony — ta jest zasłonięta przez jego pełnoekranowe tło).
   await row.hover();
   await expect(cabinet).toHaveClass(/cabinetHovered/);
-  await calculator.getByText('📐 Kalkulator', { exact: true }).hover();
+  await modal.getByText('📋 Szczegółowa tabela szafek').hover();
   await expect(cabinet).not.toHaveClass(/cabinetHovered/);
 
   // Klik -> podświetlenie TRWAŁE (selected), ten sam niebieski kontur co hover.
@@ -179,10 +197,14 @@ test('dragging a cabinet with the mouse inside the canvas reorders it within its
 
   const firstId = await cabinets.nth(0).getAttribute('data-module-id');
   const secondId = await cabinets.nth(1).getAttribute('data-module-id');
-  const bottomRows = await groupRowsFor(calculator, '⬇️ Szafki dolne');
-  const groupRows = () => bottomRows;
-  await expect(groupRows().nth(0)).toHaveAttribute('data-module-row', firstId);
-  await expect(groupRows().nth(1)).toHaveAttribute('data-module-row', secondId);
+  // Etap AJ, krok 1 — otwórz modal TYLKO żeby zweryfikować początkową kolejność wierszy, potem
+  // ZAMKNIJ go — jego pełnoekranowe tło zasłoniłoby rysunek, blokując przeciąganie myszką niżej
+  // (page.mouse.* nie sprawdza "actionability"/zasłonięcia, więc klik trafiłby we własne tło modala).
+  const modal = await openCabinetsModal(calculator, page);
+  const groupRows = async () => groupRowsFor(calculator, '⬇️ Szafki dolne', modal);
+  await expect((await groupRows()).nth(0)).toHaveAttribute('data-module-row', firstId);
+  await expect((await groupRows()).nth(1)).toHaveAttribute('data-module-row', secondId);
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   // Przeciągnięcie pierwszej szafki (myszką, Pointer Events) na drugą pozycję w tym samym rzędzie.
   const firstBox = await cabinets.nth(0).boundingBox();
@@ -192,8 +214,9 @@ test('dragging a cabinet with the mouse inside the canvas reorders it within its
   await page.mouse.move(secondBox.x + secondBox.width * 0.9, secondBox.y + secondBox.height / 2, { steps: 10 });
   await page.mouse.up();
 
-  await expect(groupRows().nth(0)).toHaveAttribute('data-module-row', secondId);
-  await expect(groupRows().nth(1)).toHaveAttribute('data-module-row', firstId);
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  await expect((await groupRows()).nth(0)).toHaveAttribute('data-module-row', secondId);
+  await expect((await groupRows()).nth(1)).toHaveAttribute('data-module-row', firstId);
 });
 
 test('dragging an add-module tile onto the canvas inserts a new cabinet in that row (native HTML5 Drag and Drop)', async ({ page }) => {
@@ -205,7 +228,11 @@ test('dragging an add-module tile onto the canvas inserts a new cabinet in that 
   const calculator = await openCalculator(page);
 
   const bottomGroup = groupSection(calculator, '⬇️ Szafki dolne');
-  const bottomRows = await groupRowsFor(calculator, '⬇️ Szafki dolne');
+  // Etap AJ, krok 1 — wiersze żyją w modalu "📋 Szafki"; drop niżej to SKRYPTOWANA symulacja
+  // DragEvent (dispatchEvent na elementHandle, nie realne współrzędne myszki) — obojętna na to, czy
+  // modal wizualnie zasłania canvas, więc BEZPIECZNIE zostaje otwarty przez cały test.
+  const modal = await openCabinetsModal(calculator, page);
+  const bottomRows = await groupRowsFor(calculator, '⬇️ Szafki dolne', modal);
   const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
   const rowsBefore = await bottomRows.count();
 
@@ -267,16 +294,22 @@ test('changing Wysokość blatu reactively resizes already-added cabinets on the
   const calculator = await openCalculator(page);
 
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+  // Etap AJ, krok 1 — "Wys. (mm)" żyje w modalu "📋 Szafki"; `.fill()` na "Wysokość blatu (mm)"
+  // niżej nie sprawdza zasłonięcia (nie jest to `.click()`), więc modal bezpiecznie zostaje otwarty.
+  const modal = await openCabinetsModal(calculator, page);
   const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
   await expect(canvas).toContainText('600×757');
   // Etap R, krok 2 — "Wys. (mm)" to teraz klik-do-edycji ("✎757"), nie zawsze-widoczny <input>.
-  await expect(calculator.getByLabel('Wys. (mm)')).toHaveText(/757/);
+  await expect(modal.getByLabel('Wys. (mm)')).toHaveText(/757/);
+  // Zamknij modal (pełnoekranowy overlay) przed klikiem w "⚙️ Wymiary..." na głównej stronie.
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await expandHeightsPanel(calculator);
   await calculator.getByLabel('Wysokość blatu (mm)').fill('981');
 
   // Bez klikania żadnego przycisku: i tabela, i rysunek pokazują nową wysokość (838), nie starą (757).
-  await expect(calculator.getByLabel('Wys. (mm)')).toHaveText(/838/);
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  await expect(modal.getByLabel('Wys. (mm)')).toHaveText(/838/);
   await expect(canvas).toContainText('600×838');
   await expect(canvas).not.toContainText('600×757');
 });
@@ -339,8 +372,12 @@ test('Narożny L: toggling a cabinet to wall Y moves it off wall X and onto the 
   await calculator.getByLabel('Układ ścian').selectOption('corner_l');
   await expect(calculator.getByLabel('Szerokość ściany Y (mm)')).toBeVisible();
 
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  // Etap AJ, krok 1 — przełącznik ściany żyje w modalu "📋 Szafki" — otwórz, przełącz, zamknij
+  // (pełnoekranowy overlay zasłoniłby "Widok z góry" na głównej stronie niżej).
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: 'Y', exact: true }).click();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await expect(calculator.getByText(/Zajęte \(ściana X\):/)).toContainText('Zajęte (ściana X): 0 / 3000 mm');
   await expect(calculator.getByText(/Zajęte \(ściana Y\):/)).toContainText('Zajęte (ściana Y): 600');
@@ -367,8 +404,10 @@ test('Narożny L: Widok z góry — front szafki ściany Y jest po PRAWEJ (do wn
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await expandHeightsPanel(calculator);
   await calculator.getByLabel('Układ ścian').selectOption('corner_l');
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await row.getByRole('button', { name: 'Y', exact: true }).click();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByRole('button', { name: /Widok z góry/ }).click();
   const topView = calculator.getByRole('img', { name: /Widok z góry/ });
@@ -399,8 +438,10 @@ test('Narożny L: Widok z góry — szafka w rogu ściany X i pierwsza szafka ś
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z szufladami', exact: true }).click();
   await expandHeightsPanel(calculator);
   await calculator.getByLabel('Układ ścian').selectOption('corner_l');
-  const drawerRow = calculator.locator('tr').filter({ hasText: 'Z szufladami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const drawerRow = modal.locator('tr').filter({ hasText: 'Z szufladami' });
   await drawerRow.getByRole('button', { name: 'Y', exact: true }).click();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByRole('button', { name: /Widok z góry/ }).click();
   const topView = calculator.getByRole('img', { name: /Widok z góry/ });
@@ -445,13 +486,15 @@ test('Narożny L: Widok Y — narożnik ściany X po PRAWEJ, szafki ściany Y ro
   await calculator.getByLabel('Układ ścian').selectOption('corner_l');
   await calculator.getByLabel('Szerokość ściany Y (mm)').fill('2200');
 
+  const modal = await openCabinetsModal(calculator, page);
   for (const label of ['Z drzwiami', 'Z szufladami', 'Pod piekarnik']) {
-    await calculator.locator('tr').filter({ hasText: label }).getByRole('button', { name: 'Y', exact: true }).click();
+    await modal.locator('tr').filter({ hasText: label }).getByRole('button', { name: 'Y', exact: true }).click();
   }
-  const ovenRow = calculator.locator('tr').filter({ hasText: 'Pod piekarnik' });
+  const ovenRow = modal.locator('tr').filter({ hasText: 'Pod piekarnik' });
   await ovenRow.getByLabel('Szer. (mm)').click();
   await ovenRow.getByLabel('Szer. (mm)').fill('400');
   await ovenRow.getByLabel('Szer. (mm)').blur();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByRole('button', { name: /Widok Y/ }).click();
   // W układzie narożnym Widok Y to PEŁNA elewacja ściany Y (nie "przekrój boczny" jak w prostym
@@ -513,8 +556,10 @@ test('Narożny L z prawej: Widok z góry — ściana Y2 przy PRAWYM końcu ścia
   // dotykać prawej krawędzi — inaczej prawy róg jest PUSTY (patrz computeCornerDepthMm, 'right').
   await calculator.getByLabel('Szerokość ściany / zabudowy (mm)').fill('600');
   await calculator.getByLabel('Układ ścian').selectOption('corner_l_right');
-  const drzwiamiRow = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const drzwiamiRow = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await drzwiamiRow.getByRole('button', { name: 'Y', exact: true }).click();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByRole('button', { name: /Widok z góry/ }).click();
   const topView = calculator.getByRole('img', { name: /Widok z góry/ });
@@ -567,13 +612,15 @@ test('Narożny L z prawej: Widok Y2 — narożnik ściany X po LEWEJ (bez odbici
   await calculator.getByLabel('Układ ścian').selectOption('corner_l_right');
   await calculator.getByLabel('Szerokość ściany Y prawa (mm)').fill('2200');
 
+  const modal = await openCabinetsModal(calculator, page);
   for (const label of ['Z drzwiami', 'Z szufladami', 'Pod piekarnik']) {
-    await calculator.locator('tr').filter({ hasText: label }).getByRole('button', { name: 'Y', exact: true }).click();
+    await modal.locator('tr').filter({ hasText: label }).getByRole('button', { name: 'Y', exact: true }).click();
   }
-  const ovenRow = calculator.locator('tr').filter({ hasText: 'Pod piekarnik' });
+  const ovenRow = modal.locator('tr').filter({ hasText: 'Pod piekarnik' });
   await ovenRow.getByLabel('Szer. (mm)').click();
   await ovenRow.getByLabel('Szer. (mm)').fill('400');
   await ovenRow.getByLabel('Szer. (mm)').blur();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByRole('button', { name: /Widok Y/ }).click();
   const canvas = calculator.getByRole('img', { name: /elewacji ściany Y2/ });
@@ -621,15 +668,19 @@ test('Układ U: przełącznik ściany ma 3 opcje (X/Y(L)/Y(P)), obie ściany Y r
   await expect(calculator.getByLabel('Szerokość ściany Y (mm)')).toBeVisible();
   await expect(calculator.getByLabel('Szerokość ściany Y prawa (mm)')).toBeVisible();
 
-  const row = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  const modal = await openCabinetsModal(calculator, page);
+  const row = modal.locator('tr').filter({ hasText: 'Z drzwiami' });
   await expect(row.getByRole('button', { name: 'X', exact: true })).toBeVisible();
   await expect(row.getByRole('button', { name: 'Y (L)', exact: true })).toBeVisible();
   await expect(row.getByRole('button', { name: 'Y (P)', exact: true })).toBeVisible();
 
   await row.getByRole('button', { name: 'Y (P)', exact: true }).click();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z szufladami', exact: true }).click();
-  const drawerRow = calculator.locator('tr').filter({ hasText: 'Z szufladami' });
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const drawerRow = modal.locator('tr').filter({ hasText: 'Z szufladami' });
   await drawerRow.getByRole('button', { name: 'Y (L)', exact: true }).click();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByRole('button', { name: /Widok z góry/ }).click();
   const topView = calculator.getByRole('img', { name: /Widok z góry/ });
@@ -756,7 +807,7 @@ test('Kompaktowe przyciski 🧱/⚡/💧 nad rysunkiem: widoczne z bejdżem TYLK
 // Etap AH, krok 1 — zgłoszenie: WSZYSTKIE przyciski nagłówka (przełącznik widoku + 🧱/⚡/💧) muszą
 // zmieścić się w JEDNEJ linii bez zawijania — sprawdzane w NAJGĘSTSZYM wariancie (Układ U: 4 przyciski
 // widoku: X/Y(L)/Y(P)/Rzut + 3 szybkiego dostępu = 7 naraz).
-test('rząd nagłówka rysunku (4 przyciski widoku w Układzie U + 🧱/⚡/💧) mieści się w jednej linii, bez zawijania', async ({ page }) => {
+test('rząd nagłówka rysunku (4 przyciski widoku w Układzie U + 🧱/⚡/💧/📋/📐) mieści się w jednej linii, bez zawijania', async ({ page }) => {
   await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
     services: [cuttingService, edgingService],
@@ -776,6 +827,8 @@ test('rząd nagłówka rysunku (4 przyciski widoku w Układzie U + 🧱/⚡/💧
     calculator.getByRole('button', { name: '🧱 + Szyb / Słup' }),
     calculator.getByRole('button', { name: '⚡ Instalacje elektryczne / Punkt 0' }),
     calculator.getByRole('button', { name: '💧 Instalacje wodne / Punkt 0' }),
+    calculator.getByRole('button', { name: /^📋 Szafki/ }),
+    calculator.getByRole('button', { name: /^📐 Formatki/ }),
   ];
   const boxes = [];
   for (const button of headerButtons) {
@@ -949,14 +1002,17 @@ test('Antresole stoją we WŁASNYM rzędzie od X=0 — "Zajęte" liczy max(Górn
 
   const topGroup = groupSection(calculator, '⬆️ Szafki górne');
   await topGroup.getByRole('button', { name: 'Klasyczna (z drzwiami)', exact: true }).click();
-  const topRow = calculator.locator('tr').filter({ hasText: 'Klasyczna (z drzwiami)' });
+  const modal = await openCabinetsModal(calculator, page);
+  const topRow = modal.locator('tr').filter({ hasText: 'Klasyczna (z drzwiami)' });
   await topRow.getByLabel('Szer. (mm)').click();
   await topRow.getByLabel('Szer. (mm)').fill('1800');
   await topRow.getByLabel('Szer. (mm)').blur();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   const mezzGroup = groupSection(calculator, '⏫ Antresole / Górny rząd pod sufit');
   await mezzGroup.getByRole('button', { name: 'Klapa pod sufit', exact: true }).click();
-  const mezzRow = calculator.locator('tr').filter({ hasText: 'Klapa pod sufit' });
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const mezzRow = modal.locator('tr').filter({ hasText: 'Klapa pod sufit' });
   await mezzRow.getByLabel('Szer. (mm)').click();
   await mezzRow.getByLabel('Szer. (mm)').fill('2200');
   await mezzRow.getByLabel('Szer. (mm)').blur();
@@ -1067,8 +1123,9 @@ test('"Pod lodówkę": dodanie, zmiana standardu lodówki na XXL zmienia szeroko
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click(); // 600mm
   const tallGroup = groupSection(calculator, '📏 Słupki / Wysoka zabudowa');
   await tallGroup.getByRole('button', { name: 'Pod lodówkę', exact: true }).click();
+  const modal = await openCabinetsModal(calculator, page);
 
-  const row = calculator.locator('tr').filter({ hasText: 'Pod lodówkę' });
+  const row = modal.locator('tr').filter({ hasText: 'Pod lodówkę' });
   await expect(row.getByLabel('Szer. (mm)')).toHaveText(/600/);
 
   const canvas = calculator.getByRole('img', { name: /Rysunek 2D elewacji/ });
@@ -1135,7 +1192,12 @@ test('"Wykaz formatek": scala identyczne "Bok" z 2 szafek w 1 wiersz, dzieli na 
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
   await bottomGroup.getByRole('button', { name: 'Z drzwiami', exact: true }).click(); // 2. identyczna szafka
 
-  const summary = calculator.getByTestId('cutlist-summary');
+  // Etap AJ, krok 1 — "Wykaz formatek" żyje teraz w modalu (portal do document.body, patrz
+  // TableModal), otwieranym przyciskiem "📐 Formatki" na pasku rysunku — odpytujemy więc przez
+  // `page`, nie `calculator` (ten sam wzorzec co CabinetSettingsModal w innych testach).
+  await calculator.getByRole('button', { name: /^📐 Formatki/ }).click();
+  const modal = page.getByTestId('cutlist-table-modal');
+  const summary = modal.getByTestId('cutlist-summary');
   await expect(summary).toBeVisible();
   await expect(summary.getByText(/Płyta korpusu — PL W960 SM Biały/)).toBeVisible();
   await expect(summary.getByText(/Płyta frontu — U702 ST9 Kaszmir/)).toBeVisible();
@@ -1149,4 +1211,41 @@ test('"Wykaz formatek": scala identyczne "Bok" z 2 szafek w 1 wiersz, dzieli na 
 
   const hdfTable = summary.getByTestId('cutlist-table-hdf');
   await expect(hdfTable.locator('tr').filter({ hasText: 'Plecy HDF' })).toHaveCount(1);
+});
+
+// Etap AJ, krok 1 — zgłoszenie (Screenshot_10.jpg/Screenshot_11.jpg): obie tabele są DOMYŚLNIE
+// zamknięte (strona pod rysunkiem zostaje czysta) i otwierają się TYLKO przyciskiem na pasku
+// rysunku; Escape i klik w tło zamykają modal, tak samo jak "×".
+test('"📋 Szafki"/"📐 Formatki": domyślnie zamknięte, otwierają się przyciskiem, zamykają Escape/klikiem w tło/"×"', async ({ page }) => {
+  await installAuthenticatedSupabaseMock(page, [existingProject], {
+    materials: [bodyBoard, frontBoard, edgeBody, edgeFront],
+    services: [cuttingService, edgingService],
+    projectFiles: [],
+  });
+  const calculator = await openCalculator(page);
+  await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z drzwiami', exact: true }).click();
+
+  // Domyślnie zamknięte — strona pod rysunkiem jest czysta, żadnego modala w DOM.
+  await expect(page.getByTestId('cabinets-table-modal')).toHaveCount(0);
+  await expect(page.getByTestId('cutlist-table-modal')).toHaveCount(0);
+
+  // "📋 Szafki" — otwiera się przyciskiem, zamyka Escape.
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const cabinetsModal = page.getByTestId('cabinets-table-modal');
+  await expect(cabinetsModal).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(cabinetsModal).not.toBeVisible();
+
+  // Ponowne otwarcie — zamyka klik w tło (poza samym oknem modala).
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  await expect(cabinetsModal).toBeVisible();
+  await page.mouse.click(4, 4); // róg ekranu — na pewno poza oknem modala, wciąż na jego tle
+  await expect(cabinetsModal).not.toBeVisible();
+
+  // "📐 Formatki" — ten sam wzorzec, zamyka "×".
+  await calculator.getByRole('button', { name: /^📐 Formatki/ }).click();
+  const cutlistModal = page.getByTestId('cutlist-table-modal');
+  await expect(cutlistModal).toBeVisible();
+  await cutlistModal.getByRole('button', { name: /^Zamknij:/ }).click();
+  await expect(cutlistModal).not.toBeVisible();
 });

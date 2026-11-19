@@ -130,20 +130,27 @@ test('kitchen heights panel (3 obszary): new cabinets get the computed height, a
   await expect(calculator.getByText(/Zajęte \(ściana X\):/)).toContainText('Zajęte (ściana X): 0 / 3000 mm');
 
   await calculator.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  await expect(calculator.getByLabel('Wys. (mm)')).toHaveText(/757/);
+  // Etap AJ, krok 1 — "Wys. (mm)" (edytowalna komórka tabeli) żyje teraz w modalu "📋 Szafki"
+  // (portal do document.body, domyślnie zamknięty) — trzeba go otworzyć przed odpytaniem.
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const modal = page.getByTestId('cabinets-table-modal');
+  await expect(modal.getByLabel('Wys. (mm)')).toHaveText(/757/);
   await expect(calculator.getByText(/Zajęte \(ściana X\):/)).toContainText('Zajęte (ściana X): 600 / 3000 mm');
 
   // Zmień wysokość blatu -> nowa rekomendacja, i dodana szafka przelicza się SAMA, bez przycisku.
   await calculator.getByLabel('Wysokość blatu (mm)').fill('920');
   await expect(calculator.getByLabel('Wys. szafek dolnych (mm)')).toHaveValue('777');
-  await expect(calculator.getByLabel('Wys. (mm)')).toHaveText(/777/);
+  await expect(modal.getByLabel('Wys. (mm)')).toHaveText(/777/);
 
   // Ręczna edycja blokuje tę jedną szafkę (customHeight) — "↻ Resetuj ręczne wysokości do
   // standardu" zdejmuje blokadę i wraca do bieżącego standardu.
-  await setInlineNumber(calculator.getByLabel('Wys. (mm)'), '500');
-  await expect(calculator.getByLabel('Wys. (mm)')).toHaveText(/500/);
+  await setInlineNumber(modal.getByLabel('Wys. (mm)'), '500');
+  await expect(modal.getByLabel('Wys. (mm)')).toHaveText(/500/);
+  // Modal (pełnoekranowy overlay) zasłania "↻ Resetuj..." na głównej stronie — zamknij przed klikiem.
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
   await calculator.getByRole('button', { name: '↻ Resetuj ręczne wysokości do standardu' }).click();
-  await expect(calculator.getByLabel('Wys. (mm)')).toHaveText(/777/);
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  await expect(modal.getByLabel('Wys. (mm)')).toHaveText(/777/);
 });
 
 test('calculator_state autosaves and restores the full session (modules, selections, settings) after a page reload', async ({ page }) => {
@@ -162,7 +169,12 @@ test('calculator_state autosaves and restores the full session (modules, selecti
   const calculator = page.getByText('📐 Kalkulator', { exact: true }).locator('..');
 
   await calculator.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  await setInlineNumber(calculator.getByLabel('Szer. (mm)'), '777');
+  // Etap AJ, krok 1 — "Szer. (mm)" (edytowalna komórka tabeli) żyje w modalu "📋 Szafki" (portal do
+  // document.body, domyślnie zamknięty) — trzeba go otworzyć przed odpytaniem/edycją.
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const modal = page.getByTestId('cabinets-table-modal');
+  await setInlineNumber(modal.getByLabel('Szer. (mm)'), '777');
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
   await calculator.getByRole('button', { name: 'Materiały — ⬇️ Szafki dolne' }).click();
   await calculator.getByLabel('Korpus z płyty frontowej — ⬇️ Szafki dolne').check();
 
@@ -175,10 +187,15 @@ test('calculator_state autosaves and restores the full session (modules, selecti
   await page.getByRole('region', { name: 'Materiały' }).getByRole('button', { name: '📐 Kalkulator szafek' }).click();
 
   const restoredCalculator = page.getByText('📐 Kalkulator', { exact: true }).locator('..');
+  // Modal "📋 Szafki" to czysto wizualny stan UI — NIE przetrwał reload (domyślnie zamknięty),
+  // trzeba go otworzyć ponownie, żeby zobaczyć przywróconą kartę szafki.
+  await restoredCalculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const restoredModal = page.getByTestId('cabinets-table-modal');
   // "Z drzwiami" żyje i na kafelku "+ Dodaj moduł" (zawsze widocznym), i w nagłówku przywróconej
   // karty — celujemy w sam nagłówek karty (.moduleName), nie w dowolne dopasowanie na stronie.
-  await expect(restoredCalculator.locator('[class*="moduleName"]', { hasText: 'Z drzwiami' })).toBeVisible();
-  await expect(restoredCalculator.getByLabel('Szer. (mm)')).toHaveText(/777/);
+  await expect(restoredModal.locator('[class*="moduleName"]', { hasText: 'Z drzwiami' })).toBeVisible();
+  await expect(restoredModal.getByLabel('Szer. (mm)')).toHaveText(/777/);
+  await restoredModal.getByRole('button', { name: /^Zamknij:/ }).click();
   // Korpus z płyty frontowej przetrwało reload (boards.kitchen_bottom) — select grupy wciąż
   // pokazuje tę samą płytę, ale jej wiersz w tabeli kalkulacji (area=0) zniknął. Panel materiałów
   // (czysto wizualny stan UI) NIE przetrwał reload — zwinięty domyślnie, trzeba go rozwinąć ponownie.
