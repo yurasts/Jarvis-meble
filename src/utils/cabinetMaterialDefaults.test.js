@@ -19,7 +19,7 @@ describe('findCabinetDefaultMaterial', () => {
   it.each([
     ['bodyMaterial', 'board'],
     ['edgeMaterialBody', 'edge'],
-    ['hinge', 'hinge'],
+    ['hingeSoftClose', 'hinge'],
     ['legFront', 'leg-front'],
     ['legRearAxilo', 'leg-rear'],
     ['hdfMaterial', 'hdf'],
@@ -29,17 +29,20 @@ describe('findCabinetDefaultMaterial', () => {
     expect(findCabinetDefaultMaterial(materials, role)?.id).toBe(expectedId);
   });
 
-  it('prefers the exact hinge symbol over an earlier name-only match', () => {
-    expect(findCabinetDefaultMaterial(materials, 'hinge')?.id).toBe('hinge');
+  it('prefers the exact soft-close hinge symbol (71B3550) over an earlier name-only match', () => {
+    expect(findCabinetDefaultMaterial(materials, 'hingeSoftClose')?.id).toBe('hinge');
   });
 
-  it('falls back to the spring hinge article 71T3550 when 71B3550 is unavailable', () => {
+  it('finds the spring hinge article 71T3550 under its own role, separate from the soft-close one', () => {
     const springHinge = {
       id: 'spring-hinge',
       name: 'Zawias 110° nakładany, ze sprężyną Blum CLIP top',
       symbol: '71T3550',
     };
-    expect(findCabinetDefaultMaterial([springHinge], 'hinge')?.id).toBe('spring-hinge');
+    expect(findCabinetDefaultMaterial([springHinge], 'hingeSpring')?.id).toBe('spring-hinge');
+    // Krzyżowo: pula zawiera TYLKO zawias ze sprężyną — rola `hingeSoftClose` nie ma czego
+    // dopasować (71B3550 nieobecny), więc świadomie zwraca null (nie łapie przypadkiem innego).
+    expect(findCabinetDefaultMaterial([springHinge], 'hingeSoftClose')).toBeNull();
   });
 
   it('keeps the legacy ordinary-leg name compatible during migration rollout', () => {

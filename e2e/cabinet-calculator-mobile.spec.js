@@ -57,6 +57,11 @@ test('Kalkulator szafek is unlocked on mobile (390px) and stays fully readable i
   // .moduleTableScroll) zamiast "łamać się" w karty jak główna tabela kalkulacji — strona sama
   // mimo to nie przewija się w bok (sprawdzone niżej).
   await calculator.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  await expect(calculator.locator('[class*="moduleName"]', { hasText: 'Z drzwiami' })).toBeVisible();
+  // Etap AJ, krok 1 — "Szczegółowa tabela szafek" żyje w modalu (portal do document.body),
+  // otwieranym przyciskiem "📋 Szafki" na pasku rysunku — trzeba go otworzyć przed odpytaniem wiersza.
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const modal = page.getByTestId('cabinets-table-modal');
+  await expect(modal.locator('[class*="moduleName"]', { hasText: 'Z drzwiami' })).toBeVisible();
+  await modal.getByRole('button', { name: /^Zamknij:/ }).click();
   await expect(calculator.getByText('RAZEM ORIENTACYJNA WYCENA:')).toBeVisible();
 });

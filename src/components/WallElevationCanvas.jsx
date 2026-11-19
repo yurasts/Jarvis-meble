@@ -174,6 +174,7 @@ export default function WallElevationCanvas({
   zeroPoints = { X: 'left', Y: 'left', Y2: 'left' }, installationPoints = [],
   onAddInstallationPoint,
   pillarPanelRows, zeroPointSelectors, installationPanelRowsElectric, installationPanelRowsWater,
+  cabinetsCount = 0, onOpenCabinetsModal, cutlistCount = 0, onOpenCutlistModal,
 }) {
   const svgRef = useRef(null);
   const [dragState, setDragState] = useState(null); // { id, group, overIndex }
@@ -292,6 +293,24 @@ export default function WallElevationCanvas({
             >
               💧
               {waterPointsCount > 0 && <span className={s.quickAccessBadge}>{waterPointsCount}</span>}
+            </button>
+            {/* Etap AJ, krok 1 — zgłoszenie (Screenshot_10.jpg/Screenshot_11.jpg): "Szczegółowa
+                tabela szafek"/"Wykaz formatek" nie zajmują już miejsca pod rysunkiem na stałe —
+                otwierają się jako modal z tych 2 przycisków (treść/stan modala żyje w
+                CabinetCalculator.jsx, tu tylko wyzwalacz + licznik). */}
+            <button
+              type="button" className={s.quickAccessButton}
+              title="Szczegółowa tabela szafek" aria-label={`📋 Szafki (${cabinetsCount})`}
+              onClick={() => onOpenCabinetsModal?.()}
+            >
+              📋 Szafki ({cabinetsCount})
+            </button>
+            <button
+              type="button" className={s.quickAccessButton}
+              title="Wykaz formatek — zbiorcza specyfikacja rozkroju" aria-label={`📐 Formatki (${cutlistCount})`}
+              onClick={() => onOpenCutlistModal?.()}
+            >
+              📐 Formatki ({cutlistCount})
             </button>
           </div>
         </div>

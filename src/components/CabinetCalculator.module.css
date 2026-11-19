@@ -113,8 +113,9 @@
 }
 
 /* Etap AH, krok 2 — zgłoszenie (Screenshot_7_2.jpg): dawna 2-kolumnowa siatka rysunek+tabela
-   (Etap Q/R/T) ustąpiła miejsca rysunkowi na PEŁNĄ szerokość panelu — szczegółowa tabela szafek
-   (patrz .detailedTableSection niżej) zjechała POD rysunek, jako zwijana sekcja. */
+   (Etap Q/R/T) ustąpiła miejsca rysunkowi na PEŁNĄ szerokość panelu. Etap AJ, krok 1 — dawna
+   szczegółowa tabela szafek pod rysunkiem (.detailedTableSection) przeniosła się do modala (patrz
+   .tableModal) — ten kontener trzyma już TYLKO sam rysunek. */
 .canvasFullWidth {
   display: flex;
   flex-direction: column;
@@ -122,17 +123,9 @@
   width: 100%;
 }
 
-/* Dawna prawa kolumna (tabela szafek) — teraz pełnoszerokościowa, zwijana sekcja pod rysunkiem i
-   zbiorczym "Wykazem formatek" (.cutlistSummary niżej), domyślnie rozwinięta. */
-.detailedTableSection {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-/* Etap AG — "Wykaz formatek": zbiorcza tabela rozkroju projektu, pod rysunkiem. Jedna sekcja per
-   (grupa materiału + materiał) — nagłówek h6 + własna tabela (.table, reużyta ze smety niżej). */
+/* Etap AG — "Wykaz formatek": zbiorcza tabela rozkroju projektu (treść modala .tableModal, patrz
+   Etap AJ). Jedna sekcja per (grupa materiału + materiał) — nagłówek h6 + własna tabela (.table,
+   reużyta ze smety niżej). */
 .cutlistSummary {
   display: flex;
   flex-direction: column;
@@ -1043,6 +1036,40 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* Etap AJ, krok 1 — "Szczegółowa tabela szafek"/"Wykaz formatek" w modalu: ten sam backdrop/header/
+   close-button co .settingsModal*, ale znacznie szerszy kontener (tabele, nie formularz pól). */
+.tableModal {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 94vw);
+  max-height: 88vh;
+  border-radius: 12px;
+  background: var(--modal-bg);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.45), 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+.tableModalBody {
+  flex: 1 1 auto;
+  max-height: 82vh;
+  overflow-y: auto;
+  padding: 16px;
+}
+.tableModalHeaderButton {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tableModalHeaderButton:hover {
+  background: var(--accent-soft);
 }
 /* Etap Y, krok 1 — zgłoszenie (Screenshot_9_3.jpg): nagłówek sekcji i etykiety pól pod inputami
    ("Szerokość (mm)" itd.) były praktycznie nieczytelne — `var(--font-size-2xs)` rozwiązuje się do

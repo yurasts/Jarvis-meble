@@ -269,10 +269,10 @@ export const CABINET_MODULE_TYPES = {
     // Etap G, krok 2 — szafka górna domyślnie "Opuszczany front" (zaniżony fasad ze zwisem pod
     // dłoń) — typowe rozwiązanie bez uchwytów dla górnych szafek, w odróżnieniu od pozostałych 3
     // typów (domyślnie "Uchwyt").
-    defaults: { W: 600, H: 720, D: 320, doors: 1, shelves: 2, qty: 1, hdfInGroove: true, openingMethod: 'opuszczany_front', hangerCount: 2 },
+    defaults: { W: 600, H: 720, D: 320, doors: 1, shelves: 2, qty: 1, hdfInGroove: true, openingMethod: 'opuszczany_front', hangerCount: 2, liftFlap: false },
     build: ({
       W, H, D, doors = 1, shelves = 0, t = DEFAULT_BOARD_THICKNESS_MM, hdfInGroove = true,
-      openingMethod = 'opuszczany_front', hangerCount = 2,
+      openingMethod = 'opuszczany_front', hangerCount = 2, liftFlap = false,
     }) => {
       const innerW = W - 2 * t;
       const doorWidth = W / Math.max(1, doors);
@@ -288,7 +288,11 @@ export const CABINET_MODULE_TYPES = {
       ];
       return {
         panels,
-        hinges: doors * getHingesPerDoor(doorHeight),
+        // Etap AI, krok 2 — zgłoszenie: "Nad okap"/"Klapa pod sufit"/"Nad słupkiem" unoszą się na
+        // podnośniku gazowym (ruch W GÓRĘ), nie na klasycznych zawiasach (ruch NA BOK) — `doors`
+        // dalej poprawnie liczy front (board/kromka), ale `liftFlap:true` zeruje zawiasy, żeby nie
+        // doliczać fantomowych "zawiasów ze sprężyną" dla mechanizmu, który ich fizycznie nie ma.
+        hinges: liftFlap ? 0 : doors * getHingesPerDoor(doorHeight),
         // Etap I, krok 3 — zawieszki konfigurowalne (domyślnie 2, jak dotychczas): antresola
         // "nad słupkiem/lodówką" stoi na pieniu i nie wisi na ściance, więc jej quick-add preset
         // nadpisuje to na 0, bez potrzeby osobnego typu modułu.
@@ -1579,11 +1583,16 @@ export const buildCabinetCostBreakdown = (summary, selections = {}, multiplier, 
   const usableSheetAreaM2 = Number(options.usableSheetAreaM2) || USABLE_SHEET_AREA_M2;
   const includeHardware = options.includeHardware !== false;
   // Etap AA, krok 4 — "pierwszy etap" powrotu osprzętu do rozliczenia: nóżki i komplety szuflad
-  // (prowadnice) wracają NIEZALEŻNIE od reszty osprzętu (zawiasy/zawieszki/uchwyty/TIP-ON/profil
-  // HAFELE, dalej schowane za `includeHardware: false`) — osobne flagi, domyślnie wyłączone jak
-  // `includeHardware`, żeby wołający musiał świadomie włączyć KAŻDĄ grupę z osobna.
+  // (prowadnice) wracają NIEZALEŻNIE od reszty osprzętu (uchwyty/TIP-ON/profil HAFELE, dalej
+  // schowane za `includeHardware: false`) — osobne flagi, domyślnie wyłączone jak `includeHardware`,
+  // żeby wołający musiał świadomie włączyć KAŻDĄ grupę z osobna.
   const includeLegs = options.includeLegs !== false;
   const includeDrawerSets = options.includeDrawerSets !== false;
+  // Etap AI, krok 2 — "drugi etap" powrotu: zawiasy (Szafki górne/Antresole) i zawieszki górnego
+  // montażu wracają TERAZ też, niezależnie od reszty (uchwyty/TIP-ON/HAFELE zostają za
+  // `includeHardware`) — ta sama zasada co `includeLegs`/`includeDrawerSets` wyżej.
+  const includeHinges = options.includeHinges !== false;
+  const includeHangers = options.includeHangers !== false;
   const countertopUnit = selections.countertop?.unit;
   const countertopQuantity = resolveCountertopQuantity(summary.countertopMeters, countertopUnit);
   const countertopIsSheets = countertopQuantity > 0 && ['szt', 'szt.', 'sztuki']
@@ -1622,7 +1631,7 @@ export const buildCabinetCostBreakdown = (summary, selections = {}, multiplier, 
     ...edgeRowsFor(summary.edgeMetersByBucket || {}, 'front', {
       label: 'Obrzeże frontu', baseKey: 'edgeFront', defaultItem: selections.edgeMaterialFront, materialsById,
     }),
-    ...(includeHardware ? [
+    ...(includeHinges ? [
       {
         key: 'hingeSoftClose', label: 'Zawiasy (cichy domyk)', item: selections.hingeSoftClose || null,
         quantity: summary.softCloseHinges, quantityLabel: `${summary.softCloseHinges} szt.`,
@@ -1668,12 +1677,14 @@ export const buildCabinetCostBreakdown = (summary, selections = {}, multiplier, 
         unitPrice: price(selections.legRearAxilo?.price),
       },
     ] : []),
-    ...(includeHardware ? [
+    ...(includeHangers ? [
       {
         key: 'hanger', label: 'Zawieszki', item: selections.hangerMaterial || null,
         quantity: summary.hangers, quantityLabel: `${summary.hangers} szt.`,
         unitPrice: price(selections.hangerMaterial?.price),
       },
+    ] : []),
+    ...(includeHardware ? [
       {
         key: 'handle', label: 'Uchwyty', item: selections.handleMaterial || null,
         quantity: summary.handleUnits, quantityLabel: `${summary.handleUnits} szt.`,

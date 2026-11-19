@@ -42,17 +42,28 @@ test('calculator: add a drawer cabinet and a wardrobe section, resize, and add t
   // dokładnie ten scenariusz z zadania. Etap N — wybór typu zabudowy to teraz dropdown "Typ
   // zabudowy", nie 4 wkładki-przyciski; lista modułów jest per-grupa aktywnej wkładki.
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z szufladami', exact: true }).click();
-  const drawerRow = calculator.locator('tr').filter({ hasText: 'Z szufladami' });
+  // Etap AJ, krok 1 — "Szczegółowa tabela szafek" żyje teraz w modalu (portal do document.body,
+  // otwierany przyciskiem "📋 Szafki" na pasku rysunku) — trzeba go otworzyć RAZ; zostaje otwarty
+  // (stan w CabinetCalculator.jsx, nie w WallElevationCanvas) nawet po przełączeniu na inną wkładkę
+  // i z powrotem.
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const cabinetsModal = page.getByTestId('cabinets-table-modal');
+  const drawerRow = cabinetsModal.locator('tr').filter({ hasText: 'Z szufladami' });
   await expect(drawerRow).toBeVisible();
+  // Modal jest pełnoekranowym overlayem — zamknij przed dalszą pracą na głównej stronie (dodanie
+  // kolejnego modułu, przełączenie wkładki), inaczej jego tło blokuje kliknięcia.
+  await cabinetsModal.getByRole('button', { name: /^Zamknij:/ }).click();
 
   await calculator.getByLabel('Typ zabudowy').selectOption('wardrobe');
   await calculator.getByRole('button', { name: 'Sekcja z drzwiami i półkami', exact: true }).click();
   await expect(calculator.locator('[class*="moduleName"]', { hasText: 'Sekcja z drzwiami i półkami' })).toBeVisible();
 
-  // Etap N, krok 4 — furnitura (zawiasy/nogi/zawieszki/uchwyty/TIP-ON/profil HAFELE) jest tymczasowo
-  // wycięta z rozliczenia: ani rola "Zawiasy", ani jej materiał nie mają już wiersza w tabeli.
-  await expect(calculator.getByLabel('Zawiasy (cichy domyk)')).toHaveCount(0);
-  await expect(calculator.getByText(hinge.name)).toHaveCount(0);
+  // Etap AI, krok 2 — zawiasy wróciły do rozliczenia (includeHinges) — "Sekcja z drzwiami i
+  // półkami" (wardrobe_section, 2 drzwi, H=2400 -> 5 zawiasów/drzwi) dostaje więc swój wiersz; tylko
+  // uchwyty/TIP-ON/profil HAFELE zostają dalej schowane (poza zakresem tego testu/fixture).
+  await expect(calculator.getByLabel('Zawiasy (cichy domyk)')).toBeVisible();
+  // 2 wiersze (hingeSoftClose + hingeSpring) pokazują TEN SAM jedyny katalogowy "Zawiasy" fixture.
+  await expect(calculator.getByText(hinge.name)).toHaveCount(2);
 
   // Krytyczny bug naprawiony w Etapie C: tabela kalkulacji musi pokazać realne nazwy materiałów
   // i ceny > 0 zł dla Płyty korpusu/frontu i Obrzeża — nigdy "— nie wybrano —" / 0.00 zł, mimo że
@@ -78,6 +89,7 @@ test('calculator: add a drawer cabinet and a wardrobe section, resize, and add t
   // Zmiana szerokości tumby z szufladami — przeliczenie m² i arkuszy na żywo. Karta żyje pod
   // wkładką Kuchnia (Szafki dolne) — wróć tam, bo lista modułów jest per-aktywna-wkładka.
   await calculator.getByLabel('Typ zabudowy').selectOption('kitchen');
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click(); // reotwórz modal
   // Etap R, krok 2 — "Szer. (mm)" jest teraz klik-do-edycji ("✎ 600"): klik otwiera input, Blur zapisuje.
   const widthField = drawerRow.getByLabel('Szer. (mm)');
   await widthField.click();
@@ -88,6 +100,12 @@ test('calculator: add a drawer cabinet and a wardrobe section, resize, and add t
     expect(after).not.toBe(bodySheetsBefore);
   }).toPass();
 
+  // Modal "📋 Szafki" jest pełnoekranowym overlayem (position: fixed, z-index ponad resztą) —
+  // trzeba go zamknąć (klik "×", nie Escape — fokus mógł już zdążyć zejść z modala po
+  // poprzednich krokach), zanim dalsze kroki klikną cokolwiek POD nim.
+  await cabinetsModal.getByRole('button', { name: /^Zamknij:/ }).click();
+  await expect(cabinetsModal).not.toBeVisible();
+
   await expect(calculator.getByText('RAZEM ORIENTACYJNA WYCENA:')).toBeVisible();
 
   const addButton = calculator.getByRole('button', { name: '📥 Dodaj wyliczone pozycje do projektu' });
@@ -95,13 +113,11 @@ test('calculator: add a drawer cabinet and a wardrobe section, resize, and add t
   await addButton.click();
   await expect(calculator.getByRole('button', { name: '✓ Dodano!' })).toBeVisible();
 
-  // Materiały i usługi trafiły do zapisanego stanu projektu (calc_materials/calc_services) —
-  // Etap N, krok 4: furnitura (zawiasy/szuflady-prowadnice) NIGDY nie trafia do projektu teraz.
+  // Materiały i usługi trafiły do zapisanego stanu projektu (calc_materials/calc_services).
+  // Etap AA/AI — nogi/komplety szuflad/zawiasy wróciły do rozliczenia, więc trafiają do projektu
+  // TEŻ (sekcja szafy ma drzwi 2400mm -> zawiasy; szuflady obu modułów -> prowadnice).
   await expect.poll(() => state.projects[0].calc_materials?.map(item => item.id)).toEqual(
-    expect.arrayContaining([bodyBoard.id, frontBoard.id, edge.id]),
-  );
-  expect(state.projects[0].calc_materials?.map(item => item.id)).not.toEqual(
-    expect.arrayContaining([hinge.id, runner.id]),
+    expect.arrayContaining([bodyBoard.id, frontBoard.id, edge.id, hinge.id, runner.id]),
   );
   await expect.poll(() => state.projects[0].calc_services?.map(item => item.id)).toEqual(
     expect.arrayContaining([cuttingService.id, edgingService.id]),
@@ -131,7 +147,7 @@ const hafeleProfileMaterial = { id: 14, name: 'Profil HAFELE aluminiowy', catego
 const drawerExternalHigh = { id: 7, name: 'MERIVOBOX E wysoka szuflada zewnętrzna', category: 'Prowadnice', unit: 'kpl', price: 300, price_history: [] };
 const drawerExternalLow = { id: 10, name: 'MERIVOBOX M niska szuflada zewnętrzna', category: 'Prowadnice', unit: 'kpl', price: 210, price_history: [] };
 
-test('calculator: hardware never shows up in the quote table or on "Dodaj do projektu", regardless of opening method/drawer preset', async ({ page }) => {
+test('calculator: uchwyty/TIP-ON/profil HAFELE never show up in the quote table or on "Dodaj do projektu" — zawiasy TERAZ owszem (Etap AI)', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1300 });
   const state = await installAuthenticatedSupabaseMock(page, [existingProject], {
     materials: [bodyBoard, frontBoard, edge, hinge, handle, tipOnMaterial, hafeleProfileMaterial, drawerExternalHigh, drawerExternalLow],
@@ -148,7 +164,12 @@ test('calculator: hardware never shows up in the quote table or on "Dodaj do pro
   const calculator = page.getByText('📐 Kalkulator', { exact: true }).locator('..');
 
   await calculator.getByRole('button', { name: 'Z drzwiami', exact: true }).click();
-  const doorsRow = calculator.locator('tr').filter({ hasText: 'Z drzwiami' });
+  // Etap AJ, krok 1 — "Szczegółowa tabela szafek" żyje w modalu (portal do document.body),
+  // otwierany przyciskiem "📋 Szafki" na pasku rysunku — raz otwarty, zostaje otwarty (stan w
+  // CabinetCalculator.jsx) nawet po dodaniu kolejnej szafki.
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click();
+  const cabinetsModal = page.getByTestId('cabinets-table-modal');
+  const doorsRow = cabinetsModal.locator('tr').filter({ hasText: 'Z drzwiami' });
 
   // Etap W, krok 2 — te pola żyją teraz w CabinetSettingsModal (portal do document.body), poza
   // poddrzewem `doorsRow`/`calculator` — odpytujemy więc przez `page`.
@@ -161,18 +182,28 @@ test('calculator: hardware never shows up in the quote table or on "Dodaj do pro
   await doorsRow.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
   await expect(settingsModal.getByLabel('Opuszczany front (+20 mm)')).toHaveCount(0);
   await settingsModal.getByRole('button', { name: 'Zamknij ustawienia szafki' }).click();
+  // cabinetsModal (pełnoekranowy overlay) wciąż otwarty POD settingsModal — zamknij przed dodaniem
+  // kolejnego modułu (kliknięcie kafelka na głównej stronie, zasłoniętej przez jego tło).
+  await cabinetsModal.getByRole('button', { name: /^Zamknij:/ }).click();
 
-  // Żadna pozycja osprzętu nie ma wiersza w tabeli, niezależnie od galki/presetu szuflad.
-  // "Z szufladami" istnieje w 2 grupach (Szafki dolne i Słupki) — scope'ujemy do Szafek dolnych.
+  // Żadna pozycja osprzętu (poza zawiasami, patrz niżej) nie ma wiersza w tabeli, niezależnie od
+  // galki/presetu szuflad. "Z szufladami" istnieje w 2 grupach (Szafki dolne i Słupki) —
+  // scope'ujemy do Szafek dolnych.
   await groupSection(calculator, '⬇️ Szafki dolne').getByRole('button', { name: 'Z szufladami', exact: true }).click();
-  const drawerRow = calculator.locator('tr').filter({ hasText: 'Z szufladami' });
+  await calculator.getByRole('button', { name: /^📋 Szafki/ }).click(); // reotwórz modal
+  const drawerRow = cabinetsModal.locator('tr').filter({ hasText: 'Z szufladami' });
   await drawerRow.getByRole('button', { name: /^Konstrukcja, szuflady/ }).click();
   await settingsModal.getByLabel('Układ szuflad zewnętrznych').selectOption('3_wysokie');
   await settingsModal.getByRole('button', { name: 'Zamknij ustawienia szafki' }).click();
 
   // Etap AA, krok 4 — "pierwszy etap" powrotu osprzętu: komplety szuflad (prowadnice) WRÓCIŁY do
-  // rozliczenia (includeDrawerSets: true) — zawiasy/uchwyty/TIP-ON/profil HAFELE zostają schowane.
-  for (const item of [hinge, handle, tipOnMaterial, hafeleProfileMaterial]) {
+  // rozliczenia (includeDrawerSets: true).
+  // Etap AI, krok 2 — "drugi etap": zawiasy TEŻ wróciły (includeHinges) — "Z drzwiami" (1 drzwi) ma
+  // 2 zawiasy (1 z domykiem + 1 ze sprężyną), oba domyślnie podstawiające TEN SAM jedyny katalogowy
+  // "Zawiasy" fixture (`hinge`) — stąd 2 wiersze z tą samą nazwą. Uchwyty/TIP-ON/profil HAFELE
+  // zostają schowane dalej. "Z szufladami" (bez drzwi) nie dokłada WŁASNYCH zawiasów.
+  await expect(calculator.getByText(hinge.name)).toHaveCount(2);
+  for (const item of [handle, tipOnMaterial, hafeleProfileMaterial]) {
     await expect(calculator.getByText(item.name)).toHaveCount(0);
   }
   // "3_wysokie" ustawia WSZYSTKIE 3 szuflady na wysoki tier (externalDrawersLow: 0) — tylko
@@ -181,11 +212,16 @@ test('calculator: hardware never shows up in the quote table or on "Dodaj do pro
   await expect(calculator.getByText(drawerExternalHigh.name)).toBeVisible();
   await expect(calculator.getByText(drawerExternalLow.name)).toHaveCount(0);
 
+  // Modal "📋 Szafki" jest pełnoekranowym overlayem — zamknij (klik "×"), zanim klikniemy coś POD nim.
+  await cabinetsModal.getByRole('button', { name: /^Zamknij:/ }).click();
+  await expect(cabinetsModal).not.toBeVisible();
+
   await calculator.getByRole('button', { name: '📥 Dodaj wyliczone pozycje do projektu' }).click();
   await expect(calculator.getByRole('button', { name: '✓ Dodano!' })).toBeVisible();
 
   const materialIds = state.projects[0].calc_materials?.map(item => item.id) || [];
-  for (const item of [hinge, handle, tipOnMaterial, hafeleProfileMaterial]) {
+  expect(materialIds).toContain(hinge.id);
+  for (const item of [handle, tipOnMaterial, hafeleProfileMaterial]) {
     expect(materialIds).not.toContain(item.id);
   }
   expect(materialIds).toEqual(expect.arrayContaining([bodyBoard.id, frontBoard.id, drawerExternalHigh.id]));

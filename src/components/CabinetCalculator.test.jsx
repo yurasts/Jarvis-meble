@@ -109,9 +109,21 @@ const KITCHEN_GROUP_KEY_BY_LABEL = {
 };
 const kitchenModuleTable = () => document.querySelector('table[class*="moduleTable"]');
 const groupRowsFor = (groupLabel) => Array.from(document.querySelectorAll(`[data-row-group="${KITCHEN_GROUP_KEY_BY_LABEL[groupLabel]}"]`));
-const addModuleInGroup = (groupLabel, caption) => fireEvent.click(
-  within(groupSectionFor(groupLabel)).getByRole('button', { name: caption, exact: true }),
-);
+// Etap AJ, krok 1 — "Szczegółowa tabela szafek" żyje teraz w modalu, zamknięta domyślnie (patrz
+// CabinetCalculator.jsx, TableModal) — otwiera się przyciskiem "📋 Szafki (N)" na pasku rysunku,
+// widocznym TYLKO pod wkładką Kuchnia. Centralizując "otwórz modal" TU (zamiast w każdym z ~130
+// testów, które dotąd zakładały gołą, zawsze-widoczną tabelę), reszta testu nie musi wiedzieć, że
+// tabela w ogóle jest w modalu — `moduleCardTitle(...).closest('tr')` działa identycznie, bo
+// `screen`/`document.querySelector` i tak przeszukują CAŁY `document.body` (gdzie ląduje portal).
+const cabinetsModalTriggerButton = () => screen.queryByRole('button', { name: /^📋 Szafki/ });
+const ensureCabinetsModalOpen = () => {
+  const trigger = cabinetsModalTriggerButton();
+  if (trigger && !screen.queryByTestId('cabinets-table-modal')) fireEvent.click(trigger);
+};
+const addModuleInGroup = (groupLabel, caption) => {
+  fireEvent.click(within(groupSectionFor(groupLabel)).getByRole('button', { name: caption, exact: true }));
+  if (KITCHEN_GROUP_KEY_BY_LABEL[groupLabel]) ensureCabinetsModalOpen();
+};
 
 // Etap Q, krok 1 — panel materiałów grupy (4 pola płyty/kromki + 2 checkboxy) nie rozwija się już
 // automatycznie, kiedy grupa dostanie swój pierwszy moduł — żyje za WŁASNYM gear-przyciskiem
@@ -183,6 +195,7 @@ describe('CabinetCalculator', () => {
   it('removes a module and the quote table goes back to the empty placeholder', () => {
     renderCalculator();
     fireEvent.click(roleButton('Blat'));
+    ensureCabinetsModalOpen();
     expect(screen.queryByText('Dodaj pierwszy moduł powyżej, żeby zobaczyć wyliczenie.')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Usuń moduł/ }));
@@ -193,10 +206,14 @@ describe('CabinetCalculator', () => {
   // usunięta z rozliczenia (includeHardware:false) — "Dodaj do projektu" przenosi już TYLKO
   // płyty/kromkę/HDF + usługi, nigdy osprzęt.
   // Etap AA, krok 4 — "pierwszy etap" powrotu osprzętu: nóżki wróciły do rozliczenia (legFront/
-  // legRearAxilo, patrz includeLegs w jądrze) — zawiasy/zawieszki/uchwyty/TIP-ON zostają schowane
-  // (includeHardware: false, kolejny etap). m-runner (prowadnice) nie pojawia się tutaj, bo "Z
-  // drzwiami" (base_doors) nie ma w ogóle szuflad — test komplettów szuflad żyje osobno, niżej.
-  it('adds board/edge/HDF/nogi/service lines to the project — reszta osprzętu zostaje wykluczona (Etap N/AA)', () => {
+  // legRearAxilo, patrz includeLegs w jądrze).
+  // Etap AI, krok 2 — "drugi etap": zawiasy TEŻ wróciły (includeHinges) — "Z drzwiami" (base_doors,
+  // 1 drzwi, H=820<=900 -> 2 zawiasy/drzwi) dostaje 1 z domykiem + 1 ze sprężyną. Zawieszki
+  // (m-hanger) zostają undefined — base_doors stoi na podłodze, nie wisi na ścianie (hangers:0).
+  // Uchwyty/TIP-ON zostają schowane (includeHardware: false, kolejny etap). m-runner (prowadnice)
+  // nie pojawia się tutaj, bo "Z drzwiami" nie ma w ogóle szuflad — test komplettów szuflad żyje
+  // osobno, niżej.
+  it('adds board/edge/HDF/nogi/zawiasy/service lines to the project — reszta osprzętu zostaje wykluczona (Etap N/AA/AI)', () => {
     const { onAddToProject } = renderCalculator();
     addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami');
 
@@ -211,8 +228,8 @@ describe('CabinetCalculator', () => {
     expect(byId('m-hdf')).toMatchObject({ quantity: 1 });
     expect(byId('m-leg-front')).toMatchObject({ quantity: 2 }); // base_doors, W=600<=900 -> legsForWidth = 4 (2 przód + 2 tył)
     expect(byId('m-leg-axilo')).toMatchObject({ quantity: 2 });
-    expect(byId('m-hinge-soft')).toBeUndefined();
-    expect(byId('m-hinge-spring')).toBeUndefined();
+    expect(byId('m-hinge-soft')).toMatchObject({ quantity: 1 });
+    expect(byId('m-hinge-spring')).toMatchObject({ quantity: 1 });
     expect(byId('m-runner')).toBeUndefined();
     expect(byId('m-hanger')).toBeUndefined();
     expect(byId('m-tipon')).toBeUndefined();
@@ -238,6 +255,9 @@ describe('CabinetCalculator', () => {
           boards: {},
         },
       });
+      // Moduł przyszedł z initialState, nie z addModuleInGroup (ten helper sam otwiera modal) —
+      // trzeba otworzyć "📋 Szafki" ręcznie, żeby zobaczyć jego wiersz.
+      ensureCabinetsModalOpen();
       expect(moduleCardTitle('Z drzwiami')).toBeInTheDocument();
       expect(readInlineNumber(screen, 'Szer. (mm)')).toContain('777');
     });
@@ -629,15 +649,16 @@ describe('CabinetCalculator', () => {
     });
 
     // Etap AA, krok 4 — nóżki (legFront/legRearAxilo) wróciły do rozliczenia jako "pierwszy etap"
-    // powrotu osprzętu — zawiasy/zawieszki/uchwyty/TIP-ON/profil HAFELE zostają schowane dalej.
-    it('zawiasy/zawieszki/uchwyty/TIP-ON/profil HAFELE nadal nie pojawiają się w rozliczeniu, ale nóżki TAK (Etap AA, krok 4)', () => {
+    // powrotu osprzętu.
+    // Etap AI, krok 2 — "drugi etap": zawiasy też wracają (includeHinges) — "Z drzwiami" (1 drzwi)
+    // dostaje je. Zawieszki zostają undefined (base_doors stoi na podłodze, hangers:0, nie wisi na
+    // ścianie) — uchwyty/TIP-ON/profil HAFELE zostają schowane dalej (includeHardware: false).
+    it('zawiasy wracają do rozliczenia; zawieszki/uchwyty/TIP-ON/profil HAFELE nadal nie — a nóżki TAK (Etap AA/AI)', () => {
       renderCalculator();
       addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami');
       openRowSettings(moduleCardTitle('Z drzwiami').closest('tr'));
 
       [
-        "BLUM Zawias 110' nakładany ze spowalniaczem na wkręty 71B3550",
-        "BLUM Zawias 110' nakładany ze sprężyną na wkręty 71T3550",
         'ZAWIESZKA CAMAR 806 KPL',
         'TIP-ON STRONG IF BIAŁY MAGNES MOCNY',
         'Uchwyt GAMET meblowy 128mm',
@@ -645,10 +666,12 @@ describe('CabinetCalculator', () => {
       ].forEach((name) => {
         expect(screen.queryByText(name)).not.toBeInTheDocument();
       });
-      // Płyta/kromka/HDF zostają — i TERAZ też nóżki (pierwszy etap powrotu osprzętu).
+      // Płyta/kromka/HDF zostają — i TERAZ też nóżki I zawiasy (drugi etap powrotu osprzętu).
       expect(screen.getByText('HDF BIAŁY 2850x2070x3mm')).toBeInTheDocument();
       expect(screen.getByText('Nogi zwykłe')).toBeInTheDocument();
       expect(screen.getByText('Nóżka Axilo HAFELE H-100 mm')).toBeInTheDocument();
+      expect(screen.getByText("BLUM Zawias 110' nakładany ze spowalniaczem na wkręty 71B3550")).toBeInTheDocument();
+      expect(screen.getByText("BLUM Zawias 110' nakładany ze sprężyną na wkręty 71T3550")).toBeInTheDocument();
     });
 
     // Etap AC, krok 2 — zgłoszenie (Screenshot_2_3.jpg/Screenshot_1_3.jpg): katalog usera nie ma ani
@@ -1079,6 +1102,7 @@ describe('CabinetCalculator', () => {
     it('"Konstrukcja / Szuflady" shows "—" for a type with no construction fields at all (Blat)', () => {
       renderCalculator();
       fireEvent.click(roleButton('Blat'));
+      ensureCabinetsModalOpen();
       const row = moduleCardTitle('Blat').closest('tr');
       expect(within(row).getAllByText('—').length).toBeGreaterThanOrEqual(1);
     });
@@ -1488,6 +1512,7 @@ describe('CabinetCalculator', () => {
     it('the "⚙️" gear still renders for a type with no construction fields at all (Blat), so "Duplikuj" stays reachable', () => {
       renderCalculator();
       fireEvent.click(roleButton('Blat'));
+      ensureCabinetsModalOpen();
       const row = moduleCardTitle('Blat').closest('tr');
       const gearButton = within(row).getByRole('button', { name: /^Konstrukcja, szuflady/ });
       fireEvent.click(gearButton);
@@ -2061,6 +2086,74 @@ describe('CabinetCalculator', () => {
       expect(sideRow.className).toMatch(/partsTableRowActive/);
       fireEvent.mouseLeave(sideRow);
       expect(sideRow.className).not.toMatch(/partsTableRowActive/);
+    });
+  });
+
+  // Etap AJ, krok 1 — zgłoszenie (Screenshot_10.jpg/Screenshot_11.jpg): "Szczegółowa tabela szafek"
+  // i "Wykaz formatek" nie zajmują już miejsca pod rysunkiem na stałe — żyją w kompaktowych
+  // modalach, otwieranych przyciskami "📋 Szafki (N)"/"📐 Formatki (M)" na pasku rysunku.
+  describe('modale "📋 Szafki"/"📐 Formatki" nad rysunkiem (Etap AJ, krok 1)', () => {
+    it('obie tabele są DOMYŚLNIE zamknięte — strona pod rysunkiem jest pusta, dopóki user nie poprosi o szczegóły', () => {
+      renderCalculator();
+      // Klik na gołym kafelku (NIE addModuleInGroup — ten helper sam otwiera modal dla reszty
+      // testów w tym pliku, patrz ensureCabinetsModalOpen) — sprawdzamy PRAWDZIWY stan domyślny.
+      fireEvent.click(within(groupSectionFor(KITCHEN_BOTTOM)).getByRole('button', { name: 'Z drzwiami', exact: true }));
+      expect(screen.queryByTestId('cabinets-table-modal')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('cutlist-table-modal')).not.toBeInTheDocument();
+    });
+
+    it('"📋 Szafki (N)" pokazuje liczbę dodanych szafek kuchennych i otwiera modal z tabelą po kliku', () => {
+      renderCalculator();
+      expect(screen.getByRole('button', { name: /^📋 Szafki/ })).toHaveTextContent('📋 Szafki (0)');
+
+      addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami');
+      addModuleInGroup(KITCHEN_TOP, 'Klasyczna (z drzwiami)');
+      // addModuleInGroup sam otwiera modal (patrz ensureCabinetsModalOpen) — tu sprawdzamy, że
+      // bejdż na przycisku (widoczny nawet przy zamkniętym modalu) zgadza się z liczbą szafek.
+      expect(screen.getByRole('button', { name: /^📋 Szafki/ })).toHaveTextContent('📋 Szafki (2)');
+      const modal = screen.getByTestId('cabinets-table-modal');
+      expect(within(modal).getByText('Z drzwiami')).toBeInTheDocument();
+      expect(within(modal).getByText('Klasyczna (z drzwiami)')).toBeInTheDocument();
+    });
+
+    it('Escape i klik w tło zamykają modal "📋 Szafki"; przycisk "×" też', () => {
+      renderCalculator();
+      addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami');
+      expect(screen.getByTestId('cabinets-table-modal')).toBeInTheDocument();
+
+      fireEvent.keyDown(screen.getByTestId('cabinets-table-modal'), { key: 'Escape' });
+      expect(screen.queryByTestId('cabinets-table-modal')).not.toBeInTheDocument();
+
+      ensureCabinetsModalOpen();
+      const backdrop = screen.getByTestId('cabinets-table-modal').parentElement;
+      fireEvent.mouseDown(backdrop, { target: backdrop });
+      expect(screen.queryByTestId('cabinets-table-modal')).not.toBeInTheDocument();
+
+      ensureCabinetsModalOpen();
+      fireEvent.click(within(screen.getByTestId('cabinets-table-modal')).getByRole('button', { name: /^Zamknij:/ }));
+      expect(screen.queryByTestId('cabinets-table-modal')).not.toBeInTheDocument();
+    });
+
+    it('"📐 Formatki (M)" pokazuje liczbę pozycji rozkroju i otwiera modal z sekcjami/kopiowaniem', () => {
+      renderCalculator();
+      addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami');
+      const button = screen.getByRole('button', { name: /^📐 Formatki/ });
+      expect(button).not.toHaveTextContent('📐 Formatki (0)');
+
+      fireEvent.click(button);
+      const modal = screen.getByTestId('cutlist-table-modal');
+      expect(within(modal).getByText(/Płyta korpusu/)).toBeInTheDocument();
+      expect(within(modal).getByRole('button', { name: /Kopiuj specyfikację/ })).toBeInTheDocument();
+    });
+
+    it('oba modale są niezależne — otwarcie "📐 Formatki" zamyka wcześniej otwarte "📋 Szafki" (jeden modal naraz)', () => {
+      renderCalculator();
+      addModuleInGroup(KITCHEN_BOTTOM, 'Z drzwiami'); // otwiera "📋 Szafki" (addModuleInGroup)
+      expect(screen.getByTestId('cabinets-table-modal')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /^📐 Formatki/ }));
+      expect(screen.queryByTestId('cabinets-table-modal')).not.toBeInTheDocument();
+      expect(screen.getByTestId('cutlist-table-modal')).toBeInTheDocument();
     });
   });
 });

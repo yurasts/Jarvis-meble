@@ -176,6 +176,15 @@ describe('softCloseHinges / springHinges — 50/50 split bez TIP-ON, 100% spring
     expect(result.softCloseHinges + result.springHinges).toBe(result.hinges);
   });
 
+  it('a single double-door wall_cabinet (doors:2, H<=900) gets 4 hinges total, split exactly 2 soft-close + 2 spring', () => {
+    // Etap AJ, krok 2 — zgłoszenie: "2 zawiasy na drzwi (1 spowalniacz + 1 sprężyna), czyli 2+2
+    // dla szafki dwudrzwiowej" — to JEDNA fizyczna szafka z doors:2, nie 2 osobne moduły 1-drzwiowe.
+    const result = computeModule(createCabinetModule('wall_cabinet', { H: 720, doors: 2 }));
+    expect(result.hinges).toBe(4); // 2 drzwi x 2 zawiasy/drzwi (H<=900mm bracket)
+    expect(result.softCloseHinges).toBe(2);
+    expect(result.springHinges).toBe(2);
+  });
+
   it('with TIP-ON on, 100% of the hinges go to springHinges (0 softCloseHinges) — BLUMOTION and TIP-ON are mutually exclusive', () => {
     const withoutTipOn = computeModule(createCabinetModule('wall_cabinet', { H: 2400, openingMethod: 'uchwyt' }));
     const withTipOn = computeModule(createCabinetModule('wall_cabinet', { H: 2400, openingMethod: 'tip_on' }));
@@ -266,6 +275,21 @@ describe('computeModule — W x H x D to m2', () => {
   it('wall_cabinet: always exactly 1 komplet (2 szt.) of hangers, regardless of width', () => {
     expect(computeModule(createCabinetModule('wall_cabinet')).hangers).toBe(2);
     expect(computeModule(createCabinetModule('wall_cabinet', { W: 1200 })).hangers).toBe(2);
+  });
+
+  // Etap AI, krok 2 — "Nad okap"/"Klapa pod sufit"/"Nad słupkiem" (quick-add presety w
+  // CabinetCalculator.jsx) unoszą się na podnośniku gazowym, nie na klasycznych zawiasach — bez
+  // `liftFlap: true` ta sama geometria frontu (doors: 1) fałszywie doliczałaby 2 "zawiasy".
+  it('wall_cabinet with liftFlap:true (Nad okap / Klapa pod sufit / Nad słupkiem) has ZERO hinges, but its front panel is still costed normally', () => {
+    const regular = computeModule(createCabinetModule('wall_cabinet', { doors: 1 }));
+    const lift = computeModule(createCabinetModule('wall_cabinet', { doors: 1, liftFlap: true }));
+    expect(regular.hinges).toBe(2);
+    expect(lift.hinges).toBe(0);
+    expect(lift.softCloseHinges).toBe(0);
+    expect(lift.springHinges).toBe(0);
+    // Sam front (board + kromka) liczy się identycznie — tylko zawiasy znikają.
+    expect(lift.frontAreaM2).toBe(regular.frontAreaM2);
+    expect(lift.frontAreaM2).toBeGreaterThan(0);
   });
 
   it('tall_cabinet: more shelves increase body area; drawers add runner sets without changing doors', () => {
@@ -1372,18 +1396,19 @@ describe('buildCabinetCostBreakdown', () => {
   // osprzętu, zostawiając płyty/kromkę/HDF/blat + usługi (reszta rozliczenia liczy się identycznie).
   // Etap AA, krok 4 — "pierwszy etap" powrotu osprzętu: `includeLegs`/`includeDrawerSets` są TERAZ
   // NIEZALEŻNE od `includeHardware` (ten sam wzorzec domyślny — `!== false`, nie `=== true` — więc
-  // wołający BEZ żadnych opcji dalej widzi WSZYSTKO, zero regresji dla starszych wywołań). Samo
-  // `includeHardware: false` chowa więc TYLKO zawiasy/zawieszki/uchwyty/TIP-ON/profil HAFELE — nogi
-  // i komplety szuflad zostają widoczne, dopóki NIE dostaną WŁASNEGO `false`.
-  it('includeHardware:false hides zawiasy/zawieszki/uchwyty/TIP-ON/profil HAFELE, but keeps legs/drawer sets (own flags)', () => {
+  // wołający BEZ żadnych opcji dalej widzi WSZYSTKO, zero regresji dla starszych wywołań).
+  // Etap AI, krok 2 — "drugi etap": zawiasy/zawieszki TAKŻE dostały WŁASNE flagi
+  // (`includeHinges`/`includeHangers`), więc samo `includeHardware: false` chowa TERAZ tylko
+  // uchwyty/TIP-ON/profil HAFELE.
+  it('includeHardware:false hides uchwyty/TIP-ON/profil HAFELE, but keeps legs/drawer sets/zawiasy/zawieszki (own flags)', () => {
     const full = buildCabinetCostBreakdown(summary, selections, 2);
     const withoutHardware = buildCabinetCostBreakdown(summary, selections, 2, { includeHardware: false });
 
-    const hiddenKeys = ['hingeSoftClose', 'hingeSpring', 'hanger', 'handle', 'tipOn', 'hafeleProfile'];
+    const hiddenKeys = ['handle', 'tipOn', 'hafeleProfile'];
     hiddenKeys.forEach((key) => {
       expect(withoutHardware.materialRows.find(row => row.key === key)).toBeUndefined();
     });
-    const keptKeys = ['legFront', 'legRearAxilo'];
+    const keptKeys = ['legFront', 'legRearAxilo', 'hingeSoftClose', 'hingeSpring', 'hanger'];
     keptKeys.forEach((key) => {
       expect(withoutHardware.materialRows.find(row => row.key === key))
         .toEqual(full.materialRows.find(row => row.key === key));
@@ -1407,6 +1432,30 @@ describe('buildCabinetCostBreakdown', () => {
       expect(row.key.startsWith('drawerExt_')).toBe(false);
       expect(row.key.startsWith('drawerInt_')).toBe(false);
     });
+  });
+
+  // Etap AI, krok 2 — zawiasy (Szafki górne/Antresole) i zawieszki górnego montażu wracają do
+  // rozliczenia NIEZALEŻNIE od `includeHardware` (ten sam wzorzec co nogi/komplety szuflad wyżej).
+  // Osobna fixtura z `wall_cabinet` — `base_doors`/`base_drawers` (fixtura wyżej) stoją na podłodze
+  // i nie mają WŁASNYCH zawieszek (hangers:0), więc do testu akurat tej flagi nie nadają się.
+  it('includeHinges:false hides zawiasy (both rows); includeHangers:false hides zawieszki — both independent of includeHardware', () => {
+    const wallSummary = summarizeCabinetModules([createCabinetModule('wall_cabinet', { doors: 1 })]);
+    const wallSelections = { hingeSoftClose: { price: 12 }, hingeSpring: { price: 14 }, hangerMaterial: { price: 8 } };
+
+    const noHinges = buildCabinetCostBreakdown(wallSummary, wallSelections, 2, { includeHinges: false });
+    ['hingeSoftClose', 'hingeSpring'].forEach((key) => {
+      expect(noHinges.materialRows.find(row => row.key === key)).toBeUndefined();
+    });
+    expect(noHinges.materialRows.find(row => row.key === 'hanger')).toBeDefined();
+
+    const noHangers = buildCabinetCostBreakdown(wallSummary, wallSelections, 2, { includeHangers: false });
+    expect(noHangers.materialRows.find(row => row.key === 'hanger')).toBeUndefined();
+    expect(noHangers.materialRows.find(row => row.key === 'hingeSoftClose')).toBeDefined();
+
+    const full = buildCabinetCostBreakdown(wallSummary, wallSelections, 2);
+    expect(full.materialRows.find(row => row.key === 'hingeSoftClose')).toMatchObject({ quantity: 1 });
+    expect(full.materialRows.find(row => row.key === 'hingeSpring')).toMatchObject({ quantity: 1 });
+    expect(full.materialRows.find(row => row.key === 'hanger')).toMatchObject({ quantity: 2 });
   });
 });
 

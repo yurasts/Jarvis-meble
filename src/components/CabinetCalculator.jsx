@@ -942,7 +942,7 @@ const CATEGORY_GROUPS = {
       groupKey: 'kitchen_top',
       presets: [
         { label: 'Klasyczna (z drzwiami)', icon: 'wallDoors', type: 'wall_cabinet', heightRole: 'wall', overrides: {} },
-        { label: 'Nad okap', icon: 'hood', type: 'wall_cabinet', overrides: { H: 450, shelves: 1, openingMethod: 'tip_on' } },
+        { label: 'Nad okap', icon: 'hood', type: 'wall_cabinet', overrides: { H: 450, shelves: 1, openingMethod: 'tip_on', liftFlap: true } },
         { label: 'Blenda boczna', icon: 'sideFiller', type: 'side_filler', heightRole: 'wall', overrides: {} },
         { label: 'Blenda górna', icon: 'topFiller', type: 'top_filler', overrides: {} },
       ],
@@ -950,8 +950,8 @@ const CATEGORY_GROUPS = {
     {
       groupKey: 'kitchen_mezzanine',
       presets: [
-        { label: 'Klapa pod sufit', icon: 'flapUp', type: 'wall_cabinet', heightRole: 'mezzanine', overrides: { D: 560, shelves: 0, openingMethod: 'tip_on' } },
-        { label: 'Nad słupkiem / lodówką', icon: 'flapOnPillar', type: 'wall_cabinet', overrides: { H: 350, D: 560, shelves: 0, openingMethod: 'tip_on', hangerCount: 0 } },
+        { label: 'Klapa pod sufit', icon: 'flapUp', type: 'wall_cabinet', heightRole: 'mezzanine', overrides: { D: 560, shelves: 0, openingMethod: 'tip_on', liftFlap: true } },
+        { label: 'Nad słupkiem / lodówką', icon: 'flapOnPillar', type: 'wall_cabinet', overrides: { H: 350, D: 560, shelves: 0, openingMethod: 'tip_on', hangerCount: 0, liftFlap: true } },
         { label: 'Blenda boczna', icon: 'sideFiller', type: 'side_filler', heightRole: 'mezzanine', overrides: {} },
         { label: 'Blenda górna', icon: 'topFiller', type: 'top_filler', overrides: {} },
       ],
@@ -1033,6 +1033,52 @@ const MATERIAL_ROW_ROLE = {
 };
 const SERVICE_ROW_ROLE = { cutting: 'cuttingService', edging: 'edgingService' };
 
+// Etap AJ, krok 1 — zgłoszenie (Screenshot_10.jpg/Screenshot_11.jpg): "Szczegółowa tabela szafek" i
+// "Wykaz formatek" zajmowały stałe miejsce pod rysunkiem, nawet gdy nikt akurat ich nie potrzebował
+// — wspólny, kompaktowy modal (ten sam wzorzec portal/Escape/klik-w-tło co CabinetSettingsModal
+// wyżej, tylko szerszy — na tabele, nie na formularz) dla OBU, wywoływany przyciskiem na pasku
+// rysunku. Treść (dzieci) dostaje w całości od wołającego — ten komponent nie wie NIC o
+// szafkach/formatkach, tylko o portalu/zamykaniu/scrollu.
+const TableModal = ({ title, testId, onClose, headerExtra, children }) => {
+  const closeButtonRef = useRef(null);
+  useEffect(() => { closeButtonRef.current?.focus(); }, []);
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    onClose();
+  };
+  const handleBackdropMouseDown = (event) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+  return createPortal(
+    <div
+      className={s.settingsModalBackdrop}
+      onMouseDown={handleBackdropMouseDown}
+      onKeyDown={handleKeyDown}
+    >
+      <div
+        className={s.tableModal} role="dialog" aria-modal="true" aria-label={title} data-testid={testId}
+      >
+        <div className={s.settingsModalHeader}>
+          <h3 className={s.settingsModalTitle}>{title}</h3>
+          {headerExtra}
+          <button
+            ref={closeButtonRef}
+            type="button" className={s.settingsModalCloseButton}
+            onClick={onClose} aria-label={`Zamknij: ${title}`}
+          >
+            ×
+          </button>
+        </div>
+        <div className={s.tableModalBody}>
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 // Etap L/N/O — wysokości REKOMENDOWANE per rola ('bottom'/'wall'/'mezzanine'/'tall'), z panelu
 // "Wymiary wysokościowe kuchni" (Obszar 2) + ręcznych nadpisań (heightOverrides). Funkcja modułowa
 // (nie metoda komponentu), żeby dało się ją wołać dwukrotnie w tym samym evencie: raz do SAMEGO
@@ -1099,11 +1145,11 @@ export default function CabinetCalculator({
   // tabeli (patrz useEffect niżej, przy renderModuleTable) — czysto wizualny stan UI, nie wchodzi
   // do calculator_state.
   const [selectedModuleId, setSelectedModuleId] = useState(null);
-  // Etap AH, krok 2 — rysunek dostał PEŁNĄ szerokość (usunięta stała 2-kolumnowa siatka rysunek+
-  // tabela, patrz .canvasFullWidth w CSS); tabela szafek zostaje, ale jako zwijana sekcja POD
-  // rysunkiem — domyślnie ROZWINIĘTA (zachowuje dotychczasowe zachowanie/testy bez zmian), z opcją
-  // zwinięcia dla kogoś, komu wystarcza sam rysunek.
-  const [showDetailedTable, setShowDetailedTable] = useState(true);
+  // Etap AJ, krok 1 — zgłoszenie (Screenshot_10.jpg/Screenshot_11.jpg): "Szczegółowa tabela szafek"
+  // i "Wykaz formatek" (dawniej stałe sekcje pod rysunkiem, patrz Etap AH/AG) żyją teraz w kompaktowych
+  // modalach, otwieranych przyciskami na pasku rysunku — domyślnie ZAMKNIĘTE (null), więc strona pod
+  // rysunkiem zostaje pusta, dopóki user sam nie poprosi o szczegóły.
+  const [openTableModal, setOpenTableModal] = useState(null); // null | 'cabinets' | 'cutlist'
   // Etap S, krok 1 — 5 grup kuchennych żyją teraz w JEDNYM kontenerze z zakładkami u góry (karuzela
   // slajdów) zamiast długiej pionowej wstęgi — który slajd jest aktywny to czysto wizualny stan UI,
   // nie wchodzi do calculator_state (jak selectedModuleId/canvasView).
@@ -1763,11 +1809,12 @@ export default function CabinetCalculator({
   const summary = summarizeCabinetModules(effectiveModules, summaryOptions);
   // Etap N, krok 4 — "tymczasowo" bez osprzętu: zob. komentarz przy buildCabinetCostBreakdown
   // (jądro) — jedna flaga, łatwa do odwrócenia, gdy osprzęt wróci do kalkulatora.
-  // Etap AA, krok 4 — PIERWSZY etap powrotu: nóżki meblowe + komplety szuflad (prowadnice) wracają
-  // do rozliczenia teraz; reszta osprzętu (zawiasy/zawieszki/uchwyty/TIP-ON/profil HAFELE) zostaje
-  // schowana (`includeHardware: false`) do kolejnego etapu.
+  // Etap AA, krok 4 — PIERWSZY etap powrotu: nóżki meblowe + komplety szuflad (prowadnice).
+  // Etap AI, krok 2 — DRUGI etap powrotu: zawiasy (Szafki górne/Antresole) + zawieszki górnego
+  // montażu. Uchwyty/TIP-ON/profil HAFELE zostają schowane (`includeHardware: false`) do kolejnego.
   const breakdown = buildCabinetCostBreakdown(summary, breakdownSelections, projectMultiplier, {
     includeHardware: false, includeLegs: true, includeDrawerSets: true,
+    includeHinges: true, includeHangers: true,
   });
   const wycena = breakdown.wycena;
 
@@ -2418,13 +2465,37 @@ export default function CabinetCalculator({
   // Tylko moduły kuchenne — rysunek/sekcja żyją wyłącznie pod wkładką Kuchnia, a Szafa/Łazienka/RTV
   // mają zupełnie inny, prostszy system wyboru materiału (bez `boardsByKey`/dziedziczenia per grupa).
   const kitchenModulesForCutlist = modules.filter(module => KITCHEN_GROUP_KEYS.includes(module.group));
+  // Etap AJ, krok 1 — policzone RAZ (nie osobno w renderze modala i w liczniku na przycisku "📐
+  // Formatki (M)" — ta sama lista też zasila tekst do schowka, patrz copyCutlistToClipboard niżej).
+  const cutlistRows = aggregateCutlistParts(kitchenModulesForCutlist, resolveCutlistMaterialName);
+  const cutlistSections = groupCutlistByMaterial(cutlistRows);
+
+  const [cutlistCopyState, setCutlistCopyState] = useState('idle'); // 'idle' | 'copied'
+  const copyCutlistToClipboard = async () => {
+    const lines = ['Lp.\tElementy / Przeznaczenie\tDługość (mm)\tSzerokość (mm)\tIlość (szt.)\tOkleina ABS\tPowierzchnia (m²)'];
+    cutlistSections.forEach((section) => {
+      lines.push(`${section.groupLabel} — ${section.material}`);
+      section.rows.forEach((row, index) => {
+        const elements = row.elements.map(entry => `${entry.element} (${entry.count})`).join(', ');
+        const edge = `${row.edgeLabel}${row.edgeMb > 0 ? ` · ${row.edgeMb.toFixed(2)} mb` : ''}`;
+        lines.push(`${index + 1}\t${elements}\t${row.lengthMm}\t${row.widthMm}\t${row.qty}\t${edge}\t${row.areaM2.toFixed(2)}`);
+      });
+    });
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+    } catch {
+      // Schowek może być niedostępny (brak uprawnień, stare środowisko) — status mimo to
+      // pokazujemy optymistycznie, tekst i tak trafił do navigator.clipboard.writeText.
+    }
+    setCutlistCopyState('copied');
+    window.setTimeout(() => setCutlistCopyState('idle'), 2000);
+  };
 
   const renderCutlistSummary = () => {
-    const sections = groupCutlistByMaterial(aggregateCutlistParts(kitchenModulesForCutlist, resolveCutlistMaterialName));
-    if (sections.length === 0) return null;
+    const sections = cutlistSections;
+    if (sections.length === 0) return <p className={s.muted}>Brak formatek do pokazania — dodaj szafki na rysunku.</p>;
     return (
       <div className={s.cutlistSummary} data-testid="cutlist-summary">
-        <h5 className={s.quoteTableTitle}>📋 Wykaz formatek (Zbiorcza specyfikacja rozkroju)</h5>
         {sections.map(section => (
           <div key={`${section.group}-${section.material}`} className={s.cutlistSection}>
             <h6 className={s.cutlistSectionTitle}>{section.groupLabel} — {section.material}</h6>
@@ -2872,7 +2943,10 @@ export default function CabinetCalculator({
           <div className={s.canvasFullWidth}>
             {/* Etap N, krok 3 — rysunek 2D elewacji ściany kuchennej, 1:1 w milimetrach, z
                 przestawianiem myszką (patrz WallElevationCanvas.jsx). Etap AH, krok 2 — zajmuje TERAZ
-                całą szerokość panelu (dawna 2-kolumnowa siatka rysunek+tabela usunięta). */}
+                całą szerokość panelu (dawna 2-kolumnowa siatka rysunek+tabela usunięta). Etap AJ,
+                krok 1 — "Szczegółowa tabela szafek"/"Wykaz formatek" otwierają się TERAZ jako modale
+                z przycisków na pasku rysunku (onOpenCabinetsModal/onOpenCutlistModal), zamiast
+                zajmować miejsce pod nim na stałe. */}
             <WallElevationCanvas
               modules={modules}
               heights={kitchenHeights}
@@ -2895,25 +2969,34 @@ export default function CabinetCalculator({
               zeroPointSelectors={renderZeroPointSelectors()}
               installationPanelRowsElectric={renderInstallationPointRows(point => point.type === 'socket' || point.type === 'led')}
               installationPanelRowsWater={renderInstallationPointRows(point => point.type === 'water')}
+              cabinetsCount={kitchenModulesForCutlist.length}
+              onOpenCabinetsModal={() => setOpenTableModal('cabinets')}
+              cutlistCount={cutlistRows.length}
+              onOpenCutlistModal={() => setOpenTableModal('cutlist')}
             />
           </div>
 
-          {/* Etap AG — "Wykaz formatek": zbiorcza tabela rozkroju CAŁEGO projektu (scalone identyczne
-              formatki), pod rysunkiem, nad szczegółową tabelą szafek/smetą. */}
-          {renderCutlistSummary()}
-
-          {/* Etap AH, krok 2 — dawna tabela szafek (prawa kolumna) żyje dalej, ale jako zwijana
-              sekcja POD rysunkiem zamiast sztywnej 2-kolumnowej siatki — domyślnie ROZWINIĘTA (zero
-              zmian w istniejących testach, które jej dotąd szukały bez żadnego dodatkowego kliku). */}
-          <div className={s.detailedTableSection}>
-            <button
-              type="button" className={s.groupToggle} aria-expanded={showDetailedTable}
-              onClick={() => setShowDetailedTable(current => !current)}
+          {openTableModal === 'cabinets' && (
+            <TableModal
+              title="📋 Szczegółowa tabela szafek" testId="cabinets-table-modal"
+              onClose={() => setOpenTableModal(null)}
             >
-              {showDetailedTable ? '▾' : '▸'} 📋 Szczegółowa tabela szafek (zaawansowane)
-            </button>
-            {showDetailedTable && renderUnifiedKitchenTable()}
-          </div>
+              {renderUnifiedKitchenTable()}
+            </TableModal>
+          )}
+          {openTableModal === 'cutlist' && (
+            <TableModal
+              title="📐 Wykaz formatek — zbiorcza specyfikacja rozkroju" testId="cutlist-table-modal"
+              onClose={() => setOpenTableModal(null)}
+              headerExtra={(
+                <button type="button" className={s.tableModalHeaderButton} onClick={copyCutlistToClipboard}>
+                  {cutlistCopyState === 'copied' ? '✓ Skopiowano!' : '📋 Kopiuj specyfikację'}
+                </button>
+              )}
+            >
+              {renderCutlistSummary()}
+            </TableModal>
+          )}
         </>
       ) : (
         CATEGORY_GROUPS[activeCategory].map(entry => (
